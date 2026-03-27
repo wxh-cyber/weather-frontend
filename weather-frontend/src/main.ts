@@ -11,7 +11,8 @@ import router from './router'
 const app = createApp(App)
 
 app.use(createPinia())
-app.use(ElementPlus)
+//全局注册ElementPlus
+app.use(ElementPlus);
 app.use(router)
 
 app.mount('#app')
