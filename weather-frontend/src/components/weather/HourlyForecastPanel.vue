@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { getWeatherIcon, type WeatherIconKey } from '@/components/weather/weatherIconMap'
+
 const forecasts = [
-  { day: '昨天', high: '19°', low: '11°', icon: '🌧️' },
-  { day: '今天', high: '11°', low: '9°', icon: '🌙☁️' },
-  { day: '周四', high: '14°', low: '11°', icon: '⛅' },
-  { day: '周五', high: '13°', low: '10°', icon: '🌧️' },
-  { day: '周六', high: '17°', low: '12°', icon: '🌤️' },
-  { day: '周日', high: '18°', low: '13°', icon: '🌧️' },
+  { day: '昨天', high: '19°', low: '11°', iconKey: 'rainy' as WeatherIconKey },
+  { day: '今天', high: '11°', low: '9°', iconKey: 'night-cloudy' as WeatherIconKey },
+  { day: '周四', high: '14°', low: '11°', iconKey: 'partly-cloudy' as WeatherIconKey },
+  { day: '周五', high: '13°', low: '10°', iconKey: 'rainy' as WeatherIconKey },
+  { day: '周六', high: '17°', low: '12°', iconKey: 'sunny' as WeatherIconKey },
+  { day: '周日', high: '18°', low: '13°', iconKey: 'rainy' as WeatherIconKey },
 ]
 </script>
 
@@ -24,7 +26,11 @@ const forecasts = [
     <div class="cards">
       <article v-for="item in forecasts" :key="item.day" class="card">
         <p>{{ item.day }}</p>
-        <p class="emoji">{{ item.icon }}</p>
+        <img
+          class="weather-icon"
+          :src="getWeatherIcon(item.iconKey).src"
+          :alt="getWeatherIcon(item.iconKey).alt"
+        />
         <p class="temp">{{ item.high }}</p>
         <p class="low">{{ item.low }}</p>
       </article>
@@ -93,9 +99,13 @@ h2 {
   animation: cyber-breathe-subtle var(--cyber-breathe-subtle-duration) var(--cyber-breathe-ease) infinite;
 }
 
-.emoji {
+.weather-icon {
   margin: 10px 0;
-  font-size: 32px;
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(117, 241, 255, 0.72));
+  animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .temp {
@@ -113,7 +123,8 @@ h2 {
   h2,
   .chip.active,
   .card,
-  .temp {
+  .temp,
+  .weather-icon {
     animation: none;
   }
 }

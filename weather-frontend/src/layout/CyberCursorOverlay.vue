@@ -17,16 +17,28 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
+//定义涟漪类型
 type Ripple = { id: number; x: number; y: number }
 
-const pointerX = ref(0)
-const pointerY = ref(0)
-const pointerVisible = ref(false)
-const ripples = ref<Ripple[]>([])
-const enabled = ref(true)
-let rippleId = 0
+//记录鼠标位置
+const pointerX = ref(0);
+const pointerY = ref(0);
 
+//记录鼠标是否可见
+const pointerVisible = ref(false);
+
+//记录点击涟漪
+const ripples = ref<Ripple[]>([]);
+
+//记录是否启用
+const enabled = ref(true);
+
+//记录涟漪ID
+let rippleId = 0;
+
+//处理鼠标移动事件
 const handlePointerMove = (event: MouseEvent) => {
+  //保存鼠标位置，并设置是否可见
   pointerX.value = event.clientX
   pointerY.value = event.clientY
   pointerVisible.value = true
@@ -42,10 +54,10 @@ const hidePointer = () => {
 
 const spawnRipple = (event: MouseEvent) => {
   const id = rippleId++
-  ripples.value.push({ id, x: event.clientX, y: event.clientY })
+  ripples.value.push({ id, x: event.clientX, y: event.clientY });
   setTimeout(() => {
     ripples.value = ripples.value.filter((item) => item.id !== id)
-  }, 650)
+  }, 650);
 }
 
 const isCoarsePointer = () => window.matchMedia('(pointer: coarse)').matches
@@ -72,9 +84,13 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* 
+    加上 :global() 后，括号里的选择器就会被当作全局普通 CSS，不会进行哈希化编译。
+    这样可以确保它能精准匹配到 HTML 中真实的 <body> 标签。
+*/
 :global(body.cyber-cursor-enabled),
 :global(body.cyber-cursor-enabled *) {
-  cursor: none !important;
+  cursor: none !important;            /* 隐藏原先鼠标形状 */
 }
 
 .cursor-overlay {

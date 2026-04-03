@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="cloudFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="48%" stop-color="#edf3ff" />
+      <stop offset="100%" stop-color="#c4d7ff" />
+    </linearGradient>
+    <linearGradient id="cloudEdge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8ff6ff" />
+      <stop offset="100%" stop-color="#ff73e8" />
+    </linearGradient>
+    <filter id="cloudGlow" x="-30%" y="-30%" width="170%" height="170%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.4" flood-color="#7defff" flood-opacity="0.9" />
+      <feDropShadow dx="0" dy="0" stdDeviation="4.2" flood-color="#8b5bff" flood-opacity="0.28" />
+    </filter>
+  </defs>
+  <g filter="url(#cloudGlow)">
+    <path
+      d="M20 46h25a9 9 0 0 0 .7-18A14 14 0 0 0 18.4 24 11 11 0 0 0 20 46Z"
+      fill="url(#cloudFill)"
+      stroke="url(#cloudEdge)"
+      stroke-width="2.5"
+      stroke-linejoin="round"
+    />
+    <path d="M22.5 34h21.5" stroke="#ffffff" stroke-opacity="0.58" stroke-width="2" stroke-linecap="round" />
+  </g>
+</svg>

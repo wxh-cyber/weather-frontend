@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="rainCloud" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#d2defe" />
+    </linearGradient>
+    <linearGradient id="rainEdge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8ef7ff" />
+      <stop offset="100%" stop-color="#ff77e9" />
+    </linearGradient>
+    <linearGradient id="rainDrop" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#9aefff" />
+      <stop offset="100%" stop-color="#2c8cff" />
+    </linearGradient>
+    <filter id="rainGlow" x="-30%" y="-30%" width="170%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#7cefff" flood-opacity="0.9" />
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#905fff" flood-opacity="0.28" />
+    </filter>
+  </defs>
+  <g filter="url(#rainGlow)">
+    <path
+      d="M19 38h26a8.5 8.5 0 0 0 .7-17A13.5 13.5 0 0 0 19.1 18 10.5 10.5 0 0 0 19 38Z"
+      fill="url(#rainCloud)"
+      stroke="url(#rainEdge)"
+      stroke-width="2.5"
+      stroke-linejoin="round"
+    />
+    <g fill="none" stroke="url(#rainDrop)" stroke-width="3" stroke-linecap="round">
+      <path d="M23 45l-2 7M33 45l-2 7M43 45l-2 7" />
+    </g>
+  </g>
+</svg>

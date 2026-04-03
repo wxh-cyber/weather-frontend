@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="nightMoon" cx="35%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#fffdf1" />
+      <stop offset="65%" stop-color="#ffe187" />
+      <stop offset="100%" stop-color="#ffb347" />
+    </radialGradient>
+    <linearGradient id="nightCloud" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#d2dfff" />
+    </linearGradient>
+    <linearGradient id="nightEdge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#90f8ff" />
+      <stop offset="100%" stop-color="#ff7ae9" />
+    </linearGradient>
+    <filter id="nightGlow" x="-30%" y="-35%" width="175%" height="185%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#80f1ff" flood-opacity="0.9" />
+      <feDropShadow dx="0" dy="0" stdDeviation="4.2" flood-color="#915dff" flood-opacity="0.33" />
+    </filter>
+  </defs>
+  <g filter="url(#nightGlow)">
+    <path
+      d="M33 10a11.5 11.5 0 1 0 11.2 15.2A10 10 0 1 1 33 10Z"
+      fill="url(#nightMoon)"
+      stroke="url(#nightEdge)"
+      stroke-width="2"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M19 46h26a8.5 8.5 0 0 0 .7-17A13.5 13.5 0 0 0 19.1 26 10.5 10.5 0 0 0 19 46Z"
+      fill="url(#nightCloud)"
+      stroke="url(#nightEdge)"
+      stroke-width="2.5"
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="snowCloud" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#d9e4ff" />
+    </linearGradient>
+    <linearGradient id="snowEdge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#94f8ff" />
+      <stop offset="100%" stop-color="#ff84eb" />
+    </linearGradient>
+    <filter id="snowGlow" x="-30%" y="-30%" width="175%" height="185%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#89f3ff" flood-opacity="0.88" />
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#8d64ff" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  <g filter="url(#snowGlow)">
+    <path
+      d="M19 38h26a8.5 8.5 0 0 0 .7-17A13.5 13.5 0 0 0 19.1 18 10.5 10.5 0 0 0 19 38Z"
+      fill="url(#snowCloud)"
+      stroke="url(#snowEdge)"
+      stroke-width="2.5"
+      stroke-linejoin="round"
+    />
+    <g fill="none" stroke="#eefcff" stroke-width="2.3" stroke-linecap="round">
+      <path d="M24 45v6M21 48h6M22.5 46.5l3 3M25.5 46.5l-3 3" />
+      <path d="M33 45v6M30 48h6M31.5 46.5l3 3M34.5 46.5l-3 3" />
+      <path d="M42 45v6M39 48h6M40.5 46.5l3 3M43.5 46.5l-3 3" />
+    </g>
+  </g>
+</svg>

@@ -26,10 +26,15 @@
             <img class="github-icon" :src="githubFavicon" alt="GitHub" />
           </a>
         </el-tooltip>
-        <div class="login-status" role="status" aria-live="polite">
+        <button
+          type="button"
+          class="login-status"
+          aria-label="前往登录页面"
+          @click="emit('login-click')"
+        >
           <span class="status-dot" />
           <span>未登录</span>
-        </div>
+        </button>
       </div>
     </div>
   </header>
@@ -53,6 +58,10 @@ const props = withDefaults(
     searchPlaceholder: '搜索城市',
   },
 )
+
+const emit = defineEmits<{
+  (e: 'login-click'): void
+}>()
 
 </script>
 
@@ -217,6 +226,8 @@ const props = withDefaults(
   min-width: 88px;
   height: 34px;
   padding: 0 10px;
+  cursor: pointer;
+  appearance: none;
   border-radius: 999px;
   border: 1px solid rgba(117, 241, 255, 0.45);
   color: #ddf8ff;
@@ -227,6 +238,17 @@ const props = withDefaults(
   gap: 6px;
   font-size: 13px;
   box-shadow: inset 0 0 12px rgba(117, 241, 255, 0.15);
+  transition: border-color var(--cyber-ease), box-shadow var(--cyber-ease), transform var(--cyber-ease);
+}
+
+.login-status:hover,
+.login-status:focus-visible {
+  border-color: rgba(117, 241, 255, 0.72);
+  box-shadow:
+    inset 0 0 14px rgba(117, 241, 255, 0.24),
+    0 0 12px rgba(117, 241, 255, 0.26);
+  transform: translateY(-1px);
+  outline: none;
 }
 
 /* 登录状态小圆点样式 */

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="unk" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c9fcff" />
+      <stop offset="100%" stop-color="#5aa3ff" />
+    </linearGradient>
+    <linearGradient id="unkEdge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#93f8ff" />
+      <stop offset="100%" stop-color="#ff7fe9" />
+    </linearGradient>
+    <filter id="unkGlow" x="-35%" y="-35%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#87f2ff" flood-opacity="0.88" />
+      <feDropShadow dx="0" dy="0" stdDeviation="4.1" flood-color="#9462ff" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  <g filter="url(#unkGlow)">
+    <circle cx="32" cy="32" r="18" fill="none" stroke="url(#unkEdge)" stroke-width="3" />
+    <path
+      d="M26 26a6 6 0 1 1 10.5 4l-2.2 2.8a3.2 3.2 0 0 0-.7 2"
+      fill="none"
+      stroke="url(#unk)"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <circle cx="32" cy="42" r="1.8" fill="#9ef8ff" />
+  </g>
+</svg>

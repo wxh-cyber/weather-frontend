@@ -1,21 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppTopNav from '@/layout/AppTopNav.vue'
 import CyberCursorOverlay from '@/layout/CyberCursorOverlay.vue'
 
 const route = useRoute()
+const router = useRouter()
 const navVariant = computed(() => {
   if (route.meta.navVariant === 'start' || route.name === 'start') return 'start'
   return 'home'
 })
 const brandText = computed(() => (navVariant.value === 'start' ? '小慕天气' : '小慕天气 · 控制台'))
 const showCenterSearch = computed(() => navVariant.value === 'home')
+
+const goToLogin = () => {
+  router.push('/login')
+}
 </script>
 
 <template>
   <div class="app-layout">
-    <AppTopNav :brand-text="brandText" :show-center-search="showCenterSearch" />
+    <AppTopNav :brand-text="brandText" :show-center-search="showCenterSearch" @login-click="goToLogin" />
     <main class="app-main">
       <RouterView />
     </main>

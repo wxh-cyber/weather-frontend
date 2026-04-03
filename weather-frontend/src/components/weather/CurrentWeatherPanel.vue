@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getWeatherIcon } from '@/components/weather/weatherIconMap'
+
 const metrics = [
   { label: '空气质量', value: '27' },
   { label: '风速', value: '东北风 2级' },
@@ -7,13 +9,15 @@ const metrics = [
   { label: '气压', value: '1015 hPa' },
   { label: '露点', value: '8°' },
 ]
+
+const currentIcon = getWeatherIcon('night-cloudy')
 </script>
 
 <template>
   <article class="panel">
     <p class="subtitle">当前天气</p>
     <div class="temp-row">
-      <span class="icon">🌙☁️</span>
+      <img class="icon weather-icon" :src="currentIcon.src" :alt="currentIcon.alt" />
       <div>
         <p class="temp">11°C</p>
         <p class="desc">多云 · 体感温度 9°</p>
@@ -53,7 +57,14 @@ const metrics = [
 }
 
 .icon {
-  font-size: 46px;
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+}
+
+.weather-icon {
+  filter: drop-shadow(0 0 10px rgba(117, 241, 255, 0.72));
+  animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .temp {
@@ -96,7 +107,8 @@ const metrics = [
 
 @media (prefers-reduced-motion: reduce) {
   .panel,
-  .temp {
+  .temp,
+  .weather-icon {
     animation: none;
   }
 }
