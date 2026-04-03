@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import CurrentWeatherPanel from '@/components/weather/CurrentWeatherPanel.vue'
-import HourlyForecastPanel from '@/components/weather/HourlyForecastPanel.vue'
-import WeatherCityTabs from '@/components/weather/WeatherCityTabs.vue'
-import WeatherMapPanel from '@/components/weather/WeatherMapPanel.vue'
-import WeatherTopBar from '@/components/weather/WeatherTopBar.vue'
+import WeatherCityOverview from '@/components/weather/WeatherCityOverview.vue'
 
 const menus = ['发现', '天气', '地图', '每小时预报', '月度天气', '天气趋势', '台风']
 const cities = ['沙市区 11°', '双港东大街 10°', '南昌市 11°', '荆州市 11°']
@@ -11,43 +7,37 @@ const cities = ['沙市区 11°', '双港东大街 10°', '南昌市 11°', '荆
 
 <template>
   <main class="weather-page">
+    <div class="cyber-grid-layer" />
     <div class="container">
-      <WeatherTopBar :menus="menus" />
-      <WeatherCityTabs :cities="cities" />
-
-      <section class="overview-grid">
-        <CurrentWeatherPanel />
-        <WeatherMapPanel />
-      </section>
-
-      <HourlyForecastPanel />
+      <WeatherCityOverview :menus="menus" :cities="cities" />
     </div>
   </main>
 </template>
 
 <style scoped>
 .weather-page {
-  min-height: 100vh;
-  background: radial-gradient(circle at 20% 0%, #1f4e9f 0%, #0a1e4e 44%, #081638 100%);
-  padding: 30px 16px;
+  position: relative;
+  min-height: calc(100vh - var(--app-nav-height));
+  background:
+    radial-gradient(circle at 18% 10%, rgba(0, 255, 255, 0.18), transparent 38%),
+    radial-gradient(circle at 85% 85%, rgba(255, 0, 153, 0.14), transparent 45%),
+    linear-gradient(180deg, #051028 0%, #020816 100%);
+  padding: 26px 16px 34px;
+  color: var(--cyber-text);
 }
 
 .container {
+  position: relative;
+  z-index: 1;
   width: min(1140px, 100%);
   margin: 0 auto;
-  color: #f2f6ff;
+  color: var(--cyber-text);
 }
 
-.overview-grid {
-  margin-top: 18px;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: 1.8fr 1fr;
-}
-
-@media (max-width: 940px) {
-  .overview-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 640px) {
+  .weather-page {
+    min-height: calc(100vh - var(--app-nav-height-mobile));
+    padding-top: 20px;
   }
 }
 </style>

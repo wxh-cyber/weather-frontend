@@ -47,6 +47,9 @@ const forecasts = [
 h2 {
   font-size: 32px;
   font-weight: 700;
+  color: var(--cyber-cyan);
+  text-shadow: 0 0 10px rgba(117, 241, 255, 0.45);
+  animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .chips {
@@ -58,13 +61,18 @@ h2 {
 .chip {
   border-radius: 999px;
   padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #c8d4ff;
+  background: rgba(6, 24, 52, 0.72);
+  border: 1px solid rgba(117, 241, 255, 0.22);
+  color: var(--cyber-text-muted);
+  transition: all var(--cyber-ease);
 }
 
 .chip.active {
-  background: #ffc939;
-  color: #202746;
+  background: linear-gradient(135deg, rgba(0, 214, 255, 0.25), rgba(255, 0, 153, 0.2));
+  border-color: rgba(117, 241, 255, 0.55);
+  color: var(--cyber-text);
+  box-shadow: 0 0 10px rgba(117, 241, 255, 0.35);
+  animation: cyber-breathe-subtle var(--cyber-breathe-subtle-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .cards {
@@ -77,8 +85,12 @@ h2 {
 .card {
   border-radius: 14px;
   padding: 12px;
-  background: #213a69;
+  background: linear-gradient(160deg, rgba(20, 45, 90, 0.82), rgba(8, 24, 52, 0.8));
+  border: 1px solid rgba(117, 241, 255, 0.24);
+  box-shadow: inset 0 0 14px rgba(117, 241, 255, 0.09);
   text-align: center;
+  color: var(--cyber-text);
+  animation: cyber-breathe-subtle var(--cyber-breathe-subtle-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .emoji {
@@ -89,9 +101,20 @@ h2 {
 .temp {
   font-size: 26px;
   font-weight: 700;
+  color: var(--cyber-cyan);
+  animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .low {
-  color: #9cb2eb;
+  color: var(--cyber-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  h2,
+  .chip.active,
+  .card,
+  .temp {
+    animation: none;
+  }
 }
 </style>

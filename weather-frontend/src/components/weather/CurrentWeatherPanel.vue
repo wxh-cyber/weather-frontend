@@ -33,11 +33,16 @@ const metrics = [
 .panel {
   padding: 24px;
   border-radius: 16px;
-  background: linear-gradient(160deg, #28467c 0%, #1e335f 100%);
+  border: 1px solid var(--cyber-glass-border);
+  background: linear-gradient(160deg, rgba(18, 44, 86, 0.88) 0%, rgba(10, 28, 58, 0.86) 100%);
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.12),
+    var(--cyber-glow-md);
+  animation: cyber-breathe-subtle var(--cyber-breathe-subtle-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .subtitle {
-  color: #9fb4ee;
+  color: var(--cyber-text-muted);
 }
 
 .temp-row {
@@ -55,10 +60,13 @@ const metrics = [
   font-size: 58px;
   font-weight: 700;
   line-height: 1;
+  color: var(--cyber-cyan);
+  text-shadow: 0 0 14px rgba(117, 241, 255, 0.6);
+  animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .desc {
-  color: #c6d4ff;
+  color: var(--cyber-text-muted);
 }
 
 .tips {
@@ -74,14 +82,22 @@ const metrics = [
 .metric {
   border-radius: 12px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(6, 24, 52, 0.66);
+  border: 1px solid rgba(117, 241, 255, 0.2);
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: #b5c3ed;
+  color: var(--cyber-text-muted);
 }
 
 .metric strong {
-  color: #eff4ff;
+  color: var(--cyber-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .temp {
+    animation: none;
+  }
 }
 </style>

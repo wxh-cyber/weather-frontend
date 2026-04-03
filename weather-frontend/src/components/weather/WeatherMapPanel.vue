@@ -12,11 +12,19 @@
 .panel {
   padding: 20px;
   border-radius: 16px;
-  background: #213a6a;
+  border: 1px solid var(--cyber-glass-border);
+  background: linear-gradient(160deg, rgba(16, 40, 78, 0.86), rgba(8, 24, 52, 0.84));
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.08),
+    var(--cyber-glow-sm);
+  animation: cyber-breathe-subtle var(--cyber-breathe-subtle-duration) var(--cyber-breathe-ease) infinite;
 }
 
 h3 {
   margin-bottom: 12px;
+  color: var(--cyber-cyan);
+  text-shadow: 0 0 10px rgba(117, 241, 255, 0.45);
+  animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
 }
 
 .map {
@@ -24,7 +32,9 @@ h3 {
   border-radius: 12px;
   background:
     radial-gradient(circle at 55% 52%, #ffd35a 0 7px, transparent 8px),
-    linear-gradient(135deg, #a6d3ec 0%, #d9efff 35%, #cae8f3 100%);
+    radial-gradient(circle at 20% 18%, rgba(0, 255, 255, 0.2), transparent 36%),
+    linear-gradient(135deg, #5d86a8 0%, #355783 35%, #1a2f4f 100%);
+  border: 1px solid rgba(117, 241, 255, 0.28);
   position: relative;
   overflow: hidden;
 }
@@ -51,6 +61,13 @@ h3 {
 
 .note {
   margin-top: 12px;
-  color: #c7d6ff;
+  color: var(--cyber-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  h3 {
+    animation: none;
+  }
 }
 </style>

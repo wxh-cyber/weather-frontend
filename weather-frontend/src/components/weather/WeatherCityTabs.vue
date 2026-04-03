@@ -19,11 +19,25 @@ defineProps<{
 }
 
 .tab {
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(117, 241, 255, 0.28);
   border-radius: 12px;
-  background: rgba(13, 39, 97, 0.75);
-  color: #d5deff;
+  background: rgba(8, 26, 56, 0.76);
+  color: var(--cyber-text-muted);
   padding: 10px 16px;
   white-space: nowrap;
+  transition: all var(--cyber-ease);
+  animation: cyber-breathe-subtle var(--cyber-breathe-subtle-duration) var(--cyber-breathe-ease) infinite;
+}
+
+.tab:hover {
+  border-color: rgba(117, 241, 255, 0.6);
+  color: var(--cyber-cyan);
+  box-shadow: 0 0 10px rgba(117, 241, 255, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    animation: none;
+  }
 }
 </style>
