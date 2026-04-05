@@ -1,9 +1,41 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import CityList from '@/components/List/CityList.vue'
+import { useCityStore } from '@/store/city'
+
+const cityStore = useCityStore()
+const cityItems = computed(() => cityStore.cities)
+const loading = computed(() => cityStore.loading)
+const error = computed(() => cityStore.error)
+const keyword = ref('')
+
+const handleSearch = async () => {
+  await cityStore.fetchCities(keyword.value)
+}
+
+onMounted(async () => {
+  await cityStore.fetchCities('')
+})
+</script>
+
 <template>
   <main class="list-page">
     <div class="cyber-grid-layer" />
     <section class="city-card">
       <h1>我的城市</h1>
-      <p>这里用于展示你收藏或常用的城市列表。</p>
+      <p>左侧为城市名称，右侧实时展示天气与温度。</p>
+      <div class="search-bar">
+        <el-input
+          v-model="keyword"
+          class="search-input"
+          placeholder="输入城市名称，按回车搜索"
+          clearable
+          @keydown.enter="handleSearch"
+        />
+        <el-button type="primary" :loading="loading" @click="handleSearch">搜索</el-button>
+      </div>
+      <p v-if="error" class="error-text">{{ error }}</p>
+      <CityList :items="cityItems" />
     </section>
   </main>
 </template>
@@ -45,10 +77,31 @@
   color: var(--cyber-text-muted);
 }
 
+.search-bar {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  background: rgba(5, 20, 45, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(117, 241, 255, 0.24);
+}
+
+.error-text {
+  margin-top: 10px;
+  color: #ff88b8;
+}
+
 @media (max-width: 640px) {
   .list-page {
     min-height: calc(100vh - var(--app-nav-height-mobile));
     padding-top: 20px;
+  }
+
+  .search-bar {
+    grid-template-columns: 1fr;
   }
 }
 </style>

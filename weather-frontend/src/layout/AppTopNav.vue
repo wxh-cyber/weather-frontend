@@ -53,6 +53,15 @@
           <span class="status-dot" />
           <span>{{ props.loginLabel }}</span>
         </button>
+        <button
+          v-if="props.showLogout"
+          type="button"
+          class="logout-btn"
+          aria-label="退出登录"
+          @click="emit('logout-click')"
+        >
+          退出
+        </button>
       </div>
     </div>
   </header>
@@ -74,6 +83,7 @@ const props = withDefaults(
     showMyCities?: boolean
     searchPlaceholder?: string
     loginLabel?: string
+    showLogout?: boolean
   }>(),
   {
     githubUrl: 'https://github.com/wxh-cyber/weather-frontend',
@@ -82,12 +92,14 @@ const props = withDefaults(
     showMyCities: false,
     searchPlaceholder: '搜索城市',
     loginLabel: '未登录',
+    showLogout: false,
   },
 )
 
 const emit = defineEmits<{
   (e: 'login-click'): void
   (e: 'my-cities-click'): void
+  (e: 'logout-click'): void
 }>()
 
 type MyCitiesParticleState = 'idle' | 'hover' | 'active'
@@ -542,6 +554,41 @@ onBeforeUnmount(() => {
   outline: none;
 }
 
+.logout-btn {
+  min-width: 46px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--cyber-text-muted);
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px rgba(117, 241, 255, 0.22);
+  transition:
+    color var(--cyber-ease),
+    transform var(--cyber-ease),
+    text-shadow var(--cyber-ease),
+    filter var(--cyber-ease);
+}
+
+.logout-btn:hover,
+.logout-btn:focus-visible {
+  color: #aaf8ff;
+  transform: translateY(-1px);
+  text-shadow:
+    0 0 10px rgba(117, 241, 255, 0.66),
+    0 0 16px rgba(255, 82, 205, 0.28);
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.logout-btn:active {
+  transform: translateY(1px);
+  text-shadow:
+    0 0 8px rgba(117, 241, 255, 0.8),
+    0 0 18px rgba(255, 82, 205, 0.36);
+}
+
 /* 登录状态小圆点样式 */
 .status-dot {
   width: 7px;
@@ -586,6 +633,12 @@ onBeforeUnmount(() => {
     min-width: 74px;
     font-size: 12px;
     padding: 0 8px;
+  }
+
+  .logout-btn {
+    min-width: 40px;
+    font-size: 12px;
+    padding: 0 6px;
   }
 
   .my-cities-btn {

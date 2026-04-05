@@ -1,26 +1,24 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import { storeToRefs } from 'pinia'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppTopNav from '@/layout/AppTopNav.vue'
 import CyberCursorOverlay from '@/layout/CyberCursorOverlay.vue'
+import { getProfile } from '@/service/auth'
+import { useAuthStore } from '@/store/auth'
 
 const route = useRoute()
 const router = useRouter()
-const userName = ref('未登录')
+const authStore = useAuthStore()
+const { isLoggedIn, displayName } = storeToRefs(authStore)
 
 const syncUserStatus = () => {
-  const raw = localStorage.getItem('auth_user')
-  if (!raw) {
-    userName.value = '未登录'
-    return
-  }
+  authStore.syncFromStorage()
+}
 
-  try {
-    const parsed = JSON.parse(raw) as { nickname?: string; email?: string }
-    userName.value = parsed.nickname || parsed.email || '已登录'
-  } catch {
-    userName.value = '已登录'
-  }
+const clearAuthState = () => {
+  authStore.clearAuth()
 }
 
 watch(
@@ -44,15 +42,31 @@ const navVariant = computed(() => {
 const brandText = computed(() => (navVariant.value === 'start' ? '小慕天气' : '小慕天气 · 控制台'))
 const showCenterSearch = computed(() => navVariant.value === 'home' && route.name !== 'center')
 const showMyCities = computed(() => route.name === 'center')
-const loginLabel = computed(() => userName.value)
+const loginLabel = computed(() => displayName.value)
 
-const goToLogin = () => {
+const goToLogin = async () => {
   syncUserStatus()
-  if (localStorage.getItem('auth_token')) {
-    router.push('/center')
-    return
+  if (isLoggedIn.value) {
+    try {
+      await getProfile()
+      await router.push('/center')
+      return
+    } catch {
+      clearAuthState()
+      ElMessage.warning('登录已过期，请重新登录')
+      await router.push('/login')
+      return
+    }
   }
-  router.push('/login')
+  await router.push('/login')
+}
+
+const handleLogout = async () => {
+  clearAuthState()
+  ElMessage.success('已退出登录')
+  if (route.name === 'center' || route.name === 'list') {
+    await router.push('/login')
+  }
 }
 
 const goToList = () => {
@@ -67,8 +81,10 @@ const goToList = () => {
       :show-center-search="showCenterSearch"
       :show-my-cities="showMyCities"
       :login-label="loginLabel"
+      :show-logout="isLoggedIn"
       @login-click="goToLogin"
       @my-cities-click="goToList"
+      @logout-click="handleLogout"
     />
     <main class="app-main">
       <RouterView />

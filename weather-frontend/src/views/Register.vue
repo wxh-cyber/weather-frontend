@@ -67,9 +67,11 @@ import { reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import earthGif from '@/assets/登录注册背景.gif'
 import { register } from '@/service/auth'
+import { useAuthStore } from '@/store/auth'
 
 const earthBgImage = `url("${earthGif}")`
 const router = useRouter()
+const authStore = useAuthStore()
 const isSubmitting = ref(false)
 
 interface RegisterForm {
@@ -138,6 +140,7 @@ const handleRegisterSubmit = async () => {
       nickname: registerForm.nickname,
     })
     if (res.code === 0) {
+      authStore.setRegisterStatus(true)
       ElMessage.success(res.message || '注册成功，请登录')
       await router.push('/login')
       return

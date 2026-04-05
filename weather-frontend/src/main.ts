@@ -7,12 +7,20 @@ import ElementPlus from 'element-plus'
 
 import App from './App.vue'
 import router from './router'
+import { useAuthStore } from './store/auth'
+import { useCityStore } from './store/city'
 
 const app = createApp(App);
+const pinia = createPinia()
 
-app.use(createPinia());
+app.use(pinia);
 //全局注册ElementPlus
 app.use(ElementPlus);
 app.use(router);
+
+const authStore = useAuthStore(pinia)
+const cityStore = useCityStore(pinia)
+authStore.syncFromStorage()
+cityStore.syncFromStorage()
 
 app.mount('#app');

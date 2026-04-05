@@ -51,6 +51,7 @@ import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getProfile, updateProfile } from '@/service/auth'
+import { useAuthStore } from '@/store/auth'
 
 type ProfileForm = {
   email: string
@@ -61,6 +62,7 @@ type ProfileForm = {
 }
 
 const router = useRouter()
+const authStore = useAuthStore()
 const isEditing = ref(false)
 const isSubmitting = ref(false)
 const form = reactive<ProfileForm>({
@@ -88,30 +90,8 @@ const hasChanges = computed(
 )
 const actionText = computed(() => (hasChanges.value ? '保存信息' : '修改信息'))
 
-const syncLocalUser = () => {
-  const userRaw = localStorage.getItem('auth_user')
-  if (!userRaw) {
-    return
-  }
-
-  try {
-    const user = JSON.parse(userRaw) as { nickname?: string; email?: string; userId?: string }
-    user.nickname = form.nickname
-    localStorage.setItem('auth_user', JSON.stringify(user))
-  } catch {
-    localStorage.setItem(
-      'auth_user',
-      JSON.stringify({
-        nickname: form.nickname,
-        email: form.email,
-      }),
-    )
-  }
-  window.dispatchEvent(new Event('auth-user-updated'))
-}
-
 const loadProfile = async () => {
-  if (!localStorage.getItem('auth_token')) {
+  if (!authStore.isLoggedIn) {
     ElMessage.warning('请先登录')
     await router.push('/login')
     return
@@ -162,7 +142,13 @@ const handleActionClick = async () => {
     originalForm.phone = form.phone
     originalForm.qq = form.qq
     originalForm.wechat = form.wechat
-    syncLocalUser()
+    authStore.updateUserProfile({
+      email: form.email,
+      nickname: form.nickname,
+      phone: form.phone,
+      qq: form.qq,
+      wechat: form.wechat,
+    })
     isEditing.value = false
     ElMessage.success(res.message || '保存成功')
   } catch (error) {

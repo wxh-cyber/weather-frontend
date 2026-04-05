@@ -1,4 +1,29 @@
 import axios from 'axios'
+import { getActivePinia } from 'pinia'
+import { useAuthStore } from '@/store/auth'
+
+const getAuthToken = () => {
+  const activePinia = getActivePinia()
+  if (activePinia) {
+    const authStore = useAuthStore(activePinia)
+    return authStore.token
+  }
+  return localStorage.getItem('auth_token')
+}
+
+const clearAuthState = () => {
+  const activePinia = getActivePinia()
+  if (activePinia) {
+    const authStore = useAuthStore(activePinia)
+    authStore.clearAuth()
+    return
+  }
+  localStorage.removeItem('auth_token')
+  localStorage.removeItem('auth_user')
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('auth-user-updated'))
+  }
+}
 
 const http = axios.create({
   baseURL: '/api',
@@ -6,7 +31,7 @@ const http = axios.create({
 })
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('auth_token')
+  const token = getAuthToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -16,6 +41,15 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    const statusCode = error?.response?.status
+    if (statusCode === 401 && typeof window !== 'undefined') {
+      clearAuthState()
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login')
+      }
+      return Promise.reject(new Error('UNAUTHORIZED'))
+    }
+
     const message =
       error?.response?.data?.message ||
       error?.response?.data?.error ||

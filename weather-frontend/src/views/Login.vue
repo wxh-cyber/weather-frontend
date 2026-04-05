@@ -47,9 +47,11 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import earthGif from '@/assets/登录注册背景.gif'
 import { login } from '@/service/auth'
+import { useAuthStore } from '@/store/auth'
 
 const earthBgImage = `url("${earthGif}")`
 const router = useRouter()
+const authStore = useAuthStore()
 const isSubmitting = ref(false)
 
 interface LoginForm {
@@ -87,9 +89,7 @@ const handleLoginSubmit = async () => {
       password: loginForm.password,
     })
     if (res.code === 0) {
-      localStorage.setItem('auth_token', res.data.token)
-      localStorage.setItem('auth_user', JSON.stringify(res.data.user))
-      window.dispatchEvent(new Event('auth-user-updated'))
+      authStore.setAuth(res.data.token, res.data.user)
       ElMessage.success(res.message || '登录成功')
       await router.push('/weather')
       return
