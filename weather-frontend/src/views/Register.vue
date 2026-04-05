@@ -48,7 +48,7 @@
           />
         </el-form-item>
         <el-form-item class="submit-item">
-          <el-button class="submit-btn" @click="handleRegisterSubmit">注册</el-button>
+          <el-button class="submit-btn" :loading="isSubmitting" @click="handleRegisterSubmit">注册</el-button>
         </el-form-item>
       </el-form>
 
@@ -61,11 +61,16 @@
 
 <script setup lang="ts">
 import { CirclePlusFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import earthGif from '@/assets/登录注册背景.gif'
+import { register } from '@/service/auth'
 
 const earthBgImage = `url("${earthGif}")`
+const router = useRouter()
+const isSubmitting = ref(false)
 
 interface RegisterForm {
   email: string
@@ -117,12 +122,32 @@ watch(
 )
 
 const handleRegisterSubmit = async () => {
-  if (!registerFormRef.value) {
+  if (!registerFormRef.value || isSubmitting.value) {
     return
   }
   const isValid = await registerFormRef.value.validate().catch(() => false)
   if (!isValid) {
     return
+  }
+
+  try {
+    isSubmitting.value = true
+    const res = await register({
+      email: registerForm.email,
+      password: registerForm.password,
+      nickname: registerForm.nickname,
+    })
+    if (res.code === 0) {
+      ElMessage.success(res.message || '注册成功，请登录')
+      await router.push('/login')
+      return
+    }
+    ElMessage.error(res.message || '注册失败，请重试')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '注册失败，请稍后重试'
+    ElMessage.error(message)
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>

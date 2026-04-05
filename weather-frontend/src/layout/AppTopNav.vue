@@ -13,6 +13,24 @@
           <el-icon class="search-icon"><Search /></el-icon>
         </div>
       </div>
+      <div v-else-if="props.showMyCities" class="nav-center nav-center-button">
+        <button
+          ref="myCitiesBtnRef"
+          type="button"
+          class="my-cities-btn"
+          :class="`is-${myCitiesParticleState}`"
+          @click="emit('my-cities-click')"
+          @mouseenter="onMyCitiesMouseEnter"
+          @mouseleave="onMyCitiesMouseLeave"
+          @mousedown="onMyCitiesMouseDown"
+          @mouseup="onMyCitiesMouseUp"
+          @focus="onMyCitiesFocus"
+          @blur="onMyCitiesBlur"
+        >
+          <span :id="myCitiesParticleHostId" class="my-cities-particles" aria-hidden="true" />
+          <span class="my-cities-label">我的城市</span>
+        </button>
+      </div>
       <!-- 导航栏右侧 -->
       <div class="nav-right">
         <el-tooltip content="将前往Github仓库" placement="bottom" effect="dark">
@@ -33,7 +51,7 @@
           @click="emit('login-click')"
         >
           <span class="status-dot" />
-          <span>未登录</span>
+          <span>{{ props.loginLabel }}</span>
         </button>
       </div>
     </div>
@@ -42,6 +60,10 @@
 
 <script setup lang="ts">
 import { Cloudy, Search } from '@element-plus/icons-vue'
+import type { Container, ISourceOptions } from '@tsparticles/engine'
+import { tsParticles } from '@tsparticles/engine'
+import { loadSlim } from '@tsparticles/slim'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import githubFavicon from '@/assets/icons/github-favicon.png'
 
 const props = withDefaults(
@@ -49,20 +71,201 @@ const props = withDefaults(
     githubUrl?: string
     brandText?: string
     showCenterSearch?: boolean
+    showMyCities?: boolean
     searchPlaceholder?: string
+    loginLabel?: string
   }>(),
   {
     githubUrl: 'https://github.com/wxh-cyber/weather-frontend',
     brandText: '小慕天气 · 控制台',
     showCenterSearch: true,
+    showMyCities: false,
     searchPlaceholder: '搜索城市',
+    loginLabel: '未登录',
   },
 )
 
 const emit = defineEmits<{
   (e: 'login-click'): void
+  (e: 'my-cities-click'): void
 }>()
 
+type MyCitiesParticleState = 'idle' | 'hover' | 'active'
+
+const myCitiesParticleHostId = 'my-cities-particles'
+const myCitiesParticleState = ref<MyCitiesParticleState>('idle')
+const myCitiesHovered = ref(false)
+const myCitiesFocused = ref(false)
+const myCitiesBtnRef = ref<HTMLButtonElement | null>(null)
+let myCitiesContainer: Container | undefined
+let slimLoader: Promise<void> | null = null
+
+const isReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const ensureSlimReady = async () => {
+  if (!slimLoader) {
+    slimLoader = loadSlim(tsParticles)
+  }
+  await slimLoader
+}
+
+const getParticleOptions = (state: MyCitiesParticleState, emitterWidth: number): ISourceOptions => {
+  const emitterRate =
+    state === 'active'
+      ? { delay: 0.024, quantity: 14 }
+      : state === 'hover'
+        ? { delay: 0.075, quantity: 8 }
+        : { delay: 1.8, quantity: 1 }
+
+  const moveSpeed = state === 'active' ? 3.2 : state === 'hover' ? 2.1 : 0.7
+  const minOpacity = state === 'idle' ? 0.08 : 0.56
+  const maxOpacity = state === 'active' ? 1 : 0.94
+
+  return {
+    fullScreen: { enable: false },
+    detectRetina: true,
+    fpsLimit: 60,
+    background: { color: 'transparent' },
+    particles: {
+      number: { value: 0 },
+      color: {
+        value: ['#75f1ff', '#ff52cd', '#7ecbff'],
+      },
+      shape: { type: 'circle' },
+      opacity: {
+        value: { min: minOpacity, max: maxOpacity },
+        animation: {
+          enable: true,
+          speed: 1,
+          startValue: 'max',
+          destroy: 'min',
+          sync: false,
+        },
+      },
+      size: {
+        value: { min: 1.4, max: state === 'active' ? 4.8 : 3.8 },
+      },
+      move: {
+        enable: true,
+        direction: 'top',
+        speed: { min: moveSpeed * 0.82, max: moveSpeed * 1.58 },
+        outModes: {
+          default: 'destroy',
+        },
+        angle: {
+          value: state === 'active' ? 44 : 26,
+          offset: 0,
+        },
+        gravity: {
+          enable: false,
+        },
+      },
+      life: {
+        count: 1,
+        duration: { value: { min: 0.3, max: state === 'active' ? 0.72 : 0.62 } },
+      },
+    },
+    emitters: {
+      direction: 'top',
+      position: { x: 50, y: 100 },
+      rate: emitterRate,
+      size: { width: emitterWidth, height: 0 },
+      particles: {
+        move: {
+          angle: {
+            offset: 0,
+            value: state === 'active' ? 48 : 28,
+          },
+        },
+      },
+    },
+    pauseOnOutsideViewport: true,
+  }
+}
+
+const destroyMyCitiesParticles = () => {
+  myCitiesContainer?.destroy()
+  myCitiesContainer = undefined
+}
+
+const mountMyCitiesParticles = async () => {
+  if (!props.showMyCities || isReducedMotion()) {
+    destroyMyCitiesParticles()
+    return
+  }
+
+  await nextTick()
+  const host = document.getElementById(myCitiesParticleHostId)
+  if (!host) {
+    return
+  }
+
+  await ensureSlimReady()
+  destroyMyCitiesParticles()
+  const emitterWidth = Math.max(44, Math.round((myCitiesBtnRef.value?.clientWidth || 72) * 0.85))
+  myCitiesContainer = await tsParticles.load({
+    id: myCitiesParticleHostId,
+    options: getParticleOptions(myCitiesParticleState.value, emitterWidth),
+  })
+}
+
+const updateParticleState = (nextState: MyCitiesParticleState) => {
+  if (myCitiesParticleState.value === nextState) {
+    return
+  }
+  myCitiesParticleState.value = nextState
+  void mountMyCitiesParticles()
+}
+
+const onMyCitiesMouseEnter = () => {
+  myCitiesHovered.value = true
+  updateParticleState('hover')
+}
+
+const onMyCitiesMouseLeave = () => {
+  myCitiesHovered.value = false
+  if (myCitiesFocused.value) {
+    updateParticleState('hover')
+    return
+  }
+  updateParticleState('idle')
+}
+
+const onMyCitiesMouseDown = () => {
+  updateParticleState('active')
+}
+
+const onMyCitiesMouseUp = () => {
+  updateParticleState(myCitiesHovered.value || myCitiesFocused.value ? 'hover' : 'idle')
+}
+
+const onMyCitiesFocus = () => {
+  myCitiesFocused.value = true
+  updateParticleState('hover')
+}
+
+const onMyCitiesBlur = () => {
+  myCitiesFocused.value = false
+  updateParticleState(myCitiesHovered.value ? 'hover' : 'idle')
+}
+
+watch(
+  () => props.showMyCities,
+  (show) => {
+    if (!show) {
+      myCitiesParticleState.value = 'idle'
+      destroyMyCitiesParticles()
+      return
+    }
+    void mountMyCitiesParticles()
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  destroyMyCitiesParticles()
+})
 </script>
 
 <style scoped>
@@ -81,6 +284,7 @@ const emit = defineEmits<{
   box-shadow:
     inset 0 -1px 0 rgba(94, 246, 255, 0.3),
     0 0 24px rgba(0, 195, 255, 0.25);
+  overflow: hidden;
 }
 
 /* 顶部导航栏内部基本布局 */
@@ -150,6 +354,93 @@ const emit = defineEmits<{
 
 .nav-center {
   width: 100%;
+}
+
+.nav-center-button {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  height: 100%;
+}
+
+.my-cities-btn {
+  position: relative;
+  height: calc(100% - 2px);
+  min-height: 0;
+  width: fit-content;
+  min-width: 76px;
+  padding: 0 16px;
+  border-radius: 0;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  color: var(--cyber-cyan);
+  background:
+    linear-gradient(165deg, rgba(4, 20, 48, 0.74), rgba(3, 15, 39, 0.62)),
+    rgba(3, 20, 45, 0.5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-size: 13px;
+  box-shadow:
+    inset 0 0 12px rgba(117, 241, 255, 0.12),
+    0 1px 8px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color var(--cyber-ease),
+    transform var(--cyber-ease),
+    box-shadow var(--cyber-ease),
+    filter var(--cyber-ease);
+}
+
+.my-cities-label {
+  position: relative;
+  z-index: 2;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(117, 241, 255, 0.46);
+}
+
+.my-cities-particles {
+  position: absolute;
+  inset: 10% 2px 0 2px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.12;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 5px rgba(117, 241, 255, 0.48)) drop-shadow(0 0 8px rgba(255, 82, 205, 0.28));
+  transition: opacity 0.14s ease;
+}
+
+.my-cities-btn:hover,
+.my-cities-btn:focus-visible {
+  border-color: rgba(117, 241, 255, 0.76);
+  box-shadow:
+    inset 0 0 16px rgba(117, 241, 255, 0.34),
+    0 0 14px rgba(117, 241, 255, 0.24),
+    0 0 20px rgba(255, 82, 205, 0.16);
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.my-cities-btn.is-hover .my-cities-particles,
+.my-cities-btn:focus-visible .my-cities-particles {
+  opacity: 1;
+}
+
+.my-cities-btn.is-active .my-cities-particles {
+  opacity: 1;
+}
+
+.my-cities-btn:active {
+  border-color: rgba(255, 82, 205, 0.9);
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.38),
+    0 0 12px rgba(255, 82, 205, 0.38);
 }
 
 .search-wrap {
@@ -276,6 +567,12 @@ const emit = defineEmits<{
     order: 3;
   }
 
+  .nav-center-button {
+    grid-column: auto;
+    order: 0;
+    height: 100%;
+  }
+
   .logo-text {
     font-size: 15px;
     letter-spacing: 0.05em;
@@ -289,6 +586,13 @@ const emit = defineEmits<{
     min-width: 74px;
     font-size: 12px;
     padding: 0 8px;
+  }
+
+  .my-cities-btn {
+    height: calc(100% - 2px);
+    min-height: 0;
+    padding: 0 12px;
+    font-size: 12px;
   }
 }
 
@@ -307,6 +611,10 @@ const emit = defineEmits<{
 @media (prefers-reduced-motion: reduce) {
   .search-icon {
     animation: none;
+  }
+
+  .my-cities-particles {
+    display: none;
   }
 }
 </style>

@@ -28,7 +28,7 @@
           />
         </el-form-item>
         <el-form-item class="submit-item">
-          <el-button class="submit-btn" @click="handleLoginSubmit">登录</el-button>
+          <el-button class="submit-btn" :loading="isSubmitting" @click="handleLoginSubmit">登录</el-button>
         </el-form-item>
       </el-form>
 
@@ -41,11 +41,16 @@
 
 <script setup lang="ts">
 import { UserFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import earthGif from '@/assets/登录注册背景.gif'
+import { login } from '@/service/auth'
 
 const earthBgImage = `url("${earthGif}")`
+const router = useRouter()
+const isSubmitting = ref(false)
 
 interface LoginForm {
   email: string
@@ -67,12 +72,34 @@ const loginRules: FormRules<LoginForm> = {
 }
 
 const handleLoginSubmit = async () => {
-  if (!loginFormRef.value) {
+  if (!loginFormRef.value || isSubmitting.value) {
     return
   }
   const isValid = await loginFormRef.value.validate().catch(() => false)
   if (!isValid) {
     return
+  }
+
+  try {
+    isSubmitting.value = true
+    const res = await login({
+      email: loginForm.email,
+      password: loginForm.password,
+    })
+    if (res.code === 0) {
+      localStorage.setItem('auth_token', res.data.token)
+      localStorage.setItem('auth_user', JSON.stringify(res.data.user))
+      window.dispatchEvent(new Event('auth-user-updated'))
+      ElMessage.success(res.message || '登录成功')
+      await router.push('/weather')
+      return
+    }
+    ElMessage.error(res.message || '登录失败，请重试')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '登录失败，请稍后重试'
+    ElMessage.error(message)
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>

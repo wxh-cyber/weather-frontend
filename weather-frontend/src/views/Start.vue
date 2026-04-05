@@ -52,10 +52,12 @@ const formatNow = () => {
 //该写法兼容了不同的浏览器
 let timer: ReturnType<typeof setInterval> | null = null
 let bgTimer: ReturnType<typeof setInterval> | null = null
+
+//获取路由器实例
 const router = useRouter()
 
 const goToWeather = () => {
-  router.push('/weather')
+  router.push('/weather');
 }
 
 //组件挂在后执行的函数

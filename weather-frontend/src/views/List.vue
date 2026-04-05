@@ -1,0 +1,54 @@
+<template>
+  <main class="list-page">
+    <div class="cyber-grid-layer" />
+    <section class="city-card">
+      <h1>我的城市</h1>
+      <p>这里用于展示你收藏或常用的城市列表。</p>
+    </section>
+  </main>
+</template>
+
+<style scoped>
+.list-page {
+  position: relative;
+  min-height: calc(100vh - var(--app-nav-height));
+  padding: 26px 16px 34px;
+  background:
+    radial-gradient(circle at 15% 12%, rgba(0, 255, 255, 0.18), transparent 38%),
+    radial-gradient(circle at 82% 88%, rgba(255, 0, 153, 0.14), transparent 46%),
+    linear-gradient(180deg, #051028 0%, #020816 100%);
+}
+
+.city-card {
+  position: relative;
+  z-index: 1;
+  width: min(980px, 100%);
+  margin: 0 auto;
+  border-radius: 16px;
+  border: 1px solid var(--cyber-glass-border);
+  background: var(--cyber-glass-bg);
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.1),
+    var(--cyber-glow-md);
+  backdrop-filter: blur(6px);
+  padding: 24px;
+}
+
+.city-card h1 {
+  margin: 0;
+  color: var(--cyber-cyan);
+  text-shadow: 0 0 10px rgba(117, 241, 255, 0.48);
+}
+
+.city-card p {
+  margin-top: 10px;
+  color: var(--cyber-text-muted);
+}
+
+@media (max-width: 640px) {
+  .list-page {
+    min-height: calc(100vh - var(--app-nav-height-mobile));
+    padding-top: 20px;
+  }
+}
+</style>
