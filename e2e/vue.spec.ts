@@ -1,8 +1,34 @@
 import { test, expect } from '@playwright/test'
 
+const attachConsoleGuards = (page: Parameters<Parameters<typeof test>[1]>[0]['page']) => {
+  const consoleErrors: string[] = []
+
+  page.on('pageerror', (error) => {
+    consoleErrors.push(error.message)
+  })
+
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text())
+    }
+  })
+
+  return consoleErrors
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
+  const errors = attachConsoleGuards(page)
+  ;(testInfo as unknown as { _consoleErrors?: string[] })._consoleErrors = errors
+})
+
+test.afterEach(async ({}, testInfo) => {
+  const errors = (testInfo as unknown as { _consoleErrors?: string[] })._consoleErrors ?? []
+  expect(errors, `页面存在 console/pageerror：\n- ${errors.join('\n- ')}`).toEqual([])
+})
+
 test('click start button navigates to weather page', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('小慕天气')).toBeVisible()
+  await expect(page.getByText('欢迎使用小慕天气！')).toBeVisible()
   await expect(page.getByPlaceholder('搜索城市')).toHaveCount(0)
   await page.getByRole('button', { name: '开启天气查询' }).click()
   await expect(page).toHaveURL(/\/weather$/)

@@ -1,18 +1,20 @@
 <template>
-  <div v-if="enabled" class="cursor-overlay">
-    <canvas ref="particleCanvasRef" class="particle-canvas" />
-    <div
-      v-show="pointerVisible"
-      class="cyber-cursor"
-      :style="{ left: `${pointerX}px`, top: `${pointerY}px` }"
-    />
-    <span
-      v-for="ripple in ripples"
-      :key="ripple.id"
-      class="click-ripple"
-      :style="{ left: `${ripple.x}px`, top: `${ripple.y}px` }"
-    />
-  </div>
+  <Teleport to="body">
+    <div v-if="enabled" class="cursor-overlay">
+      <canvas ref="particleCanvasRef" class="particle-canvas" />
+      <div
+        v-show="pointerVisible"
+        class="cyber-cursor"
+        :style="{ left: `${pointerX}px`, top: `${pointerY}px` }"
+      />
+      <span
+        v-for="ripple in ripples"
+        :key="ripple.id"
+        class="click-ripple"
+        :style="{ left: `${ripple.x}px`, top: `${ripple.y}px` }"
+      />
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -283,7 +285,7 @@ onBeforeUnmount(() => {
 .cursor-overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 9999;
   pointer-events: none;
 }
 

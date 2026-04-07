@@ -34,6 +34,20 @@ export interface LoginResponse {
   }
 }
 
+export interface LoginRecord {
+  recordId: string
+  account: string
+  loginTime: string
+  loginAddress: string
+  loginDevice: string
+}
+
+export interface LoginRecordsResponse {
+  code: number
+  message: string
+  data: LoginRecord[]
+}
+
 export interface ProfileData {
   userId: string
   email: string
@@ -58,6 +72,14 @@ export interface UpdateProfilePayload {
   avatarUrl?: string
 }
 
+export interface AvatarUploadResponse {
+  code: number
+  message: string
+  data: {
+    avatarUrl: string
+  }
+}
+
 export const register = (payload: RegisterPayload) => {
   return http.post<RegisterPayload, RegisterResponse>('/auth/register', payload)
 }
@@ -70,6 +92,20 @@ export const getProfile = () => {
   return http.get<never, ProfileResponse>('/auth/profile')
 }
 
+export const getLoginRecords = () => {
+  return http.get<never, LoginRecordsResponse>('/auth/login-records')
+}
+
 export const updateProfile = (payload: UpdateProfilePayload) => {
   return http.put<UpdateProfilePayload, ProfileResponse>('/auth/profile', payload)
+}
+
+export const uploadAvatar = (file: File) => {
+  const formData = new FormData()
+  formData.append('avatar', file)
+  return http.post<FormData, AvatarUploadResponse>('/auth/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
 }

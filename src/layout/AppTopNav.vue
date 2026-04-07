@@ -13,12 +13,16 @@
           <el-icon class="search-icon"><Search /></el-icon>
         </div>
       </div>
-      <div v-else-if="props.showMyCities" class="nav-center nav-center-button">
+      <div v-else-if="props.showMyCities || props.showLoginList" class="nav-center nav-center-button">
         <button
+          v-if="props.showMyCities"
           ref="myCitiesBtnRef"
           type="button"
           class="my-cities-btn"
-          :class="`is-${myCitiesParticleState}`"
+          :class="[
+            `is-${myCitiesParticleState}`,
+            { 'is-current': props.activeCenterAction === 'my-cities' },
+          ]"
           @click="emit('my-cities-click')"
           @mouseenter="onMyCitiesMouseEnter"
           @mouseleave="onMyCitiesMouseLeave"
@@ -29,6 +33,26 @@
         >
           <span :id="myCitiesParticleHostId" class="my-cities-particles" aria-hidden="true" />
           <span class="my-cities-label">我的城市</span>
+        </button>
+        <button
+          v-if="props.showLoginList"
+          ref="loginListBtnRef"
+          type="button"
+          class="my-cities-btn login-list-btn"
+          :class="[
+            `is-${loginListParticleState}`,
+            { 'is-current': props.activeCenterAction === 'login-list' },
+          ]"
+          @click="emit('login-list-click')"
+          @mouseenter="onLoginListMouseEnter"
+          @mouseleave="onLoginListMouseLeave"
+          @mousedown="onLoginListMouseDown"
+          @mouseup="onLoginListMouseUp"
+          @focus="onLoginListFocus"
+          @blur="onLoginListBlur"
+        >
+          <span :id="loginListParticleHostId" class="my-cities-particles" aria-hidden="true" />
+          <span class="my-cities-label">登录列表</span>
         </button>
       </div>
       <!-- 导航栏右侧 -->
@@ -50,7 +74,16 @@
           aria-label="前往登录页面"
           @click="emit('login-click')"
         >
-          <span class="status-dot" />
+          <span v-if="showAvatar" class="status-avatar-shell" aria-hidden="true">
+            <img
+              class="status-avatar"
+              :src="props.avatarUrl"
+              alt=""
+              loading="lazy"
+              @error="handleAvatarError"
+            />
+          </span>
+          <span v-else class="status-dot" />
           <span>{{ props.loginLabel }}</span>
         </button>
         <button
@@ -72,7 +105,7 @@ import { Cloudy, Search } from '@element-plus/icons-vue'
 import type { Container, ISourceOptions } from '@tsparticles/engine'
 import { tsParticles } from '@tsparticles/engine'
 import { loadSlim } from '@tsparticles/slim'
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import githubFavicon from '@/assets/icons/github-favicon.png'
 
 const props = withDefaults(
@@ -81,24 +114,31 @@ const props = withDefaults(
     brandText?: string
     showCenterSearch?: boolean
     showMyCities?: boolean
+    showLoginList?: boolean
     searchPlaceholder?: string
     loginLabel?: string
+    avatarUrl?: string
     showLogout?: boolean
+    activeCenterAction?: string
   }>(),
   {
     githubUrl: 'https://github.com/wxh-cyber/weather-frontend',
     brandText: '小慕天气 · 控制台',
     showCenterSearch: true,
     showMyCities: false,
+    showLoginList: false,
     searchPlaceholder: '搜索城市',
     loginLabel: '未登录',
+    avatarUrl: '',
     showLogout: false,
+    activeCenterAction: '',
   },
 )
 
 const emit = defineEmits<{
   (e: 'login-click'): void
   (e: 'my-cities-click'): void
+  (e: 'login-list-click'): void
   (e: 'logout-click'): void
 }>()
 
@@ -109,8 +149,17 @@ const myCitiesParticleState = ref<MyCitiesParticleState>('idle')
 const myCitiesHovered = ref(false)
 const myCitiesFocused = ref(false)
 const myCitiesBtnRef = ref<HTMLButtonElement | null>(null)
+const loginListParticleHostId = 'login-list-particles'
+const loginListParticleState = ref<MyCitiesParticleState>('idle')
+const loginListHovered = ref(false)
+const loginListFocused = ref(false)
+const loginListBtnRef = ref<HTMLButtonElement | null>(null)
+const avatarLoadFailed = ref(false)
 let myCitiesContainer: Container | undefined
+let loginListContainer: Container | undefined
 let slimLoader: Promise<void> | null = null
+
+const showAvatar = computed(() => Boolean(props.avatarUrl && !avatarLoadFailed.value))
 
 const isReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -196,33 +245,71 @@ const getParticleOptions = (state: MyCitiesParticleState, emitterWidth: number):
   }
 }
 
-const destroyMyCitiesParticles = () => {
-  myCitiesContainer?.destroy()
-  myCitiesContainer = undefined
+const destroyButtonParticles = (containerRef: 'myCities' | 'loginList') => {
+  if (containerRef === 'myCities') {
+    myCitiesContainer?.destroy()
+    myCitiesContainer = undefined
+    return
+  }
+  loginListContainer?.destroy()
+  loginListContainer = undefined
 }
 
-const mountMyCitiesParticles = async () => {
-  if (!props.showMyCities || isReducedMotion()) {
-    destroyMyCitiesParticles()
+const mountButtonParticles = async (
+  hostId: string,
+  state: MyCitiesParticleState,
+  buttonRef: HTMLButtonElement | null,
+  visible: boolean,
+  containerRef: 'myCities' | 'loginList',
+) => {
+  if (!visible || isReducedMotion()) {
+    destroyButtonParticles(containerRef)
     return
   }
 
   await nextTick()
-  const host = document.getElementById(myCitiesParticleHostId)
+  const host = document.getElementById(hostId)
   if (!host) {
     return
   }
 
   await ensureSlimReady()
-  destroyMyCitiesParticles()
-  const emitterWidth = Math.max(44, Math.round((myCitiesBtnRef.value?.clientWidth || 72) * 0.85))
-  myCitiesContainer = await tsParticles.load({
-    id: myCitiesParticleHostId,
-    options: getParticleOptions(myCitiesParticleState.value, emitterWidth),
+  destroyButtonParticles(containerRef)
+  const emitterWidth = Math.max(44, Math.round((buttonRef?.clientWidth || 72) * 0.85))
+  const container = await tsParticles.load({
+    id: hostId,
+    options: getParticleOptions(state, emitterWidth),
   })
+
+  if (containerRef === 'myCities') {
+    myCitiesContainer = container
+    return
+  }
+
+  loginListContainer = container
 }
 
-const updateParticleState = (nextState: MyCitiesParticleState) => {
+const mountMyCitiesParticles = async () => {
+  await mountButtonParticles(
+    myCitiesParticleHostId,
+    myCitiesParticleState.value,
+    myCitiesBtnRef.value,
+    props.showMyCities,
+    'myCities',
+  )
+}
+
+const mountLoginListParticles = async () => {
+  await mountButtonParticles(
+    loginListParticleHostId,
+    loginListParticleState.value,
+    loginListBtnRef.value,
+    props.showLoginList,
+    'loginList',
+  )
+}
+
+const updateMyCitiesParticleState = (nextState: MyCitiesParticleState) => {
   if (myCitiesParticleState.value === nextState) {
     return
   }
@@ -230,44 +317,96 @@ const updateParticleState = (nextState: MyCitiesParticleState) => {
   void mountMyCitiesParticles()
 }
 
+const updateLoginListParticleState = (nextState: MyCitiesParticleState) => {
+  if (loginListParticleState.value === nextState) {
+    return
+  }
+  loginListParticleState.value = nextState
+  void mountLoginListParticles()
+}
+
 const onMyCitiesMouseEnter = () => {
   myCitiesHovered.value = true
-  updateParticleState('hover')
+  updateMyCitiesParticleState('hover')
 }
 
 const onMyCitiesMouseLeave = () => {
   myCitiesHovered.value = false
   if (myCitiesFocused.value) {
-    updateParticleState('hover')
+    updateMyCitiesParticleState('hover')
     return
   }
-  updateParticleState('idle')
+  updateMyCitiesParticleState('idle')
 }
 
 const onMyCitiesMouseDown = () => {
-  updateParticleState('active')
+  updateMyCitiesParticleState('active')
 }
 
 const onMyCitiesMouseUp = () => {
-  updateParticleState(myCitiesHovered.value || myCitiesFocused.value ? 'hover' : 'idle')
+  updateMyCitiesParticleState(myCitiesHovered.value || myCitiesFocused.value ? 'hover' : 'idle')
 }
 
 const onMyCitiesFocus = () => {
   myCitiesFocused.value = true
-  updateParticleState('hover')
+  updateMyCitiesParticleState('hover')
 }
 
 const onMyCitiesBlur = () => {
   myCitiesFocused.value = false
-  updateParticleState(myCitiesHovered.value ? 'hover' : 'idle')
+  updateMyCitiesParticleState(myCitiesHovered.value ? 'hover' : 'idle')
 }
+
+const onLoginListMouseEnter = () => {
+  loginListHovered.value = true
+  updateLoginListParticleState('hover')
+}
+
+const onLoginListMouseLeave = () => {
+  loginListHovered.value = false
+  if (loginListFocused.value) {
+    updateLoginListParticleState('hover')
+    return
+  }
+  updateLoginListParticleState('idle')
+}
+
+const onLoginListMouseDown = () => {
+  updateLoginListParticleState('active')
+}
+
+const onLoginListMouseUp = () => {
+  updateLoginListParticleState(loginListHovered.value || loginListFocused.value ? 'hover' : 'idle')
+}
+
+const onLoginListFocus = () => {
+  loginListFocused.value = true
+  updateLoginListParticleState('hover')
+}
+
+const onLoginListBlur = () => {
+  loginListFocused.value = false
+  updateLoginListParticleState(loginListHovered.value ? 'hover' : 'idle')
+}
+
+const handleAvatarError = (event: Event) => {
+  avatarLoadFailed.value = true
+}
+
+watch(
+  () => props.avatarUrl,
+  () => {
+    avatarLoadFailed.value = false
+  },
+  { immediate: true },
+)
 
 watch(
   () => props.showMyCities,
   (show) => {
     if (!show) {
       myCitiesParticleState.value = 'idle'
-      destroyMyCitiesParticles()
+      destroyButtonParticles('myCities')
       return
     }
     void mountMyCitiesParticles()
@@ -275,8 +414,22 @@ watch(
   { immediate: true },
 )
 
+watch(
+  () => props.showLoginList,
+  (show) => {
+    if (!show) {
+      loginListParticleState.value = 'idle'
+      destroyButtonParticles('loginList')
+      return
+    }
+    void mountLoginListParticles()
+  },
+  { immediate: true },
+)
+
 onBeforeUnmount(() => {
-  destroyMyCitiesParticles()
+  destroyButtonParticles('myCities')
+  destroyButtonParticles('loginList')
 })
 </script>
 
@@ -372,6 +525,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: stretch;
+  gap: 10px;
   height: 100%;
 }
 
@@ -436,6 +590,28 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
   filter: brightness(1.08);
   outline: none;
+}
+
+.my-cities-btn.is-current {
+  border-color: rgba(255, 82, 205, 0.86);
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.34),
+    0 0 16px rgba(117, 241, 255, 0.2),
+    0 0 24px rgba(255, 82, 205, 0.26);
+  color: #f7fdff;
+}
+
+.login-list-btn {
+  color: #ffd7fa;
+  background:
+    linear-gradient(165deg, rgba(18, 18, 60, 0.78), rgba(11, 14, 42, 0.66)),
+    rgba(10, 19, 45, 0.54);
+}
+
+.login-list-btn .my-cities-label {
+  text-shadow:
+    0 0 8px rgba(255, 82, 205, 0.4),
+    0 0 12px rgba(117, 241, 255, 0.18);
 }
 
 .my-cities-btn.is-hover .my-cities-particles,
@@ -554,6 +730,33 @@ onBeforeUnmount(() => {
   outline: none;
 }
 
+.status-avatar-shell {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 1px;
+  background:
+    linear-gradient(135deg, rgba(117, 241, 255, 0.9), rgba(255, 82, 205, 0.78)),
+    rgba(3, 20, 45, 0.82);
+  box-shadow:
+    0 0 10px rgba(117, 241, 255, 0.38),
+    inset 0 0 8px rgba(117, 241, 255, 0.18);
+}
+
+.status-avatar {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(2, 10, 24, 0.96);
+  box-shadow: inset 0 0 8px rgba(117, 241, 255, 0.16);
+}
+
 .logout-btn {
   min-width: 46px;
   height: 34px;
@@ -618,6 +821,7 @@ onBeforeUnmount(() => {
     grid-column: auto;
     order: 0;
     height: 100%;
+    gap: 8px;
   }
 
   .logo-text {
@@ -633,6 +837,12 @@ onBeforeUnmount(() => {
     min-width: 74px;
     font-size: 12px;
     padding: 0 8px;
+  }
+
+  .status-avatar-shell {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
   }
 
   .logout-btn {

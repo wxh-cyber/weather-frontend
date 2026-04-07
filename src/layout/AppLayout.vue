@@ -11,7 +11,7 @@ import { useAuthStore } from '@/store/auth'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const { isLoggedIn, displayName } = storeToRefs(authStore)
+const { isLoggedIn, displayName, user } = storeToRefs(authStore)
 
 const syncUserStatus = () => {
   authStore.syncFromStorage()
@@ -40,9 +40,17 @@ const navVariant = computed(() => {
   return 'home'
 })
 const brandText = computed(() => (navVariant.value === 'start' ? '小慕天气' : '小慕天气 · 控制台'))
-const showCenterSearch = computed(() => navVariant.value === 'home' && route.name !== 'center')
-const showMyCities = computed(() => route.name === 'center')
+const showCenterButtons = computed(() =>
+  route.name === 'center' || route.name === 'login-list',
+)
+const showCenterSearch = computed(() => navVariant.value === 'home' && !showCenterButtons.value)
+const showMyCities = computed(() => showCenterButtons.value)
+const showLoginList = computed(() => showCenterButtons.value)
 const loginLabel = computed(() => displayName.value)
+const navAvatarUrl = computed(() => user.value?.avatarUrl || '')
+const activeCenterAction = computed(() =>
+  route.name === 'login-list' ? 'login-list' : route.name === 'center' ? 'my-cities' : '',
+)
 
 const goToLogin = async () => {
   syncUserStatus()
@@ -64,13 +72,17 @@ const goToLogin = async () => {
 const handleLogout = async () => {
   clearAuthState()
   ElMessage.success('已退出登录')
-  if (route.name === 'center' || route.name === 'list') {
+  if (route.name === 'center' || route.name === 'list' || route.name === 'login-list') {
     await router.push('/login')
   }
 }
 
 const goToList = () => {
   router.push('/list')
+}
+
+const goToLoginList = () => {
+  router.push('/login-list')
 }
 </script>
 
@@ -80,10 +92,14 @@ const goToList = () => {
       :brand-text="brandText"
       :show-center-search="showCenterSearch"
       :show-my-cities="showMyCities"
+      :show-login-list="showLoginList"
+      :active-center-action="activeCenterAction"
       :login-label="loginLabel"
+      :avatar-url="navAvatarUrl"
       :show-logout="isLoggedIn"
       @login-click="goToLogin"
       @my-cities-click="goToList"
+      @login-list-click="goToLoginList"
       @logout-click="handleLogout"
     />
     <main class="app-main">

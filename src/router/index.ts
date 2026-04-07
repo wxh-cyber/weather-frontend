@@ -5,6 +5,7 @@ import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import Center from '../views/Center.vue'
 import List from '../views/List.vue'
+import LoginList from '../views/LoginList.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -25,25 +26,31 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: Login,
+      component: Login,     //登录页面
       meta: { navVariant: 'start' },
     },
     {
       path: '/register',
       name: 'register',
-      component: Register,
+      component: Register,     //注册页面
       meta: { navVariant: 'start' },
     },
     {
       path: '/center',
       name: 'center',
-      component: Center,
+      component: Center,     //个人中心页面
       meta: { navVariant: 'home' },
     },
     {
       path: '/list',
       name: 'list',
-      component: List,
+      component: List,     //城市列表页面
+      meta: { navVariant: 'home' },
+    },
+    {
+      path: '/login-list',
+      name: 'login-list',
+      component: LoginList,     //登录记录页面
       meta: { navVariant: 'home' },
     },
     {
