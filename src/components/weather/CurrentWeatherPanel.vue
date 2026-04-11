@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { getWeatherIcon } from '@/components/weather/weatherIconMap'
 
+const props = withDefaults(
+  defineProps<{
+    temperature?: string
+    weatherText?: string
+  }>(),
+  {
+    temperature: '11°C',
+    weatherText: '多云',
+  },
+)
+
 const metrics = [
   { label: '空气质量', value: '27' },
   { label: '风速', value: '东北风 2级' },
@@ -19,8 +30,8 @@ const currentIcon = getWeatherIcon('night-cloudy')
     <div class="temp-row">
       <img class="icon weather-icon" :src="currentIcon.src" :alt="currentIcon.alt" />
       <div>
-        <p class="temp">11°C</p>
-        <p class="desc">多云 · 体感温度 9°</p>
+        <p class="temp">{{ props.temperature }}</p>
+        <p class="desc">{{ props.weatherText }} · 体感温度 9°</p>
       </div>
     </div>
     <p class="tips">今天部分地区多云。最低气温 9°。</p>

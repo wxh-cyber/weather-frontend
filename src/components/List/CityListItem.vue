@@ -1,13 +1,17 @@
 <script setup lang="ts">
-defineProps<{
+import { useRouter } from 'vue-router'
+
+const props = defineProps<{
   cityName: string
   weatherText: string
   temperature: string
 }>()
+
+const router = useRouter()
 </script>
 
 <template>
-  <article class="city-item">
+  <article class="city-item" @click="router.push(`/weather/${props.cityName}`)">
     <p class="city-name">{{ cityName }}</p>
     <div class="weather-side">
       <span class="weather-text">{{ weatherText }}</span>
@@ -18,6 +22,7 @@ defineProps<{
 
 <style scoped>
 .city-item {
+  cursor: pointer;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;

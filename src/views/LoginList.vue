@@ -3,9 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getLoginRecords, type LoginRecord } from '@/service/auth'
 
+type ViewState = 'idle' | 'loading' | 'ready' | 'empty' | 'error' | 'unauthorized'
+
 const loading = ref(false)
 const error = ref('')
 const records = ref<LoginRecord[]>([])
+const viewState = ref<ViewState>('idle')
 
 const recordCount = computed(() => records.value.length)
 const latestLoginTime = computed(() => {
@@ -33,16 +36,24 @@ const formatLoginTime = (value: string) => {
 const fetchLoginRecords = async () => {
   loading.value = true
   error.value = ''
+  viewState.value = 'loading'
 
   try {
     const res = await getLoginRecords()
     records.value = [...res.data].sort(
       (left, right) => new Date(right.loginTime).getTime() - new Date(left.loginTime).getTime(),
     )
+    viewState.value = records.value.length ? 'ready' : 'empty'
   } catch (fetchError) {
     const message = fetchError instanceof Error ? fetchError.message : '加载登录记录失败'
-    error.value = message
-    ElMessage.error(message)
+    if (message === 'UNAUTHORIZED') {
+      error.value = '登录状态已失效，请重新登录'
+      viewState.value = 'unauthorized'
+    } else {
+      error.value = message
+      viewState.value = 'error'
+      ElMessage.error(message)
+    }
   } finally {
     loading.value = false
   }
@@ -75,10 +86,10 @@ onMounted(async () => {
         </div>
       </header>
 
-      <div v-if="error" class="feedback-panel is-error">
-        <span>信号异常</span>
+      <div v-if="viewState === 'error' || viewState === 'unauthorized'" class="feedback-panel is-error">
+        <span>{{ viewState === 'unauthorized' ? '访问受限' : '信号异常' }}</span>
         <p>{{ error }}</p>
-        <el-button type="primary" @click="fetchLoginRecords">重新加载</el-button>
+        <el-button v-if="viewState !== 'unauthorized'" type="primary" @click="fetchLoginRecords">重新加载</el-button>
       </div>
 
       <div v-else class="table-shell">
@@ -89,7 +100,7 @@ onMounted(async () => {
 
         <div v-loading="loading" class="table-wrap" element-loading-text="正在解码登录记录...">
           <el-empty
-            v-if="!loading && !records.length"
+            v-if="viewState === 'empty'"
             class="empty-state"
             description="当前账号暂未生成登录记录"
           />

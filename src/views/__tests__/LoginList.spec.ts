@@ -109,4 +109,13 @@ describe('LoginList', () => {
     expect(wrapper.text()).toContain('加载失败')
     expect(wrapper.text()).toContain('重新加载')
   })
+
+  it('renders unauthorized state when session is invalid', async () => {
+    mockedGetLoginRecords.mockRejectedValue(new Error('UNAUTHORIZED'))
+
+    const wrapper = await mountLoginList()
+
+    expect(wrapper.text()).toContain('访问受限')
+    expect(wrapper.text()).toContain('登录状态已失效，请重新登录')
+  })
 })

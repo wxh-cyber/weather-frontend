@@ -41,7 +41,7 @@ const navVariant = computed(() => {
 })
 const brandText = computed(() => (navVariant.value === 'start' ? '小慕天气' : '小慕天气 · 控制台'))
 const showCenterButtons = computed(() =>
-  route.name === 'center' || route.name === 'login-list',
+  route.name === 'center' || route.name === 'login-list' || route.name === 'list',
 )
 const showCenterSearch = computed(() => navVariant.value === 'home' && !showCenterButtons.value)
 const showMyCities = computed(() => showCenterButtons.value)
@@ -49,7 +49,11 @@ const showLoginList = computed(() => showCenterButtons.value)
 const loginLabel = computed(() => displayName.value)
 const navAvatarUrl = computed(() => user.value?.avatarUrl || '')
 const activeCenterAction = computed(() =>
-  route.name === 'login-list' ? 'login-list' : route.name === 'center' ? 'my-cities' : '',
+  route.name === 'login-list'
+    ? 'login-list'
+    : route.name === 'center' || route.name === 'list'
+      ? 'my-cities'
+      : '',
 )
 
 const goToLogin = async () => {

@@ -25,6 +25,18 @@ const clearAuthState = () => {
   }
 }
 
+const buildLoginRedirectUrl = (reason: 'expired' | 'unauthorized') => {
+  const currentPath =
+    typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : '/login-list'
+  const query = new URLSearchParams({
+    reason,
+    redirect: currentPath,
+  })
+  return `/login?${query.toString()}`
+}
+
 const http = axios.create({
   baseURL: '/api',
   timeout: 8000,
@@ -45,7 +57,7 @@ http.interceptors.response.use(
     if (statusCode === 401 && typeof window !== 'undefined') {
       clearAuthState()
       if (window.location.pathname !== '/login') {
-        window.location.replace('/login')
+        window.location.replace(buildLoginRedirectUrl('expired'))
       }
       return Promise.reject(new Error('UNAUTHORIZED'))
     }

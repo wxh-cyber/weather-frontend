@@ -4,10 +4,18 @@ import HourlyForecastPanel from '@/components/weather/HourlyForecastPanel.vue'
 import WeatherCityTabs from '@/components/weather/WeatherCityTabs.vue'
 import WeatherMapPanel from '@/components/weather/WeatherMapPanel.vue'
 
-defineProps<{
-  menus: string[]
-  cities: string[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    menus: string[]
+    cities: string[]
+    temperature?: string
+    weatherText?: string
+  }>(),
+  {
+    temperature: '11°C',
+    weatherText: '多云',
+  },
+)
 </script>
 
 <template>
@@ -21,7 +29,7 @@ defineProps<{
     <WeatherCityTabs :cities="cities" />
 
     <section class="overview-grid">
-      <CurrentWeatherPanel />
+      <CurrentWeatherPanel :temperature="props.temperature" :weather-text="props.weatherText" />
       <WeatherMapPanel />
     </section>
 

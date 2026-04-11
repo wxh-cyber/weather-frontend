@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { getCityList } from '@/service/city'
+import { createCity, deleteCity, getCityList, updateCity } from '@/service/city'
 
 export interface CityItem {
   cityName: string
@@ -18,6 +18,9 @@ const defaultCities: CityItem[] = [
 ]
 
 const isBrowser = () => typeof window !== 'undefined'
+const normalizeCityName = (cityName: string) => cityName.trim()
+const equalsCityName = (left: string, right: string) =>
+  left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase()
 
 export const useCityStore = defineStore('city', {
   state: () => ({
@@ -53,6 +56,116 @@ export const useCityStore = defineStore('city', {
       } catch (error) {
         const message = error instanceof Error ? error.message : '城市数据获取失败'
         this.setError(message)
+      } finally {
+        this.loading = false
+      }
+    },
+    async ensureCitiesLoaded() {
+      if (this.cities.length > 0) {
+        return
+      }
+      await this.fetchCities('')
+    },
+    async createCityByName(cityName: string) {
+      const normalizedName = normalizeCityName(cityName)
+      if (!normalizedName) {
+        this.setError('城市名称不能为空')
+        return false
+      }
+
+      this.setError('')
+      if (this.cities.some((item) => equalsCityName(item.cityName, normalizedName))) {
+        this.setError('城市已存在，请勿重复添加')
+        return false
+      }
+
+      this.loading = true
+      try {
+        const response = await createCity(normalizedName)
+        this.setCities(response.data)
+        return true
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '新增城市失败'
+        this.setError(message)
+        return false
+      } finally {
+        this.loading = false
+      }
+    },
+    async renameCity(oldCityName: string, newCityName: string) {
+      const sourceName = normalizeCityName(oldCityName)
+      const targetName = normalizeCityName(newCityName)
+
+      if (!sourceName || !targetName) {
+        this.setError('城市名称不能为空')
+        return false
+      }
+
+      this.setError('')
+      let sourceExists = this.cities.some((item) => equalsCityName(item.cityName, sourceName))
+      if (!sourceExists) {
+        await this.fetchCities('')
+        sourceExists = this.cities.some((item) => equalsCityName(item.cityName, sourceName))
+      }
+
+      if (!sourceExists) {
+        this.setError('未找到待修改的城市')
+        return false
+      }
+
+      const duplicateTarget = this.cities.some(
+        (item) => equalsCityName(item.cityName, targetName) && !equalsCityName(item.cityName, sourceName),
+      )
+      if (duplicateTarget) {
+        this.setError('目标城市名称已存在')
+        return false
+      }
+
+      if (equalsCityName(sourceName, targetName)) {
+        return true
+      }
+
+      this.loading = true
+      try {
+        const response = await updateCity(sourceName, targetName)
+        this.setCities(response.data)
+        return true
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '修改城市失败'
+        this.setError(message)
+        return false
+      } finally {
+        this.loading = false
+      }
+    },
+    async deleteCityByName(cityName: string) {
+      const normalizedName = normalizeCityName(cityName)
+      if (!normalizedName) {
+        this.setError('城市名称不能为空')
+        return false
+      }
+
+      this.setError('')
+      let cityExists = this.cities.some((item) => equalsCityName(item.cityName, normalizedName))
+      if (!cityExists) {
+        await this.fetchCities('')
+        cityExists = this.cities.some((item) => equalsCityName(item.cityName, normalizedName))
+      }
+
+      if (!cityExists) {
+        this.setError('未找到待删除的城市')
+        return false
+      }
+
+      this.loading = true
+      try {
+        const response = await deleteCity(normalizedName)
+        this.setCities(response.data)
+        return true
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '删除城市失败'
+        this.setError(message)
+        return false
       } finally {
         this.loading = false
       }

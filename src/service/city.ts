@@ -19,3 +19,19 @@ export const getCityList = (keyword = '') => {
     },
   })
 }
+
+export const createCity = (cityName: string) => {
+  return http.post<{ cityName: string }, CityListResponse>('/cities', {
+    cityName,
+  })
+}
+
+export const updateCity = (oldCityName: string, cityName: string) => {
+  return http.put<{ cityName: string }, CityListResponse>(`/cities/${encodeURIComponent(oldCityName)}`, {
+    cityName,
+  })
+}
+
+export const deleteCity = (cityName: string) => {
+  return http.delete<never, CityListResponse>(`/cities/${encodeURIComponent(cityName)}`)
+}

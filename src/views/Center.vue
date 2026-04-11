@@ -4,7 +4,11 @@
     <div class="center-container">
       <aside class="left-panel">
         <h2>用户中心</h2>
-        <p>个人资料</p>
+        <nav class="center-nav" aria-label="用户中心目录">
+          <p class="center-nav-item">用户信息</p>
+          <p class="center-nav-item">联系方式</p>
+          <p class="center-nav-item">城市管理</p>
+        </nav>
       </aside>
 
       <section class="right-panel">
@@ -40,6 +44,35 @@
           <span class="label">微信账号</span>
           <el-input v-model="form.wechat" :disabled="!isEditing" />
         </div>
+
+        <h3 class="section-title city-title">城市管理</h3>
+        <div class="profile-row">
+          <span class="label">当前默认城市</span>
+          <el-input
+            v-model="defaultCityName"
+            placeholder="请输入城市名称"
+            :disabled="isUpdatingDefaultCity"
+            @change="commitDefaultCity"
+            @blur="commitDefaultCity"
+          />
+        </div>
+        <section class="saved-city-panel">
+          <div v-if="savedCities.length === 0" class="saved-city-empty">暂无已保存城市</div>
+          <div v-else class="saved-city-list">
+            <article
+              v-for="city in savedCities"
+              :key="city.cityName"
+              class="saved-city-item"
+              @click="router.push(`/weather/${city.cityName}`)"
+            >
+              <p class="saved-city-name">{{ city.cityName }}</p>
+              <div class="saved-city-side">
+                <span class="saved-city-weather">{{ city.weatherText }}</span>
+                <strong class="saved-city-temperature">{{ city.temperature }}</strong>
+              </div>
+            </article>
+          </div>
+        </section>
 
         <div class="action-row">
           <el-button class="save-btn" :loading="isSubmitting" @click="handleActionClick">
@@ -215,7 +248,9 @@ import { ElMessage } from 'element-plus'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getProfile, updateProfile, uploadAvatar } from '@/service/auth'
+import { getCityList } from '@/service/city'
 import { useAuthStore } from '@/store/auth'
+import { useCityStore } from '@/store/city'
 
 type ProfileForm = {
   email: string
@@ -237,13 +272,16 @@ const CROP_PREVIEW_SIZE = 112
 
 const router = useRouter()
 const authStore = useAuthStore()
+const cityStore = useCityStore()
 const isEditing = ref(false)
 const isSubmitting = ref(false)
 const avatarDialogVisible = ref(false)
 const cropDialogVisible = ref(false)
 const isUploadingAvatar = ref(false)
+const isUpdatingDefaultCity = ref(false)
 const selectedAvatarFile = ref<File | null>(null)
 const avatarPreviewUrl = ref('')
+const defaultCityName = ref('')
 const avatarInputRef = ref<HTMLInputElement | null>(null)
 const selectAvatarButtonRef = ref<{ $el?: HTMLElement } | null>(null)
 const cropCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -308,6 +346,7 @@ const hasChanges = computed(
       form.wechat !== originalForm.wechat),
 )
 const actionText = computed(() => (hasChanges.value ? '保存信息' : '修改信息'))
+const savedCities = computed(() => cityStore.cities)
 const cropImageStyle = computed(() => {
   const { width, height, offsetX, offsetY } = getCropViewportMetrics(cropScale.value)
   return {
@@ -790,9 +829,82 @@ const handleActionClick = async () => {
   }
 }
 
+const syncDefaultCityName = () => {
+  defaultCityName.value = cityStore.cities[0]?.cityName || ''
+}
+
+const commitDefaultCity = async () => {
+  if (isUpdatingDefaultCity.value) {
+    return
+  }
+
+  const nextCityName = defaultCityName.value.trim()
+  const currentDefaultCity = cityStore.cities[0]?.cityName || ''
+
+  if (!nextCityName) {
+    defaultCityName.value = currentDefaultCity
+    ElMessage.warning('默认城市不能为空')
+    return
+  }
+
+  if (nextCityName === currentDefaultCity) {
+    defaultCityName.value = nextCityName
+    return
+  }
+
+  const currentCities = [...cityStore.cities]
+  const existedIndex = currentCities.findIndex((city) => city.cityName === nextCityName)
+  if (existedIndex >= 0) {
+    const [targetCity] = currentCities.splice(existedIndex, 1)
+    if (!targetCity) {
+      defaultCityName.value = currentDefaultCity
+      return
+    }
+    cityStore.setCities([targetCity, ...currentCities])
+    ElMessage.success('默认城市已更新')
+    return
+  }
+
+  isUpdatingDefaultCity.value = true
+  try {
+    const response = await getCityList(nextCityName)
+    const matchedCity =
+      response.data.find((city) => city.cityName === nextCityName) ?? response.data[0] ?? null
+
+    if (!matchedCity) {
+      defaultCityName.value = currentDefaultCity
+      ElMessage.error('未找到该城市，请检查名称后重试')
+      return
+    }
+
+    const dedupedCities = cityStore.cities.filter((city) => city.cityName !== matchedCity.cityName)
+    cityStore.setCities([matchedCity, ...dedupedCities])
+    ElMessage.success('默认城市已更新')
+  } catch {
+    defaultCityName.value = currentDefaultCity
+    ElMessage.error('获取数据失败，请稍后重试')
+  } finally {
+    isUpdatingDefaultCity.value = false
+  }
+}
+
 onMounted(() => {
+  if (cityStore.cities.length === 0) {
+    cityStore.syncFromStorage()
+  }
+  syncDefaultCityName()
   loadProfile()
 })
+
+watch(
+  () => cityStore.cities,
+  () => {
+    if (!isUpdatingDefaultCity.value) {
+      syncDefaultCityName()
+    }
+  },
+  { deep: true },
+)
 
 watch(avatarDialogVisible, (visible) => {
   if (visible) {
@@ -851,10 +963,21 @@ onUnmounted(() => {
   text-shadow: 0 0 10px rgba(117, 241, 255, 0.52);
 }
 
-.left-panel p {
-  margin-top: 12px;
+.center-nav {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.center-nav-item {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(117, 241, 255, 0.2);
   color: var(--cyber-text-muted);
   letter-spacing: 0.08em;
+  background: linear-gradient(135deg, rgba(4, 18, 40, 0.65), rgba(4, 12, 30, 0.55));
+  box-shadow: inset 0 0 12px rgba(117, 241, 255, 0.08);
 }
 
 .right-panel {
@@ -869,6 +992,10 @@ onUnmounted(() => {
 }
 
 .contact-title {
+  margin-top: 20px;
+}
+
+.city-title {
   margin-top: 20px;
 }
 
@@ -938,6 +1065,85 @@ onUnmounted(() => {
 
 .right-panel :deep(.el-input__inner) {
   color: var(--cyber-text);
+}
+
+.saved-city-panel {
+  margin-top: 14px;
+}
+
+.saved-city-list {
+  display: grid;
+  gap: 10px;
+}
+
+.saved-city-empty {
+  padding: 20px 14px;
+  text-align: center;
+  color: var(--cyber-text-muted);
+  border: 1px dashed rgba(117, 241, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(5, 20, 45, 0.4);
+  text-shadow: 0 0 8px rgba(117, 241, 255, 0.35);
+}
+
+.saved-city-item {
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(117, 241, 255, 0.24);
+  background: linear-gradient(145deg, rgba(6, 22, 50, 0.78), rgba(4, 16, 36, 0.66));
+  box-shadow:
+    inset 0 0 14px rgba(117, 241, 255, 0.1),
+    0 0 8px rgba(117, 241, 255, 0.12);
+  transition: transform var(--cyber-ease), border-color var(--cyber-ease), box-shadow var(--cyber-ease);
+}
+
+.saved-city-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(117, 241, 255, 0.52);
+  box-shadow:
+    inset 0 0 16px rgba(117, 241, 255, 0.18),
+    0 0 12px rgba(117, 241, 255, 0.24),
+    0 0 18px rgba(255, 82, 205, 0.12);
+}
+
+.saved-city-name {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  color: #aaf8ff;
+  text-shadow:
+    0 0 8px rgba(117, 241, 255, 0.86),
+    0 0 16px rgba(0, 145, 255, 0.4);
+}
+
+.saved-city-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--cyber-text-muted);
+}
+
+.saved-city-weather {
+  font-size: 14px;
+  text-shadow:
+    0 0 6px rgba(117, 241, 255, 0.42),
+    0 0 10px rgba(255, 82, 205, 0.18);
+}
+
+.saved-city-temperature {
+  min-width: 56px;
+  text-align: right;
+  font-size: 26px;
+  color: var(--cyber-cyan);
+  text-shadow:
+    0 0 10px rgba(117, 241, 255, 0.92),
+    0 0 20px rgba(0, 145, 255, 0.5),
+    0 0 24px rgba(255, 82, 205, 0.24);
 }
 
 .action-row {
@@ -1546,6 +1752,19 @@ onUnmounted(() => {
   .center-page {
     min-height: calc(100vh - var(--app-nav-height-mobile));
     padding-top: 20px;
+  }
+
+  .saved-city-item {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .saved-city-side {
+    justify-content: space-between;
+  }
+
+  .saved-city-temperature {
+    min-width: 0;
   }
 
   .avatar-dialog-panel {
