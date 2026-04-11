@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import Center from '@/views/Center.vue'
 import { useAuthStore } from '@/store/auth'
+import { useCityStore } from '@/store/city'
 import { getProfile, updateProfile, uploadAvatar } from '@/service/auth'
 
 vi.mock('vue-router', () => ({
@@ -78,7 +79,12 @@ describe('Center avatar interactions', () => {
   const mountCenter = async () => {
     const pinia = createPinia()
     const authStore = useAuthStore(pinia)
+    const cityStore = useCityStore(pinia)
     authStore.setAuth('token', { userId: 'u-1', email: 'demo@weather.com', nickname: '演示用户' })
+    cityStore.setCities([
+      { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+      { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+    ])
     mockedGetProfile.mockResolvedValue({
       code: 0,
       message: '获取成功',
@@ -112,6 +118,18 @@ describe('Center avatar interactions', () => {
   it('shows hover tip text on avatar area', async () => {
     const wrapper = await mountCenter()
     expect(wrapper.text()).toContain('点我上传头像')
+  })
+
+  it('renders saved cities as cards and highlights default city', async () => {
+    const wrapper = await mountCenter()
+    const cards = wrapper.findAll('.city-item')
+
+    expect(cards.length).toBeGreaterThanOrEqual(2)
+    expect(cards[0]!.classes()).toContain('is-default')
+    expect(cards[0]!.text()).toContain('默认城市')
+    expect(wrapper.text()).toContain('武汉市')
+    expect(wrapper.text()).toContain('26°C')
+    expect(wrapper.text()).toContain('多云')
   })
 
   it('opens upload dialog after clicking avatar', async () => {

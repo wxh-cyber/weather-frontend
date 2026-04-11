@@ -59,18 +59,14 @@
         <section class="saved-city-panel">
           <div v-if="savedCities.length === 0" class="saved-city-empty">暂无已保存城市</div>
           <div v-else class="saved-city-list">
-            <article
-              v-for="city in savedCities"
+            <CityListItem
+              v-for="(city, index) in savedCities"
               :key="city.cityName"
-              class="saved-city-item"
-              @click="router.push(`/weather/${city.cityName}`)"
-            >
-              <p class="saved-city-name">{{ city.cityName }}</p>
-              <div class="saved-city-side">
-                <span class="saved-city-weather">{{ city.weatherText }}</span>
-                <strong class="saved-city-temperature">{{ city.temperature }}</strong>
-              </div>
-            </article>
+              :city-name="city.cityName"
+              :weather-text="city.weatherText"
+              :temperature="city.temperature"
+              :is-default="index === 0"
+            />
           </div>
         </section>
 
@@ -247,6 +243,7 @@
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import CityListItem from '@/components/List/CityListItem.vue'
 import { getProfile, updateProfile, uploadAvatar } from '@/service/auth'
 import { getCityList } from '@/service/city'
 import { useAuthStore } from '@/store/auth'
@@ -1073,7 +1070,8 @@ onUnmounted(() => {
 
 .saved-city-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .saved-city-empty {
@@ -1084,66 +1082,6 @@ onUnmounted(() => {
   border-radius: 12px;
   background: rgba(5, 20, 45, 0.4);
   text-shadow: 0 0 8px rgba(117, 241, 255, 0.35);
-}
-
-.saved-city-item {
-  cursor: pointer;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(117, 241, 255, 0.24);
-  background: linear-gradient(145deg, rgba(6, 22, 50, 0.78), rgba(4, 16, 36, 0.66));
-  box-shadow:
-    inset 0 0 14px rgba(117, 241, 255, 0.1),
-    0 0 8px rgba(117, 241, 255, 0.12);
-  transition: transform var(--cyber-ease), border-color var(--cyber-ease), box-shadow var(--cyber-ease);
-}
-
-.saved-city-item:hover {
-  transform: translateY(-1px);
-  border-color: rgba(117, 241, 255, 0.52);
-  box-shadow:
-    inset 0 0 16px rgba(117, 241, 255, 0.18),
-    0 0 12px rgba(117, 241, 255, 0.24),
-    0 0 18px rgba(255, 82, 205, 0.12);
-}
-
-.saved-city-name {
-  margin: 0;
-  font-size: 18px;
-  letter-spacing: 0.05em;
-  color: #aaf8ff;
-  text-shadow:
-    0 0 8px rgba(117, 241, 255, 0.86),
-    0 0 16px rgba(0, 145, 255, 0.4);
-}
-
-.saved-city-side {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--cyber-text-muted);
-}
-
-.saved-city-weather {
-  font-size: 14px;
-  text-shadow:
-    0 0 6px rgba(117, 241, 255, 0.42),
-    0 0 10px rgba(255, 82, 205, 0.18);
-}
-
-.saved-city-temperature {
-  min-width: 56px;
-  text-align: right;
-  font-size: 26px;
-  color: var(--cyber-cyan);
-  text-shadow:
-    0 0 10px rgba(117, 241, 255, 0.92),
-    0 0 20px rgba(0, 145, 255, 0.5),
-    0 0 24px rgba(255, 82, 205, 0.24);
 }
 
 .action-row {
@@ -1746,6 +1684,10 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
     gap: 6px;
   }
+
+  .saved-city-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -1754,17 +1696,8 @@ onUnmounted(() => {
     padding-top: 20px;
   }
 
-  .saved-city-item {
+  .saved-city-list {
     grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .saved-city-side {
-    justify-content: space-between;
-  }
-
-  .saved-city-temperature {
-    min-width: 0;
   }
 
   .avatar-dialog-panel {

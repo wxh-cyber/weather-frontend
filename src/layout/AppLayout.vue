@@ -45,13 +45,16 @@ const showCenterButtons = computed(() =>
 )
 const showCenterSearch = computed(() => navVariant.value === 'home' && !showCenterButtons.value)
 const showMyCities = computed(() => showCenterButtons.value)
+const showProfileCenter = computed(() => showCenterButtons.value)
 const showLoginList = computed(() => showCenterButtons.value)
 const loginLabel = computed(() => displayName.value)
 const navAvatarUrl = computed(() => user.value?.avatarUrl || '')
 const activeCenterAction = computed(() =>
   route.name === 'login-list'
     ? 'login-list'
-    : route.name === 'center' || route.name === 'list'
+    : route.name === 'center'
+      ? 'profile-center'
+      : route.name === 'list'
       ? 'my-cities'
       : '',
 )
@@ -88,6 +91,10 @@ const goToList = () => {
 const goToLoginList = () => {
   router.push('/login-list')
 }
+
+const goToCenter = () => {
+  router.push('/center')
+}
 </script>
 
 <template>
@@ -96,6 +103,7 @@ const goToLoginList = () => {
       :brand-text="brandText"
       :show-center-search="showCenterSearch"
       :show-my-cities="showMyCities"
+      :show-profile-center="showProfileCenter"
       :show-login-list="showLoginList"
       :active-center-action="activeCenterAction"
       :login-label="loginLabel"
@@ -103,6 +111,7 @@ const goToLoginList = () => {
       :show-logout="isLoggedIn"
       @login-click="goToLogin"
       @my-cities-click="goToList"
+      @profile-center-click="goToCenter"
       @login-list-click="goToLoginList"
       @logout-click="handleLogout"
     />

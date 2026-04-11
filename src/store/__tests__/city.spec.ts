@@ -154,4 +154,40 @@ describe('city store', () => {
     expect(mockedDeleteCity).toHaveBeenCalledWith('武汉市')
     expect(store.cities).toEqual([{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }])
   })
+
+  it('setDefaultCityByName should move target city to first position when city exists', async () => {
+    const store = useCityStore()
+    store.setCities(sampleResponse.data)
+
+    const result = await store.setDefaultCityByName('上海市')
+
+    expect(result).toBe(true)
+    expect(store.cities[0]?.cityName).toBe('上海市')
+    expect(store.cities[1]?.cityName).toBe('武汉市')
+  })
+
+  it('setDefaultCityByName should fallback fetch when city is missing in pinia', async () => {
+    mockedGetCityList.mockResolvedValue(sampleResponse)
+    const store = useCityStore()
+
+    const result = await store.setDefaultCityByName('上海市')
+
+    expect(result).toBe(true)
+    expect(mockedGetCityList).toHaveBeenCalledWith('')
+    expect(store.cities[0]?.cityName).toBe('上海市')
+  })
+
+  it('setDefaultCityByName should fail with message when city is still missing after fallback', async () => {
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [{ cityName: '北京市', weatherText: '晴', temperature: '20°C' }],
+    })
+    const store = useCityStore()
+
+    const result = await store.setDefaultCityByName('不存在城市')
+
+    expect(result).toBe(false)
+    expect(store.error).toContain('未找到该城市')
+  })
 })

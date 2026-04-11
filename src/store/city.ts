@@ -138,6 +138,40 @@ export const useCityStore = defineStore('city', {
         this.loading = false
       }
     },
+    async setDefaultCityByName(cityName: string) {
+      const normalizedName = normalizeCityName(cityName)
+      if (!normalizedName) {
+        this.setError('默认城市不能为空')
+        return false
+      }
+
+      this.setError('')
+      let currentCities = [...this.cities]
+      let targetIndex = currentCities.findIndex((item) => equalsCityName(item.cityName, normalizedName))
+
+      if (targetIndex < 0) {
+        await this.fetchCities('')
+        currentCities = [...this.cities]
+        targetIndex = currentCities.findIndex((item) => equalsCityName(item.cityName, normalizedName))
+      }
+
+      if (targetIndex < 0) {
+        this.setError('未找到该城市，请检查名称后重试')
+        return false
+      }
+
+      if (targetIndex === 0) {
+        return true
+      }
+
+      const [targetCity] = currentCities.splice(targetIndex, 1)
+      if (!targetCity) {
+        this.setError('默认城市更新失败')
+        return false
+      }
+      this.setCities([targetCity, ...currentCities])
+      return true
+    },
     async deleteCityByName(cityName: string) {
       const normalizedName = normalizeCityName(cityName)
       if (!normalizedName) {

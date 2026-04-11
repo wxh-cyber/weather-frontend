@@ -17,11 +17,12 @@ defineProps<{
     <div v-if="items.length === 0" class="empty-state">暂无城市数据</div>
     <div v-else class="city-list">
       <CityListItem
-        v-for="item in items"
+        v-for="(item, index) in items"
         :key="item.cityName"
         :city-name="item.cityName"
         :weather-text="item.weatherText"
         :temperature="item.temperature"
+        :is-default="index === 0"
       />
     </div>
   </section>
@@ -34,7 +35,8 @@ defineProps<{
 
 .city-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .empty-state {
@@ -44,5 +46,17 @@ defineProps<{
   border: 1px dashed rgba(117, 241, 255, 0.32);
   background: rgba(5, 20, 45, 0.44);
   text-shadow: 0 0 8px rgba(117, 241, 255, 0.35);
+}
+
+@media (max-width: 1023px) {
+  .city-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .city-list {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

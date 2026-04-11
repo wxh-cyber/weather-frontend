@@ -39,7 +39,7 @@ describe('AppLayout center actions', () => {
     routeState.meta = { navVariant: 'home' }
   })
 
-  it('navigates to login list when top nav emits login-list-click', async () => {
+  it('navigates to center when top nav emits profile-center-click', async () => {
     const wrapper = mount(AppLayout, {
       global: {
         plugins: [createPinia()],
@@ -47,18 +47,21 @@ describe('AppLayout center actions', () => {
           AppTopNav: {
             props: [
               'showMyCities',
+              'showProfileCenter',
               'showLoginList',
               'activeCenterAction',
               'loginLabel',
               'avatarUrl',
               'showLogout',
             ],
-            emits: ['login-list-click'],
+            emits: ['profile-center-click', 'login-list-click'],
             template: `
               <div>
                 <span class="show-my-cities">{{ showMyCities }}</span>
+                <span class="show-profile-center">{{ showProfileCenter }}</span>
                 <span class="show-login-list">{{ showLoginList }}</span>
                 <span class="active-center-action">{{ activeCenterAction }}</span>
+                <button class="profile-center-trigger" @click="$emit('profile-center-click')" />
                 <button class="login-list-trigger" @click="$emit('login-list-click')" />
               </div>
             `,
@@ -69,8 +72,15 @@ describe('AppLayout center actions', () => {
     })
 
     expect(wrapper.find('.show-my-cities').text()).toBe('true')
+    expect(wrapper.find('.show-profile-center').text()).toBe('true')
     expect(wrapper.find('.show-login-list').text()).toBe('true')
-    expect(wrapper.find('.active-center-action').text()).toBe('my-cities')
+    expect(wrapper.find('.active-center-action').text()).toBe('profile-center')
+
+    await wrapper.find('.profile-center-trigger').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith('/center')
+
+    pushMock.mockReset()
 
     await wrapper.find('.login-list-trigger').trigger('click')
 

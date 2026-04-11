@@ -10,10 +10,9 @@ const error = computed(() => cityStore.error)
 const keyword = ref('')
 const newCityName = ref('')
 const editingCityName = ref('')
-const editingNewCityName = ref('')
-const deletingCityName = ref('')
 const selectedDeleteCities = ref<string[]>([])
 const deleteTagCities = ref<string[]>([])
+const deleteFilterKeyword = ref('')
 const batchConfirmVisible = ref(false)
 const batchDeleteSummary = ref('')
 const singleDeletingName = ref('')
@@ -24,6 +23,14 @@ const cityNameOptions = computed(() =>
     value: item.cityName,
   })),
 )
+
+const filteredDeleteCities = computed(() => {
+  const normalizedKeyword = deleteFilterKeyword.value.trim().toLocaleLowerCase()
+  if (!normalizedKeyword) {
+    return cityItems.value
+  }
+  return cityItems.value.filter((item) => item.cityName.toLocaleLowerCase().includes(normalizedKeyword))
+})
 
 const handleSearch = async () => {
   await cityStore.fetchCities(keyword.value)
@@ -37,26 +44,15 @@ const handleCreate = async () => {
 }
 
 const handleRename = async () => {
-  const success = await cityStore.renameCity(editingCityName.value, editingNewCityName.value)
+  const success = await cityStore.setDefaultCityByName(editingCityName.value)
   if (success) {
     editingCityName.value = ''
-    editingNewCityName.value = ''
-  }
-}
-
-const handleDelete = async () => {
-  const success = await cityStore.deleteCityByName(deletingCityName.value)
-  if (success) {
-    selectedDeleteCities.value = selectedDeleteCities.value.filter((name) => name !== deletingCityName.value)
-    deleteTagCities.value = deleteTagCities.value.filter((name) => name !== deletingCityName.value)
-    deletingCityName.value = ''
-    batchDeleteSummary.value = '单项删除完成'
+    batchDeleteSummary.value = '默认城市已更新'
   }
 }
 
 const syncDeleteTags = () => {
   deleteTagCities.value = [...selectedDeleteCities.value]
-  deletingCityName.value = selectedDeleteCities.value[selectedDeleteCities.value.length - 1] ?? ''
 }
 
 const setCitySelected = (cityName: string, checked: boolean) => {
@@ -83,11 +79,6 @@ const onDeleteCheckboxChange = (cityName: string, event: Event) => {
 
 const removeDeleteTag = (cityName: string) => {
   setCitySelected(cityName, false)
-}
-
-const addDeleteTagFromSelect = () => {
-  if (!deletingCityName.value) return
-  setCitySelected(deletingCityName.value, true)
 }
 
 const handleSingleDelete = async (cityName: string) => {
@@ -137,20 +128,12 @@ const handleBatchDelete = async () => {
       : '批量删除未成功'
 }
 
-watch(editingCityName, (selectedName) => {
-  if (!selectedName) return
-  editingNewCityName.value = selectedName
-})
-
 watch(
   cityItems,
   (items) => {
     const cityNameSet = new Set(items.map((item) => item.cityName))
     selectedDeleteCities.value = selectedDeleteCities.value.filter((name) => cityNameSet.has(name))
     syncDeleteTags()
-    if (deletingCityName.value && !cityNameSet.has(deletingCityName.value)) {
-      deletingCityName.value = ''
-    }
   },
   { deep: true },
 )
@@ -166,22 +149,22 @@ onMounted(async () => {
     <section class="city-card">
       <h1>我的城市</h1>
       <p>左侧为城市名称，右侧实时展示天气与温度。</p>
-      <div class="search-bar">
-        <el-input
-          v-model="keyword"
-          class="search-input"
-          placeholder="输入城市名称，按回车搜索"
-          clearable
-          @keydown.enter="handleSearch"
-        />
-        <el-button class="cyber-action-btn" type="primary" :loading="loading" @click="handleSearch">
-          搜索
-        </el-button>
-      </div>
       <section class="city-manage-panel">
         <h2>城市管理中枢</h2>
         <div class="city-manage-grid">
-          <article class="manage-card">
+          <article class="manage-card search-manage-card manage-card--balanced manage-card--neon">
+            <p class="manage-title">城市搜索</p>
+            <el-input
+              v-model="keyword"
+              class="manage-input search-input"
+              placeholder="输入城市名称，按回车搜索"
+              clearable
+              @keydown.enter="handleSearch"
+            />
+            <p class="manage-subtext">支持实时检索，回车可快速触发搜索</p>
+            <el-button class="cyber-action-btn" type="primary" :loading="loading" @click="handleSearch">搜索</el-button>
+          </article>
+          <article class="manage-card manage-card--balanced manage-card--neon">
             <p class="manage-title">新增城市</p>
             <el-input
               v-model="newCityName"
@@ -192,13 +175,13 @@ onMounted(async () => {
             />
             <el-button class="cyber-action-btn" :loading="loading" @click="handleCreate">新增</el-button>
           </article>
-          <article class="manage-card">
-            <p class="manage-title">修改城市</p>
+          <article class="manage-card manage-card--balanced manage-card--neon">
+            <p class="manage-title">修改默认城市</p>
             <el-select
               v-model="editingCityName"
               class="manage-select"
               popper-class="cyber-select-popper"
-              placeholder="选择待修改城市"
+              placeholder="选择要设为默认的城市"
               filterable
               clearable
             >
@@ -209,16 +192,10 @@ onMounted(async () => {
                 :value="option.value"
               />
             </el-select>
-            <el-input
-              v-model="editingNewCityName"
-              class="manage-input"
-              placeholder="输入新的城市名称"
-              clearable
-              @keydown.enter="handleRename"
-            />
-            <el-button class="cyber-action-btn" :loading="loading" @click="handleRename">更新</el-button>
+            <p class="manage-subtext default-city-tip">将所选城市置顶为默认城市（列表第一项）</p>
+            <el-button class="cyber-action-btn" :loading="loading" @click="handleRename">设为默认</el-button>
           </article>
-          <article class="manage-card">
+          <article class="manage-card delete-manage-card manage-card--hero manage-card--neon">
             <p class="manage-title">删除城市</p>
             <div class="delete-tags-box">
               <p v-if="deleteTagCities.length === 0" class="delete-tags-empty">请选择下方城市加入删除队列</p>
@@ -233,25 +210,15 @@ onMounted(async () => {
                 <span class="delete-tag-chip__close">×</span>
               </button>
             </div>
-            <el-select
-              v-model="deletingCityName"
-              class="manage-select"
-              popper-class="cyber-select-popper"
-              placeholder="从下拉框加入删除队列"
-              filterable
+            <el-input
+              v-model="deleteFilterKeyword"
+              class="manage-input"
+              placeholder="筛选删除列表（仅过滤显示）"
               clearable
-            >
-              <el-option
-                v-for="option in cityNameOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-            <el-button class="cyber-action-btn" :loading="loading" @click="addDeleteTagFromSelect">加入队列</el-button>
+            />
             <div class="delete-city-list">
               <article
-                v-for="item in cityItems"
+                v-for="item in filteredDeleteCities"
                 :key="item.cityName"
                 class="delete-city-row"
                 :class="{ 'is-selected': selectedDeleteCities.includes(item.cityName) }"
@@ -274,11 +241,9 @@ onMounted(async () => {
                   单独删除
                 </el-button>
               </article>
+              <p v-if="filteredDeleteCities.length === 0" class="delete-empty-text">当前筛选条件下无城市</p>
             </div>
             <div class="delete-action-row">
-              <el-button class="cyber-action-btn cyber-danger-btn" :loading="loading" @click="handleDelete">
-                按选框删除
-              </el-button>
               <el-button
                 class="cyber-action-btn cyber-danger-btn"
                 :disabled="selectedDeleteCities.length === 0"
@@ -294,23 +259,60 @@ onMounted(async () => {
           </article>
         </div>
       </section>
-      <el-dialog v-model="batchConfirmVisible" class="delete-confirm-dialog" width="460px" :show-close="false">
+      <el-dialog
+        v-model="batchConfirmVisible"
+        class="delete-confirm-dialog"
+        :show-close="false"
+        align-center
+      >
         <template #header>
-          <h3 class="delete-dialog-title">批量删除确认</h3>
+          <div class="dcd-header">
+            <div class="dcd-sys-bar">
+              <span class="dcd-pulse-dot" aria-hidden="true" />
+              <span class="dcd-sys-path">SYS://CITY_MANAGER/DELETE</span>
+              <span class="dcd-sys-count">[ {{ selectedDeleteCities.length }} TARGETS ]</span>
+            </div>
+            <h3 class="dcd-title">批量删除确认</h3>
+          </div>
         </template>
-        <p class="delete-dialog-text">即将删除以下城市：</p>
-        <div class="delete-dialog-list">
-          <span v-for="cityName in selectedDeleteCities" :key="cityName" class="delete-dialog-city">
-            {{ cityName }}
-          </span>
+
+        <div class="dcd-body">
+          <span class="dcd-scanline" aria-hidden="true" />
+          <div class="dcd-warn-strip">
+            <span class="dcd-warn-icon" aria-hidden="true">⚠</span>
+            <span class="dcd-warn-text">以下城市数据将被永久删除，操作不可撤销</span>
+          </div>
+          <div class="dcd-city-grid">
+            <span
+              v-for="cityName in selectedDeleteCities"
+              :key="cityName"
+              class="dcd-city-chip"
+            >
+              <span class="dcd-chip-marker" aria-hidden="true" />
+              {{ cityName }}
+            </span>
+          </div>
+          <p class="dcd-confirm-text">
+            确认批量删除以上
+            <strong class="dcd-confirm-count">{{ selectedDeleteCities.length }}</strong>
+            个城市？失败项将自动跳过。
+          </p>
         </div>
-        <p class="delete-dialog-tip">失败项将自动跳过，不影响其他项删除。</p>
+
         <template #footer>
-          <div class="delete-dialog-footer">
-            <el-button class="cyber-action-btn" @click="batchConfirmVisible = false">取消</el-button>
-            <el-button class="cyber-action-btn cyber-danger-btn" :loading="loading" @click="handleBatchDelete">
-              确认删除
-            </el-button>
+          <div class="dcd-footer">
+            <button class="dcd-btn dcd-btn--cancel" type="button" @click="batchConfirmVisible = false">
+              取消
+            </button>
+            <button
+              class="dcd-btn dcd-btn--danger"
+              type="button"
+              :disabled="loading"
+              @click="handleBatchDelete"
+            >
+              <span v-if="loading" class="dcd-spinner" aria-hidden="true" />
+              {{ loading ? '执行中…' : '确认删除' }}
+            </button>
           </div>
         </template>
       </el-dialog>
@@ -357,25 +359,44 @@ onMounted(async () => {
   color: var(--cyber-text-muted);
 }
 
-.search-bar {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-}
-
 .search-input :deep(.el-input__wrapper) {
   background: rgba(5, 20, 45, 0.6);
   box-shadow: inset 0 0 0 1px rgba(117, 241, 255, 0.24);
 }
 
 .city-manage-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   margin-top: 16px;
   border: 1px solid rgba(117, 241, 255, 0.24);
-  background: rgba(3, 16, 40, 0.5);
+  background:
+    linear-gradient(145deg, rgba(255, 82, 205, 0.07), rgba(0, 214, 255, 0.05)),
+    rgba(3, 16, 40, 0.5);
   box-shadow: inset 0 0 12px rgba(117, 241, 255, 0.15);
   border-radius: 14px;
   padding: 14px;
+  transition: box-shadow var(--cyber-ease), border-color var(--cyber-ease);
+}
+
+.city-manage-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 82, 205, 0.22);
+  box-shadow:
+    0 0 18px rgba(255, 82, 205, 0.18),
+    0 0 32px rgba(255, 82, 205, 0.12);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.city-manage-panel:hover {
+  border-color: rgba(117, 241, 255, 0.32);
+  box-shadow:
+    inset 0 0 14px rgba(117, 241, 255, 0.18),
+    0 0 20px rgba(255, 82, 205, 0.16);
 }
 
 .city-manage-panel h2 {
@@ -388,23 +409,83 @@ onMounted(async () => {
 .city-manage-grid {
   margin-top: 12px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .manage-card {
   border: 1px solid rgba(117, 241, 255, 0.2);
   background: rgba(4, 16, 39, 0.58);
   border-radius: 12px;
-  padding: 12px;
+  padding: 14px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
+}
+
+.manage-card--balanced {
+  min-height: 228px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.manage-card--balanced .cyber-action-btn {
+  margin-top: auto;
+  width: 100%;
 }
 
 .manage-title {
   margin: 0;
   color: var(--cyber-text-muted);
   font-size: 13px;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+}
+
+.manage-card--neon {
+  border-color: rgba(117, 241, 255, 0.46);
+  background:
+    linear-gradient(140deg, rgba(0, 214, 255, 0.08), rgba(255, 0, 153, 0.05)),
+    rgba(4, 16, 39, 0.76);
+  box-shadow:
+    inset 0 0 16px rgba(117, 241, 255, 0.1),
+    0 0 16px rgba(117, 241, 255, 0.14);
+}
+
+.manage-card--neon:hover {
+  border-color: rgba(117, 241, 255, 0.72);
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.14),
+    0 0 20px rgba(117, 241, 255, 0.22);
+}
+
+.manage-card--neon .manage-title {
+  color: var(--cyber-cyan);
+  text-shadow:
+    0 0 10px rgba(117, 241, 255, 0.46),
+    0 0 16px rgba(255, 82, 205, 0.16);
+  letter-spacing: 0.03em;
+}
+
+.delete-manage-card {
+  grid-column: 1 / -1;
+}
+
+.manage-subtext {
+  margin: 0;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  color: rgba(117, 241, 255, 0.78);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.default-city-tip {
+  letter-spacing: 0.02em;
 }
 
 .manage-input :deep(.el-input__wrapper),
@@ -522,7 +603,8 @@ onMounted(async () => {
   border: 1px solid rgba(117, 241, 255, 0.2);
   border-radius: 12px;
   background: rgba(5, 20, 45, 0.36);
-  max-height: 220px;
+  min-height: 210px;
+  max-height: 260px;
   overflow: auto;
   padding: 6px;
   display: grid;
@@ -583,9 +665,15 @@ onMounted(async () => {
 }
 
 .delete-action-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.delete-empty-text {
+  margin: 8px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--cyber-text-muted);
 }
 
 .batch-delete-summary {
@@ -595,46 +683,324 @@ onMounted(async () => {
   text-shadow: 0 0 8px rgba(117, 241, 255, 0.3);
 }
 
-:deep(.delete-confirm-dialog .el-dialog) {
-  border: 1px solid rgba(117, 241, 255, 0.48);
-  border-radius: 14px;
-  background: rgba(4, 14, 34, 0.92);
+/* ── Dialog shell (global — el-dialog is teleported to body) ── */
+:global(.el-overlay-dialog:has(.el-dialog.delete-confirm-dialog)) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  background: transparent !important;
+}
+
+:global(.el-overlay-dialog:has(.el-dialog.delete-confirm-dialog) .el-dialog__wrapper) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:global(.el-overlay-dialog .el-dialog.delete-confirm-dialog) {
+  margin: auto !important;
+}
+
+:global(.el-dialog.delete-confirm-dialog) {
+  --delete-dialog-bg: rgba(2, 10, 24, 0.98);
+  --el-dialog-bg-color: var(--delete-dialog-bg);
+  --el-bg-color: var(--delete-dialog-bg);
+  --el-fill-color-blank: var(--delete-dialog-bg);
+  --el-fill-color: var(--delete-dialog-bg);
+  margin: 0 !important;
+  padding: 0 !important;
+  width: min(480px, calc(100vw - 32px)) !important;
+  border: 1px solid rgba(117, 241, 255, 0.45) !important;
+  border-radius: 16px !important;
+  max-height: calc(100vh - 32px) !important;
+  background-color: var(--delete-dialog-bg) !important;
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(117, 241, 255, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 100%, rgba(255, 82, 205, 0.07) 0%, transparent 50%),
+    var(--delete-dialog-bg) !important;
   box-shadow:
-    inset 0 0 18px rgba(117, 241, 255, 0.12),
-    0 0 18px rgba(117, 241, 255, 0.24);
+    inset 0 1px 0 rgba(117, 241, 255, 0.2),
+    0 0 30px rgba(117, 241, 255, 0.18),
+    0 0 60px rgba(0, 145, 255, 0.12),
+    0 24px 48px rgba(0, 0, 0, 0.6) !important;
+  overflow: hidden !important;
 }
 
-.delete-dialog-title {
+:global(.el-dialog.delete-confirm-dialog .el-dialog__header) {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-bottom: 1px solid rgba(117, 241, 255, 0.18) !important;
+  background: var(--delete-dialog-bg) !important;
+}
+
+:global(.el-dialog.delete-confirm-dialog .el-dialog__body) {
+  padding: 0 !important;
+  background: var(--delete-dialog-bg) !important;
+}
+
+:global(.el-dialog.delete-confirm-dialog .el-dialog__footer) {
+  padding: 0 !important;
+  border-top: 1px solid rgba(117, 241, 255, 0.14) !important;
+  background: var(--delete-dialog-bg) !important;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.dcd-header {
+  padding: 14px 20px 16px;
+}
+
+.dcd-sys-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dcd-pulse-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cyber-cyan);
+  box-shadow:
+    0 0 6px var(--cyber-cyan),
+    0 0 12px rgba(117, 241, 255, 0.5);
+  animation: dcd-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes dcd-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 6px var(--cyber-cyan), 0 0 12px rgba(117, 241, 255, 0.5);
+  }
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 3px var(--cyber-cyan), 0 0 5px rgba(117, 241, 255, 0.25);
+  }
+}
+
+.dcd-sys-path {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: rgba(117, 241, 255, 0.5);
+  letter-spacing: 0.06em;
+}
+
+.dcd-sys-count {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: rgba(255, 82, 205, 0.65);
+  letter-spacing: 0.05em;
+}
+
+.dcd-title {
   margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   color: var(--cyber-cyan);
-  font-size: 18px;
+  text-shadow:
+    0 0 10px rgba(117, 241, 255, 0.55),
+    0 0 22px rgba(117, 241, 255, 0.22);
 }
 
-.delete-dialog-text,
-.delete-dialog-tip {
-  margin: 0;
-  color: var(--cyber-text-muted);
+/* ── Body ───────────────────────────────────────────────── */
+.dcd-body {
+  position: relative;
+  padding: 16px 20px 20px;
+  max-height: calc(100vh - 250px);
+  overflow: auto;
 }
 
-.delete-dialog-list {
-  margin-top: 10px;
+.dcd-scanline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(117, 241, 255, 0.022) 3px,
+    rgba(117, 241, 255, 0.022) 4px
+  );
+}
+
+.dcd-warn-strip {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 180, 50, 0.28);
+  background: rgba(255, 140, 0, 0.06);
+}
+
+.dcd-warn-icon {
+  font-size: 15px;
+  color: #ffb432;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(255, 180, 50, 0.6));
+}
+
+.dcd-warn-text {
+  font-size: 13px;
+  color: rgba(255, 200, 100, 0.82);
+  line-height: 1.4;
+}
+
+.dcd-city-grid {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+  min-height: 44px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 10px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(117, 241, 255, 0.18);
+  background: rgba(4, 18, 42, 0.6);
+}
+
+.dcd-city-chip {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-}
-
-.delete-dialog-city {
-  border: 1px solid rgba(117, 241, 255, 0.34);
+  padding: 4px 11px 4px 8px;
   border-radius: 999px;
-  padding: 2px 8px;
+  border: 1px solid rgba(117, 241, 255, 0.38);
+  background: rgba(3, 28, 60, 0.8);
   color: var(--cyber-cyan);
-  background: rgba(3, 24, 56, 0.6);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 8px rgba(117, 241, 255, 0.32);
+  box-shadow:
+    inset 0 0 8px rgba(117, 241, 255, 0.07),
+    0 0 7px rgba(117, 241, 255, 0.08);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.delete-dialog-footer {
+.dcd-city-chip:hover {
+  border-color: rgba(117, 241, 255, 0.65);
+  box-shadow:
+    inset 0 0 10px rgba(117, 241, 255, 0.14),
+    0 0 12px rgba(117, 241, 255, 0.18);
+}
+
+.dcd-chip-marker {
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cyber-cyan);
+  box-shadow: 0 0 5px rgba(117, 241, 255, 0.8);
+}
+
+.dcd-confirm-text {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--cyber-text-muted);
+  line-height: 1.6;
+}
+
+.dcd-confirm-count {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--cyber-cyan);
+  text-shadow: 0 0 8px rgba(117, 241, 255, 0.5);
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.dcd-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+  padding: 14px 20px;
+}
+
+.dcd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 22px;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: 1px solid;
+  transition: transform 0.2s, filter 0.2s, box-shadow 0.2s;
+}
+
+.dcd-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+}
+
+.dcd-btn:active {
+  transform: translateY(0);
+}
+
+.dcd-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
+.dcd-btn--cancel {
+  border-color: rgba(117, 241, 255, 0.32);
+  background: rgba(4, 18, 42, 0.7);
+  color: var(--cyber-text-muted);
+  box-shadow: inset 0 0 8px rgba(117, 241, 255, 0.05);
+}
+
+.dcd-btn--cancel:hover {
+  border-color: rgba(117, 241, 255, 0.58);
+  color: var(--cyber-text);
+  box-shadow:
+    inset 0 0 10px rgba(117, 241, 255, 0.1),
+    0 0 10px rgba(117, 241, 255, 0.1);
+}
+
+.dcd-btn--danger {
+  border-color: rgba(255, 82, 205, 0.52);
+  background: linear-gradient(135deg, rgba(255, 82, 205, 0.2), rgba(180, 0, 100, 0.16));
+  color: #ffaee8;
+  box-shadow:
+    inset 0 0 10px rgba(255, 82, 205, 0.12),
+    0 0 10px rgba(255, 82, 205, 0.12);
+}
+
+.dcd-btn--danger:hover {
+  border-color: rgba(255, 82, 205, 0.8);
+  box-shadow:
+    inset 0 0 14px rgba(255, 82, 205, 0.22),
+    0 0 16px rgba(255, 82, 205, 0.22);
+}
+
+.dcd-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 82, 205, 0.3);
+  border-top-color: #ff52cd;
+  border-radius: 50%;
+  animation: dcd-spin 0.7s linear infinite;
+}
+
+@keyframes dcd-spin {
+  to { transform: rotate(360deg); }
 }
 
 .error-text {
@@ -648,16 +1014,42 @@ onMounted(async () => {
     padding-top: 20px;
   }
 
-  .search-bar {
-    grid-template-columns: 1fr;
-  }
-
   .city-manage-grid {
     grid-template-columns: 1fr;
   }
 
+  .manage-card--balanced {
+    min-height: auto;
+  }
+
+  .delete-manage-card {
+    grid-column: 1 / -1;
+  }
+
   .delete-action-row {
-    grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+
+  .delete-action-row .cyber-action-btn {
+    width: 100%;
+  }
+
+  :global(.el-overlay-dialog:has(.el-dialog.delete-confirm-dialog)) {
+    padding: 12px !important;
+  }
+
+  :global(.el-dialog.delete-confirm-dialog) {
+    width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 24px) !important;
+  }
+
+  .dcd-footer {
+    flex-direction: column-reverse;
+  }
+
+  .dcd-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

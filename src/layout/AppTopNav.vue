@@ -13,7 +13,7 @@
           <el-icon class="search-icon"><Search /></el-icon>
         </div>
       </div>
-      <div v-else-if="props.showMyCities || props.showLoginList" class="nav-center nav-center-button">
+      <div v-else-if="props.showMyCities || props.showProfileCenter || props.showLoginList" class="nav-center nav-center-button">
         <button
           v-if="props.showMyCities"
           ref="myCitiesBtnRef"
@@ -33,6 +33,26 @@
         >
           <span :id="myCitiesParticleHostId" class="my-cities-particles" aria-hidden="true" />
           <span class="my-cities-label">我的城市</span>
+        </button>
+        <button
+          v-if="props.showProfileCenter"
+          ref="profileCenterBtnRef"
+          type="button"
+          class="my-cities-btn profile-center-btn"
+          :class="[
+            `is-${profileCenterParticleState}`,
+            { 'is-current': props.activeCenterAction === 'profile-center' },
+          ]"
+          @click="emit('profile-center-click')"
+          @mouseenter="onProfileCenterMouseEnter"
+          @mouseleave="onProfileCenterMouseLeave"
+          @mousedown="onProfileCenterMouseDown"
+          @mouseup="onProfileCenterMouseUp"
+          @focus="onProfileCenterFocus"
+          @blur="onProfileCenterBlur"
+        >
+          <span :id="profileCenterParticleHostId" class="my-cities-particles" aria-hidden="true" />
+          <span class="my-cities-label">个人中心</span>
         </button>
         <button
           v-if="props.showLoginList"
@@ -114,6 +134,7 @@ const props = withDefaults(
     brandText?: string
     showCenterSearch?: boolean
     showMyCities?: boolean
+    showProfileCenter?: boolean
     showLoginList?: boolean
     searchPlaceholder?: string
     loginLabel?: string
@@ -126,6 +147,7 @@ const props = withDefaults(
     brandText: '小慕天气 · 控制台',
     showCenterSearch: true,
     showMyCities: false,
+    showProfileCenter: false,
     showLoginList: false,
     searchPlaceholder: '搜索城市',
     loginLabel: '未登录',
@@ -138,6 +160,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'login-click'): void
   (e: 'my-cities-click'): void
+  (e: 'profile-center-click'): void
   (e: 'login-list-click'): void
   (e: 'logout-click'): void
 }>()
@@ -149,6 +172,11 @@ const myCitiesParticleState = ref<MyCitiesParticleState>('idle')
 const myCitiesHovered = ref(false)
 const myCitiesFocused = ref(false)
 const myCitiesBtnRef = ref<HTMLButtonElement | null>(null)
+const profileCenterParticleHostId = 'profile-center-particles'
+const profileCenterParticleState = ref<MyCitiesParticleState>('idle')
+const profileCenterHovered = ref(false)
+const profileCenterFocused = ref(false)
+const profileCenterBtnRef = ref<HTMLButtonElement | null>(null)
 const loginListParticleHostId = 'login-list-particles'
 const loginListParticleState = ref<MyCitiesParticleState>('idle')
 const loginListHovered = ref(false)
@@ -156,6 +184,7 @@ const loginListFocused = ref(false)
 const loginListBtnRef = ref<HTMLButtonElement | null>(null)
 const avatarLoadFailed = ref(false)
 let myCitiesContainer: Container | undefined
+let profileCenterContainer: Container | undefined
 let loginListContainer: Container | undefined
 let slimLoader: Promise<void> | null = null
 
@@ -245,10 +274,15 @@ const getParticleOptions = (state: MyCitiesParticleState, emitterWidth: number):
   }
 }
 
-const destroyButtonParticles = (containerRef: 'myCities' | 'loginList') => {
+const destroyButtonParticles = (containerRef: 'myCities' | 'profileCenter' | 'loginList') => {
   if (containerRef === 'myCities') {
     myCitiesContainer?.destroy()
     myCitiesContainer = undefined
+    return
+  }
+  if (containerRef === 'profileCenter') {
+    profileCenterContainer?.destroy()
+    profileCenterContainer = undefined
     return
   }
   loginListContainer?.destroy()
@@ -260,7 +294,7 @@ const mountButtonParticles = async (
   state: MyCitiesParticleState,
   buttonRef: HTMLButtonElement | null,
   visible: boolean,
-  containerRef: 'myCities' | 'loginList',
+  containerRef: 'myCities' | 'profileCenter' | 'loginList',
 ) => {
   if (!visible || isReducedMotion()) {
     destroyButtonParticles(containerRef)
@@ -283,6 +317,10 @@ const mountButtonParticles = async (
 
   if (containerRef === 'myCities') {
     myCitiesContainer = container
+    return
+  }
+  if (containerRef === 'profileCenter') {
+    profileCenterContainer = container
     return
   }
 
@@ -309,6 +347,16 @@ const mountLoginListParticles = async () => {
   )
 }
 
+const mountProfileCenterParticles = async () => {
+  await mountButtonParticles(
+    profileCenterParticleHostId,
+    profileCenterParticleState.value,
+    profileCenterBtnRef.value,
+    props.showProfileCenter,
+    'profileCenter',
+  )
+}
+
 const updateMyCitiesParticleState = (nextState: MyCitiesParticleState) => {
   if (myCitiesParticleState.value === nextState) {
     return
@@ -323,6 +371,14 @@ const updateLoginListParticleState = (nextState: MyCitiesParticleState) => {
   }
   loginListParticleState.value = nextState
   void mountLoginListParticles()
+}
+
+const updateProfileCenterParticleState = (nextState: MyCitiesParticleState) => {
+  if (profileCenterParticleState.value === nextState) {
+    return
+  }
+  profileCenterParticleState.value = nextState
+  void mountProfileCenterParticles()
 }
 
 const onMyCitiesMouseEnter = () => {
@@ -389,6 +445,38 @@ const onLoginListBlur = () => {
   updateLoginListParticleState(loginListHovered.value ? 'hover' : 'idle')
 }
 
+const onProfileCenterMouseEnter = () => {
+  profileCenterHovered.value = true
+  updateProfileCenterParticleState('hover')
+}
+
+const onProfileCenterMouseLeave = () => {
+  profileCenterHovered.value = false
+  if (profileCenterFocused.value) {
+    updateProfileCenterParticleState('hover')
+    return
+  }
+  updateProfileCenterParticleState('idle')
+}
+
+const onProfileCenterMouseDown = () => {
+  updateProfileCenterParticleState('active')
+}
+
+const onProfileCenterMouseUp = () => {
+  updateProfileCenterParticleState(profileCenterHovered.value || profileCenterFocused.value ? 'hover' : 'idle')
+}
+
+const onProfileCenterFocus = () => {
+  profileCenterFocused.value = true
+  updateProfileCenterParticleState('hover')
+}
+
+const onProfileCenterBlur = () => {
+  profileCenterFocused.value = false
+  updateProfileCenterParticleState(profileCenterHovered.value ? 'hover' : 'idle')
+}
+
 const handleAvatarError = (event: Event) => {
   avatarLoadFailed.value = true
 }
@@ -415,6 +503,19 @@ watch(
 )
 
 watch(
+  () => props.showProfileCenter,
+  (show) => {
+    if (!show) {
+      profileCenterParticleState.value = 'idle'
+      destroyButtonParticles('profileCenter')
+      return
+    }
+    void mountProfileCenterParticles()
+  },
+  { immediate: true },
+)
+
+watch(
   () => props.showLoginList,
   (show) => {
     if (!show) {
@@ -429,6 +530,7 @@ watch(
 
 onBeforeUnmount(() => {
   destroyButtonParticles('myCities')
+  destroyButtonParticles('profileCenter')
   destroyButtonParticles('loginList')
 })
 </script>
@@ -606,6 +708,19 @@ onBeforeUnmount(() => {
   background:
     linear-gradient(165deg, rgba(18, 18, 60, 0.78), rgba(11, 14, 42, 0.66)),
     rgba(10, 19, 45, 0.54);
+}
+
+.profile-center-btn {
+  color: #d8f2ff;
+  background:
+    linear-gradient(165deg, rgba(8, 26, 64, 0.78), rgba(6, 18, 47, 0.66)),
+    rgba(8, 22, 52, 0.56);
+}
+
+.profile-center-btn .my-cities-label {
+  text-shadow:
+    0 0 8px rgba(117, 241, 255, 0.42),
+    0 0 12px rgba(126, 203, 255, 0.24);
 }
 
 .login-list-btn .my-cities-label {
