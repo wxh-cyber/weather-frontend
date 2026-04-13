@@ -9,8 +9,16 @@
       </div>
       <div v-if="props.showCenterSearch" class="nav-center">
         <div class="search-wrap">
-          <input class="search" type="text" :placeholder="props.searchPlaceholder" />
-          <el-icon class="search-icon"><Search /></el-icon>
+          <input
+            v-model="searchKeyword"
+            class="search"
+            type="text"
+            :placeholder="props.searchPlaceholder"
+            @keydown.enter="emitSearchSubmit"
+          />
+          <button type="button" class="search-trigger" aria-label="查询默认城市" @click="emitSearchSubmit">
+            <el-icon class="search-icon"><Search /></el-icon>
+          </button>
         </div>
       </div>
       <div v-else-if="props.showMyCities || props.showProfileCenter || props.showLoginList" class="nav-center nav-center-button">
@@ -163,10 +171,12 @@ const emit = defineEmits<{
   (e: 'profile-center-click'): void
   (e: 'login-list-click'): void
   (e: 'logout-click'): void
+  (e: 'search-submit', keyword: string): void
 }>()
 
 type MyCitiesParticleState = 'idle' | 'hover' | 'active'
 
+const searchKeyword = ref('')
 const myCitiesParticleHostId = 'my-cities-particles'
 const myCitiesParticleState = ref<MyCitiesParticleState>('idle')
 const myCitiesHovered = ref(false)
@@ -189,6 +199,10 @@ let loginListContainer: Container | undefined
 let slimLoader: Promise<void> | null = null
 
 const showAvatar = computed(() => Boolean(props.avatarUrl && !avatarLoadFailed.value))
+
+const emitSearchSubmit = () => {
+  emit('search-submit', searchKeyword.value.trim())
+}
 
 const isReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -627,7 +641,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: stretch;
-  gap: 10px;
+  gap: 12px;
   height: 100%;
 }
 
@@ -636,39 +650,71 @@ onBeforeUnmount(() => {
   height: calc(100% - 2px);
   min-height: 0;
   width: fit-content;
-  min-width: 76px;
-  padding: 0 16px;
-  border-radius: 0;
-  border: 1px solid transparent;
+  min-width: 90px;
+  padding: 0 18px;
+  border-radius: 2px;
+  border: 1px solid rgba(117, 241, 255, 0.18);
   white-space: nowrap;
   color: var(--cyber-cyan);
   background:
-    linear-gradient(165deg, rgba(4, 20, 48, 0.74), rgba(3, 15, 39, 0.62)),
+    linear-gradient(180deg, rgba(117, 241, 255, 0.08), transparent 24%),
+    linear-gradient(165deg, rgba(6, 25, 58, 0.88), rgba(3, 15, 39, 0.74)),
     rgba(3, 20, 45, 0.5);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   font-size: 13px;
   box-shadow:
-    inset 0 0 12px rgba(117, 241, 255, 0.12),
-    0 1px 8px rgba(0, 0, 0, 0.24);
+    inset 0 1px 0 rgba(180, 252, 255, 0.16),
+    inset 0 0 18px rgba(117, 241, 255, 0.1),
+    0 1px 10px rgba(0, 0, 0, 0.28);
   cursor: pointer;
   overflow: hidden;
   transition:
     border-color var(--cyber-ease),
     transform var(--cyber-ease),
     box-shadow var(--cyber-ease),
-    filter var(--cyber-ease);
+    filter var(--cyber-ease),
+    background var(--cyber-ease),
+    color var(--cyber-ease);
+}
+
+.my-cities-btn::before,
+.my-cities-btn::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  transition: opacity var(--cyber-ease), transform var(--cyber-ease), box-shadow var(--cyber-ease);
+}
+
+.my-cities-btn::before {
+  inset: 4px 6px;
+  border: 1px solid rgba(117, 241, 255, 0.12);
+  border-radius: 1px;
+  opacity: 0.68;
+}
+
+.my-cities-btn::after {
+  left: 14px;
+  right: 14px;
+  bottom: 4px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(117, 241, 255, 0.9), transparent);
+  box-shadow: 0 0 10px rgba(117, 241, 255, 0.38);
+  opacity: 0.42;
 }
 
 .my-cities-label {
   position: relative;
   z-index: 2;
   white-space: nowrap;
-  text-shadow: 0 0 8px rgba(117, 241, 255, 0.46);
+  text-shadow:
+    0 0 6px rgba(117, 241, 255, 0.34),
+    0 0 14px rgba(117, 241, 255, 0.18);
+  transition: text-shadow var(--cyber-ease), transform var(--cyber-ease), color var(--cyber-ease);
 }
 
 .my-cities-particles {
@@ -685,48 +731,71 @@ onBeforeUnmount(() => {
 .my-cities-btn:hover,
 .my-cities-btn:focus-visible {
   border-color: rgba(117, 241, 255, 0.76);
+  background:
+    linear-gradient(180deg, rgba(117, 241, 255, 0.14), transparent 28%),
+    linear-gradient(165deg, rgba(8, 31, 72, 0.92), rgba(5, 18, 47, 0.8)),
+    rgba(3, 20, 45, 0.56);
   box-shadow:
-    inset 0 0 16px rgba(117, 241, 255, 0.34),
-    0 0 14px rgba(117, 241, 255, 0.24),
-    0 0 20px rgba(255, 82, 205, 0.16);
-  transform: translateY(-1px);
-  filter: brightness(1.08);
+    inset 0 1px 0 rgba(190, 253, 255, 0.28),
+    inset 0 0 20px rgba(117, 241, 255, 0.22),
+    0 0 16px rgba(117, 241, 255, 0.2),
+    0 0 24px rgba(255, 82, 205, 0.14);
+  transform: translateY(-1px) scale(1.01);
+  filter: brightness(1.06);
   outline: none;
+}
+
+.my-cities-btn:hover::before,
+.my-cities-btn:focus-visible::before {
+  opacity: 1;
+  transform: scaleX(1.01);
+  box-shadow: inset 0 0 12px rgba(117, 241, 255, 0.08);
+}
+
+.my-cities-btn:hover::after,
+.my-cities-btn:focus-visible::after {
+  opacity: 0.86;
+  transform: scaleX(1.04);
+}
+
+.my-cities-btn:hover .my-cities-label,
+.my-cities-btn:focus-visible .my-cities-label {
+  text-shadow:
+    0 0 8px rgba(117, 241, 255, 0.52),
+    0 0 18px rgba(117, 241, 255, 0.28);
 }
 
 .my-cities-btn.is-current {
   border-color: rgba(255, 82, 205, 0.86);
+  background:
+    linear-gradient(180deg, rgba(255, 82, 205, 0.12), transparent 30%),
+    linear-gradient(165deg, rgba(11, 28, 69, 0.94), rgba(8, 17, 49, 0.82)),
+    rgba(4, 18, 45, 0.58);
   box-shadow:
-    inset 0 0 18px rgba(117, 241, 255, 0.34),
-    0 0 16px rgba(117, 241, 255, 0.2),
-    0 0 24px rgba(255, 82, 205, 0.26);
+    inset 0 1px 0 rgba(235, 199, 255, 0.16),
+    inset 0 0 22px rgba(117, 241, 255, 0.2),
+    0 0 18px rgba(117, 241, 255, 0.16),
+    0 0 28px rgba(255, 82, 205, 0.22);
   color: #f7fdff;
 }
 
-.login-list-btn {
-  color: #ffd7fa;
-  background:
-    linear-gradient(165deg, rgba(18, 18, 60, 0.78), rgba(11, 14, 42, 0.66)),
-    rgba(10, 19, 45, 0.54);
+.my-cities-btn.is-current::before {
+  border-color: rgba(255, 82, 205, 0.24);
+  opacity: 0.96;
 }
 
-.profile-center-btn {
-  color: #d8f2ff;
-  background:
-    linear-gradient(165deg, rgba(8, 26, 64, 0.78), rgba(6, 18, 47, 0.66)),
-    rgba(8, 22, 52, 0.56);
+.my-cities-btn.is-current::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 167, 231, 0.96), transparent);
+  box-shadow:
+    0 0 12px rgba(255, 82, 205, 0.42),
+    0 0 20px rgba(117, 241, 255, 0.22);
+  opacity: 0.92;
 }
 
-.profile-center-btn .my-cities-label {
+.my-cities-btn.is-current .my-cities-label {
   text-shadow:
-    0 0 8px rgba(117, 241, 255, 0.42),
-    0 0 12px rgba(126, 203, 255, 0.24);
-}
-
-.login-list-btn .my-cities-label {
-  text-shadow:
-    0 0 8px rgba(255, 82, 205, 0.4),
-    0 0 12px rgba(117, 241, 255, 0.18);
+    0 0 10px rgba(211, 249, 255, 0.52),
+    0 0 20px rgba(255, 82, 205, 0.22);
 }
 
 .my-cities-btn.is-hover .my-cities-particles,
@@ -740,10 +809,14 @@ onBeforeUnmount(() => {
 
 .my-cities-btn:active {
   border-color: rgba(255, 82, 205, 0.9);
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.995);
   box-shadow:
-    inset 0 0 18px rgba(117, 241, 255, 0.38),
-    0 0 12px rgba(255, 82, 205, 0.38);
+    inset 0 0 18px rgba(117, 241, 255, 0.32),
+    0 0 10px rgba(255, 82, 205, 0.32);
+}
+
+.my-cities-btn:active::after {
+  opacity: 1;
 }
 
 .search-wrap {
@@ -773,14 +846,35 @@ onBeforeUnmount(() => {
 }
 
 .search-icon {
+  font-size: 18px;
+}
+
+.search-trigger {
   position: absolute;
-  right: 14px;
+  right: 10px;
   top: 50%;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transform: translateY(-50%);
   color: var(--cyber-cyan);
-  font-size: 18px;
+  cursor: pointer;
   filter: drop-shadow(0 0 8px rgba(117, 241, 255, 0.7));
   animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
+  transition: transform var(--cyber-ease), filter var(--cyber-ease), color var(--cyber-ease);
+}
+
+.search-trigger:hover,
+.search-trigger:focus-visible {
+  color: #eafcff;
+  transform: translateY(-50%) scale(1.05);
+  filter: drop-shadow(0 0 10px rgba(117, 241, 255, 0.88));
+  outline: none;
 }
 
 /* 右侧github链接样式 */
@@ -936,7 +1030,7 @@ onBeforeUnmount(() => {
     grid-column: auto;
     order: 0;
     height: 100%;
-    gap: 8px;
+    gap: 6px;
   }
 
   .logo-text {
@@ -969,6 +1063,7 @@ onBeforeUnmount(() => {
   .my-cities-btn {
     height: calc(100% - 2px);
     min-height: 0;
+    min-width: 78px;
     padding: 0 12px;
     font-size: 12px;
   }

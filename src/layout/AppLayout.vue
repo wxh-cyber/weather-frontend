@@ -7,10 +7,12 @@ import AppTopNav from '@/layout/AppTopNav.vue'
 import CyberCursorOverlay from '@/layout/CyberCursorOverlay.vue'
 import { getProfile } from '@/service/auth'
 import { useAuthStore } from '@/store/auth'
+import { useCityStore } from '@/store/city'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const cityStore = useCityStore()
 const { isLoggedIn, displayName, user } = storeToRefs(authStore)
 
 const syncUserStatus = () => {
@@ -95,6 +97,18 @@ const goToLoginList = () => {
 const goToCenter = () => {
   router.push('/center')
 }
+
+const handleSearchSubmit = async () => {
+  await cityStore.ensureCitiesLoaded()
+  const defaultCity = cityStore.cities[0]
+
+  if (!defaultCity) {
+    ElMessage.warning('当前账户还没有默认城市，请先在我的城市中设置')
+    return
+  }
+
+  await router.push(`/weather/${encodeURIComponent(defaultCity.cityName)}`)
+}
 </script>
 
 <template>
@@ -114,6 +128,7 @@ const goToCenter = () => {
       @profile-center-click="goToCenter"
       @login-list-click="goToLoginList"
       @logout-click="handleLogout"
+      @search-submit="handleSearchSubmit"
     />
     <main class="app-main">
       <RouterView />

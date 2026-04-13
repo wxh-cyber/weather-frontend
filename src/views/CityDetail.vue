@@ -1,56 +1,58 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import WeatherPageShell from '@/components/weather/WeatherPageShell.vue'
 import WeatherCityOverview from '@/components/weather/WeatherCityOverview.vue'
 import { useCityStore } from '@/store/city'
 
 const route = useRoute()
 const cityStore = useCityStore()
-
-const cityName = computed(() => String(route.params.cityName))
-const cityData = computed(() => cityStore.cities.find((c) => c.cityName === cityName.value))
-
 const menus = ['发现', '天气', '地图', '每小时预报', '月度天气', '天气趋势', '台风']
+const selectedCityName = ref('')
+
+const routeCityName = computed(() => String(route.params.cityName))
+const selectedCity = computed(
+  () => cityStore.cities.find((city) => city.cityName === selectedCityName.value)
+    ?? cityStore.cities.find((city) => city.cityName === routeCityName.value)
+    ?? null,
+)
+
+const syncSelectedCity = () => {
+  const currentName = selectedCityName.value.trim()
+  const hasCurrentCity = cityStore.cities.some((city) => city.cityName === currentName)
+  if (hasCurrentCity) {
+    return
+  }
+
+  selectedCityName.value = routeCityName.value
+}
+
+watch(routeCityName, (nextCityName) => {
+  selectedCityName.value = nextCityName
+})
+watch(() => cityStore.cities, syncSelectedCity, { deep: true, immediate: true })
+
+onMounted(async () => {
+  await cityStore.ensureCitiesLoaded()
+  syncSelectedCity()
+})
+
+const handleCitySelect = (cityName: string) => {
+  selectedCityName.value = cityName
+}
 </script>
 
 <template>
-  <main class="weather-page">
-    <div class="cyber-grid-layer" />
-    <div class="container">
+  <WeatherPageShell :city-name="selectedCity?.cityName ?? ''">
       <WeatherCityOverview
+        v-if="selectedCity"
         :menus="menus"
-        :cities="[cityName]"
-        :temperature="cityData?.temperature"
-        :weather-text="cityData?.weatherText"
+        :cities="cityStore.cities"
+        :default-city-name="cityStore.cities[0]?.cityName ?? ''"
+        :selected-city-name="selectedCity.cityName"
+        :temperature="selectedCity.temperature"
+        :weather-text="selectedCity.weatherText"
+        @city-select="handleCitySelect"
       />
-    </div>
-  </main>
+  </WeatherPageShell>
 </template>
-
-<style scoped>
-.weather-page {
-  position: relative;
-  min-height: calc(100vh - var(--app-nav-height));
-  background:
-    radial-gradient(circle at 18% 10%, rgba(0, 255, 255, 0.18), transparent 38%),
-    radial-gradient(circle at 85% 85%, rgba(255, 0, 153, 0.14), transparent 45%),
-    linear-gradient(180deg, #051028 0%, #020816 100%);
-  padding: 26px 16px 34px;
-  color: var(--cyber-text);
-}
-
-.container {
-  position: relative;
-  z-index: 1;
-  width: min(1140px, 100%);
-  margin: 0 auto;
-  color: var(--cyber-text);
-}
-
-@media (max-width: 640px) {
-  .weather-page {
-    min-height: calc(100vh - var(--app-nav-height-mobile));
-    padding-top: 20px;
-  }
-}
-</style>

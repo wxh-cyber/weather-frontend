@@ -1,10 +1,32 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+
+const props = withDefaults(
+  defineProps<{
+    cityName?: string
+    weatherText?: string
+  }>(),
+  {
+    cityName: '默认城市',
+    weatherText: '多云',
+  },
+)
+
+const note = computed(() => {
+  if (props.weatherText.includes('雨')) return `${props.cityName}未来 2 小时存在短时降水波动，请关注雷达回波。`
+  if (props.weatherText.includes('雪')) return `${props.cityName}上空云层较厚，短时可能出现降雪增强。`
+  if (props.weatherText.includes('晴')) return `${props.cityName}当前云层较少，至少 2 小时内无明显降水信号。`
+  return `${props.cityName}云层活动平稳，至少 2 小时内无强降水信号。`
+})
+</script>
+
 <template>
   <article class="panel">
-    <h3>南昌市降水地图</h3>
+    <h3>{{ props.cityName }}降水地图</h3>
     <div class="map">
       <div class="dot" />
     </div>
-    <p class="note">至少 2 小时内没有降水。</p>
+    <p class="note">{{ note }}</p>
   </article>
 </template>
 
@@ -57,6 +79,20 @@ h3 {
 .map::after {
   top: 62%;
   transform: rotate(6deg);
+}
+
+.dot {
+  position: absolute;
+  left: 54%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 227, 163, 0.7);
+  background: rgba(255, 211, 90, 0.8);
+  box-shadow:
+    0 0 12px rgba(255, 213, 90, 0.6),
+    0 0 24px rgba(117, 241, 255, 0.18);
 }
 
 .note {

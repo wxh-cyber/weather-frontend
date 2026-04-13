@@ -3,19 +3,20 @@ import CurrentWeatherPanel from '@/components/weather/CurrentWeatherPanel.vue'
 import HourlyForecastPanel from '@/components/weather/HourlyForecastPanel.vue'
 import WeatherCityTabs from '@/components/weather/WeatherCityTabs.vue'
 import WeatherMapPanel from '@/components/weather/WeatherMapPanel.vue'
+import type { CityItem } from '@/store/city'
 
-const props = withDefaults(
-  defineProps<{
-    menus: string[]
-    cities: string[]
-    temperature?: string
-    weatherText?: string
-  }>(),
-  {
-    temperature: '11°C',
-    weatherText: '多云',
-  },
-)
+const props = defineProps<{
+  menus: string[]
+  cities: CityItem[]
+  defaultCityName: string
+  selectedCityName: string
+  temperature?: string
+  weatherText?: string
+}>()
+
+const emit = defineEmits<{
+  (e: 'city-select', cityName: string): void
+}>()
 </script>
 
 <template>
@@ -26,14 +27,27 @@ const props = withDefaults(
       </nav>
     </header>
 
-    <WeatherCityTabs :cities="cities" />
+    <WeatherCityTabs
+      :cities="props.cities"
+      :default-city-name="props.defaultCityName"
+      :selected-city-name="props.selectedCityName"
+      @select="emit('city-select', $event)"
+    />
 
     <section class="overview-grid">
-      <CurrentWeatherPanel :temperature="props.temperature" :weather-text="props.weatherText" />
-      <WeatherMapPanel />
+      <CurrentWeatherPanel
+        :city-name="props.selectedCityName"
+        :temperature="props.temperature"
+        :weather-text="props.weatherText"
+      />
+      <WeatherMapPanel :city-name="props.selectedCityName" :weather-text="props.weatherText" />
     </section>
 
-    <HourlyForecastPanel />
+    <HourlyForecastPanel
+      :city-name="props.selectedCityName"
+      :temperature="props.temperature"
+      :weather-text="props.weatherText"
+    />
   </section>
 </template>
 
@@ -41,6 +55,7 @@ const props = withDefaults(
 .city-overview {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 .dashboard-head {
@@ -83,6 +98,7 @@ const props = withDefaults(
   display: grid;
   gap: 14px;
   grid-template-columns: 1.8fr 1fr;
+  min-width: 0;
 }
 
 @media (max-width: 940px) {

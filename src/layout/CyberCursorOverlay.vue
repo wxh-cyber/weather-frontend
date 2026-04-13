@@ -63,7 +63,7 @@ let lastSampleX: number | null = null
 let lastSampleY: number | null = null
 
 //处理鼠标移动事件
-const handlePointerMove = (event: MouseEvent) => {
+const handlePointerMove = (event: MouseEvent | PointerEvent) => {
   //保存鼠标位置，并设置是否可见
   pointerX.value = event.clientX
   pointerY.value = event.clientY
@@ -248,6 +248,7 @@ onMounted(() => {
     rafId = window.requestAnimationFrame(animateParticles)
   }
   window.addEventListener('mousemove', handlePointerMove)
+  window.addEventListener('pointermove', handlePointerMove)
   window.addEventListener('mouseenter', showPointer)
   window.addEventListener('resize', handleResize)
   document.addEventListener('mouseleave', hidePointer)
@@ -265,6 +266,7 @@ onBeforeUnmount(() => {
   rippleTimers.forEach((timer) => window.clearTimeout(timer))
   rippleTimers.clear()
   window.removeEventListener('mousemove', handlePointerMove)
+  window.removeEventListener('pointermove', handlePointerMove)
   window.removeEventListener('mouseenter', showPointer)
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('mouseleave', hidePointer)

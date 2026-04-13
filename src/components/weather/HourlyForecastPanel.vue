@@ -1,25 +1,62 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { getWeatherIcon, type WeatherIconKey } from '@/components/weather/weatherIconMap'
 
-const forecasts = [
-  { day: '昨天', high: '19°', low: '11°', iconKey: 'rainy' as WeatherIconKey },
-  { day: '今天', high: '11°', low: '9°', iconKey: 'night-cloudy' as WeatherIconKey },
-  { day: '周四', high: '14°', low: '11°', iconKey: 'partly-cloudy' as WeatherIconKey },
-  { day: '周五', high: '13°', low: '10°', iconKey: 'rainy' as WeatherIconKey },
-  { day: '周六', high: '17°', low: '12°', iconKey: 'sunny' as WeatherIconKey },
-  { day: '周日', high: '18°', low: '13°', iconKey: 'rainy' as WeatherIconKey },
-]
+const props = withDefaults(
+  defineProps<{
+    cityName?: string
+    temperature?: string
+    weatherText?: string
+  }>(),
+  {
+    cityName: '默认城市',
+    temperature: '11°C',
+    weatherText: '多云',
+  },
+)
+
+const citySeed = computed(() => Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0))
+const baseTemp = computed(() => {
+  const value = Number.parseInt(props.temperature, 10)
+  return Number.isNaN(value) ? 11 : value
+})
+
+const resolveIconKey = (offset: number): WeatherIconKey => {
+  const text = props.weatherText
+  if (text.includes('雨')) return offset % 2 === 0 ? 'rainy' : 'cloudy'
+  if (text.includes('雪')) return 'snowy'
+  if (text.includes('晴')) return offset % 2 === 0 ? 'sunny' : 'partly-cloudy'
+  if (text.includes('阴')) return 'cloudy'
+  return offset % 2 === 0 ? 'night-cloudy' : 'partly-cloudy'
+}
+
+const forecasts = computed(() => {
+  const days = ['今天', '今晚', '明天', '周五', '周六', '周日']
+  return days.map((day, index) => {
+    const high = `${baseTemp.value + ((citySeed.value + index) % 5)}°`
+    const low = `${baseTemp.value - 2 + ((citySeed.value + index) % 3)}°`
+    return {
+      day,
+      high,
+      low,
+      iconKey: resolveIconKey(index),
+    }
+  })
+})
 </script>
 
 <template>
   <section class="hourly">
     <header class="head">
-      <h2>每小时预报</h2>
+      <div>
+        <h2>{{ props.cityName }}趋势预报</h2>
+        <p class="head-note">以下内容为基于当前城市天气状态生成的联动概览。</p>
+      </div>
       <div class="chips">
         <span class="chip active">概览</span>
-        <span class="chip">降水</span>
-        <span class="chip">风速</span>
-        <span class="chip">湿度</span>
+        <span class="chip">{{ props.weatherText }}</span>
+        <span class="chip">温度轨迹</span>
+        <span class="chip">风场扫描</span>
       </div>
     </header>
 
@@ -56,6 +93,11 @@ h2 {
   color: var(--cyber-cyan);
   text-shadow: 0 0 10px rgba(117, 241, 255, 0.45);
   animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
+}
+
+.head-note {
+  margin: 6px 0 0;
+  color: rgba(203, 238, 250, 0.7);
 }
 
 .chips {

@@ -1,40 +1,66 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { getWeatherIcon } from '@/components/weather/weatherIconMap'
 
 const props = withDefaults(
   defineProps<{
+    cityName?: string
     temperature?: string
     weatherText?: string
   }>(),
   {
+    cityName: '默认城市',
     temperature: '11°C',
     weatherText: '多云',
   },
 )
 
-const metrics = [
-  { label: '空气质量', value: '27' },
-  { label: '风速', value: '东北风 2级' },
-  { label: '湿度', value: '80%' },
-  { label: '能见度', value: '15.6 公里' },
-  { label: '气压', value: '1015 hPa' },
-  { label: '露点', value: '8°' },
-]
+const citySeed = computed(() => Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0))
 
-const currentIcon = getWeatherIcon('night-cloudy')
+const metrics = computed(() => {
+  const seed = citySeed.value
+  return [
+    { label: '空气质量', value: `${22 + (seed % 18)}` },
+    { label: '风速', value: `东北风 ${1 + (seed % 4)}级` },
+    { label: '湿度', value: `${58 + (seed % 27)}%` },
+    { label: '能见度', value: `${12 + (seed % 7)}.${seed % 10} 公里` },
+    { label: '气压', value: `${1008 + (seed % 11)} hPa` },
+    { label: '露点', value: `${5 + (seed % 7)}°` },
+  ]
+})
+
+const currentIconKey = computed(() => {
+  const text = props.weatherText
+  if (text.includes('雨')) return 'rainy'
+  if (text.includes('雪')) return 'snowy'
+  if (text.includes('晴')) return 'sunny'
+  if (text.includes('阴')) return 'cloudy'
+  return 'night-cloudy'
+})
+
+const currentIcon = computed(() => getWeatherIcon(currentIconKey.value))
+const feelLike = computed(() => {
+  const temperature = Number.parseInt(props.temperature, 10)
+  if (Number.isNaN(temperature)) return '--'
+  return `${temperature - 2}°`
+})
+const tipText = computed(() => `${props.cityName}今天以${props.weatherText}为主，夜间体感会更清凉。`)
 </script>
 
 <template>
   <article class="panel">
-    <p class="subtitle">当前天气</p>
+    <div class="panel-head">
+      <p class="subtitle">当前天气</p>
+      <p class="city-tag">{{ props.cityName }}</p>
+    </div>
     <div class="temp-row">
       <img class="icon weather-icon" :src="currentIcon.src" :alt="currentIcon.alt" />
       <div>
         <p class="temp">{{ props.temperature }}</p>
-        <p class="desc">{{ props.weatherText }} · 体感温度 9°</p>
+        <p class="desc">{{ props.weatherText }} · 体感温度 {{ feelLike }}</p>
       </div>
     </div>
-    <p class="tips">今天部分地区多云。最低气温 9°。</p>
+    <p class="tips">{{ tipText }}</p>
     <div class="metrics">
       <div v-for="item in metrics" :key="item.label" class="metric">
         <span>{{ item.label }}</span>
@@ -56,8 +82,26 @@ const currentIcon = getWeatherIcon('night-cloudy')
   animation: cyber-breathe-subtle var(--cyber-breathe-subtle-duration) var(--cyber-breathe-ease) infinite;
 }
 
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
 .subtitle {
   color: var(--cyber-text-muted);
+}
+
+.city-tag {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(117, 241, 255, 0.24);
+  background: rgba(7, 24, 56, 0.58);
+  color: var(--cyber-cyan);
+  font-size: 12px;
+  letter-spacing: 0.08em;
 }
 
 .temp-row {
