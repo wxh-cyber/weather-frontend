@@ -8,6 +8,8 @@ import List from '../views/List.vue'
 import LoginList from '../views/LoginList.vue'
 import CityDetail from '../views/CityDetail.vue'
 
+const CITY_LIST_STORAGE_KEY = 'city_list'
+
 const hasStoredAuth = () => {
   if (typeof window === 'undefined') {
     return false
@@ -16,6 +18,25 @@ const hasStoredAuth = () => {
   const token = localStorage.getItem('auth_token')
   const user = localStorage.getItem('auth_user')
   return Boolean(token && user)
+}
+
+const getStoredDefaultCityName = () => {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const raw = localStorage.getItem(CITY_LIST_STORAGE_KEY)
+  if (!raw) {
+    return ''
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Array<{ cityName?: unknown }>
+    const firstCityName = parsed[0]?.cityName
+    return typeof firstCityName === 'string' ? firstCityName.trim() : ''
+  } catch {
+    return ''
+  }
 }
 
 export const resolveProtectedRoute = (toPath: string, requiresAuth: boolean) => {
@@ -28,6 +49,20 @@ export const resolveProtectedRoute = (toPath: string, requiresAuth: boolean) => 
     query: {
       reason: 'unauthorized',
       redirect: toPath,
+    },
+  }
+}
+
+export const resolveWeatherEntryRoute = () => {
+  const defaultCityName = getStoredDefaultCityName()
+  if (!defaultCityName) {
+    return true
+  }
+
+  return {
+    name: 'city-detail',
+    params: {
+      cityName: defaultCityName,
     },
   }
 }
@@ -46,6 +81,7 @@ const router = createRouter({
       name: 'weather',
       component: Home, // 天气主页面
       alias: ['/weather/'],
+      beforeEnter: () => resolveWeatherEntryRoute(),
       meta: { navVariant: 'home' },
     },
     {

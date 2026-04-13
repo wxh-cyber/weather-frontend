@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import WeatherPageShell from '@/components/weather/WeatherPageShell.vue'
 import WeatherCityOverview from '@/components/weather/WeatherCityOverview.vue'
 import { useCityStore } from '@/store/city'
 
 const route = useRoute()
+const router = useRouter()
 const cityStore = useCityStore()
 const menus = ['发现', '天气', '地图', '每小时预报', '月度天气', '天气趋势', '台风']
 const selectedCityName = ref('')
@@ -38,12 +39,19 @@ onMounted(async () => {
 })
 
 const handleCitySelect = (cityName: string) => {
-  selectedCityName.value = cityName
+  if (routeCityName.value === cityName) {
+    return
+  }
+
+  void router.push({
+    name: 'city-detail',
+    params: { cityName },
+  })
 }
 </script>
 
 <template>
-  <WeatherPageShell :city-name="selectedCity?.cityName ?? ''">
+  <WeatherPageShell :city-name="selectedCity?.cityName ?? ''" :weather-text="selectedCity?.weatherText ?? ''">
       <WeatherCityOverview
         v-if="selectedCity"
         :menus="menus"

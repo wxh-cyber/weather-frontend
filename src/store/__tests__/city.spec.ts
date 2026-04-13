@@ -77,6 +77,43 @@ describe('city store', () => {
     expect(store.cities).toEqual(sampleResponse.data)
   })
 
+  it('syncFromStorage should keep cities empty when localStorage has no city_list', () => {
+    const store = useCityStore()
+
+    store.syncFromStorage()
+
+    expect(store.cities).toEqual([])
+    expect(localStorage.getItem('city_list')).toBeNull()
+  })
+
+  it('syncFromStorage should migrate legacy default city list to empty array', () => {
+    localStorage.setItem(
+      'city_list',
+      JSON.stringify([
+        { cityName: '沙市区', weatherText: '多云', temperature: '11°C' },
+        { cityName: '双港东大街', weatherText: '小雨', temperature: '10°C' },
+        { cityName: '南昌市', weatherText: '阴天', temperature: '12°C' },
+        { cityName: '荆州市', weatherText: '晴', temperature: '13°C' },
+        { cityName: '武汉市', weatherText: '阵雨', temperature: '14°C' },
+      ]),
+    )
+    const store = useCityStore()
+
+    store.syncFromStorage()
+
+    expect(store.cities).toEqual([])
+    expect(localStorage.getItem('city_list')).toBe('[]')
+  })
+
+  it('syncFromStorage should keep cities empty when city_list is invalid json', () => {
+    localStorage.setItem('city_list', '{invalid json')
+    const store = useCityStore()
+
+    store.syncFromStorage()
+
+    expect(store.cities).toEqual([])
+  })
+
   it('createCityByName should fail when duplicated name exists in pinia', async () => {
     const store = useCityStore()
     store.setCities([{ cityName: '武汉市', weatherText: '晴', temperature: '20°C' }])
@@ -129,14 +166,13 @@ describe('city store', () => {
   })
 
   it('deleteCityByName should fail when city not found after fallback', async () => {
-    mockedGetCityList.mockResolvedValue(sampleResponse)
+    mockedDeleteCity.mockRejectedValue(new Error('未找到待删除的城市'))
     const store = useCityStore()
 
     const result = await store.deleteCityByName('不存在城市')
 
     expect(result).toBe(false)
-    expect(mockedGetCityList).toHaveBeenCalledWith('')
-    expect(mockedDeleteCity).not.toHaveBeenCalled()
+    expect(mockedDeleteCity).toHaveBeenCalledWith('不存在城市')
     expect(store.error).toContain('未找到')
   })
 
@@ -153,6 +189,31 @@ describe('city store', () => {
     expect(result).toBe(true)
     expect(mockedDeleteCity).toHaveBeenCalledWith('武汉市')
     expect(store.cities).toEqual([{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }])
+  })
+
+  it('deleteCityByName should not depend on current pinia list during sequential deletes', async () => {
+    mockedDeleteCity
+      .mockResolvedValueOnce({
+        ...sampleResponse,
+        data: [{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }],
+      })
+      .mockResolvedValueOnce({
+        ...sampleResponse,
+        data: [],
+      })
+    const store = useCityStore()
+    store.setCities(sampleResponse.data)
+
+    const firstResult = await store.deleteCityByName('武汉市')
+    store.setCities([])
+    const secondResult = await store.deleteCityByName('上海市')
+
+    expect(firstResult).toBe(true)
+    expect(secondResult).toBe(true)
+    expect(mockedDeleteCity).toHaveBeenNthCalledWith(1, '武汉市')
+    expect(mockedDeleteCity).toHaveBeenNthCalledWith(2, '上海市')
+    expect(mockedGetCityList).not.toHaveBeenCalled()
+    expect(store.cities).toEqual([])
   })
 
   it('setDefaultCityByName should move target city to first position when city exists', async () => {

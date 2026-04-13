@@ -7,84 +7,88 @@
         <el-icon class="logo-icon"><Cloudy /></el-icon>
         <span class="logo-text">{{ props.brandText }}</span>
       </div>
-      <div v-if="props.showCenterSearch" class="nav-center">
-        <div class="search-wrap">
-          <input
-            v-model="searchKeyword"
-            class="search"
-            type="text"
-            :placeholder="props.searchPlaceholder"
-            @keydown.enter="emitSearchSubmit"
-          />
-          <button type="button" class="search-trigger" aria-label="查询默认城市" @click="emitSearchSubmit">
-            <el-icon class="search-icon"><Search /></el-icon>
+      <div
+        v-if="props.showMyCities || props.showProfileCenter || props.showLoginList"
+        class="nav-center nav-center-button"
+        :class="{ 'nav-center-button--centered': props.centerNavCentered }"
+      >
+          <button
+            v-if="props.showMyCities"
+            ref="myCitiesBtnRef"
+            type="button"
+            class="my-cities-btn"
+            :class="[
+              `is-${myCitiesParticleState}`,
+              { 'is-current': props.activeCenterAction === 'my-cities' },
+            ]"
+            @click="emit('my-cities-click')"
+            @mouseenter="onMyCitiesMouseEnter"
+            @mouseleave="onMyCitiesMouseLeave"
+            @mousedown="onMyCitiesMouseDown"
+            @mouseup="onMyCitiesMouseUp"
+            @focus="onMyCitiesFocus"
+            @blur="onMyCitiesBlur"
+          >
+            <span :id="myCitiesParticleHostId" class="my-cities-particles" aria-hidden="true" />
+            <span class="my-cities-label">我的城市</span>
           </button>
-        </div>
-      </div>
-      <div v-else-if="props.showMyCities || props.showProfileCenter || props.showLoginList" class="nav-center nav-center-button">
-        <button
-          v-if="props.showMyCities"
-          ref="myCitiesBtnRef"
-          type="button"
-          class="my-cities-btn"
-          :class="[
-            `is-${myCitiesParticleState}`,
-            { 'is-current': props.activeCenterAction === 'my-cities' },
-          ]"
-          @click="emit('my-cities-click')"
-          @mouseenter="onMyCitiesMouseEnter"
-          @mouseleave="onMyCitiesMouseLeave"
-          @mousedown="onMyCitiesMouseDown"
-          @mouseup="onMyCitiesMouseUp"
-          @focus="onMyCitiesFocus"
-          @blur="onMyCitiesBlur"
-        >
-          <span :id="myCitiesParticleHostId" class="my-cities-particles" aria-hidden="true" />
-          <span class="my-cities-label">我的城市</span>
-        </button>
-        <button
-          v-if="props.showProfileCenter"
-          ref="profileCenterBtnRef"
-          type="button"
-          class="my-cities-btn profile-center-btn"
-          :class="[
-            `is-${profileCenterParticleState}`,
-            { 'is-current': props.activeCenterAction === 'profile-center' },
-          ]"
-          @click="emit('profile-center-click')"
-          @mouseenter="onProfileCenterMouseEnter"
-          @mouseleave="onProfileCenterMouseLeave"
-          @mousedown="onProfileCenterMouseDown"
-          @mouseup="onProfileCenterMouseUp"
-          @focus="onProfileCenterFocus"
-          @blur="onProfileCenterBlur"
-        >
-          <span :id="profileCenterParticleHostId" class="my-cities-particles" aria-hidden="true" />
-          <span class="my-cities-label">个人中心</span>
-        </button>
-        <button
-          v-if="props.showLoginList"
-          ref="loginListBtnRef"
-          type="button"
-          class="my-cities-btn login-list-btn"
-          :class="[
-            `is-${loginListParticleState}`,
-            { 'is-current': props.activeCenterAction === 'login-list' },
-          ]"
-          @click="emit('login-list-click')"
-          @mouseenter="onLoginListMouseEnter"
-          @mouseleave="onLoginListMouseLeave"
-          @mousedown="onLoginListMouseDown"
-          @mouseup="onLoginListMouseUp"
-          @focus="onLoginListFocus"
-          @blur="onLoginListBlur"
-        >
-          <span :id="loginListParticleHostId" class="my-cities-particles" aria-hidden="true" />
-          <span class="my-cities-label">登录列表</span>
-        </button>
+          <button
+            v-if="props.showProfileCenter"
+            ref="profileCenterBtnRef"
+            type="button"
+            class="my-cities-btn profile-center-btn"
+            :class="[
+              `is-${profileCenterParticleState}`,
+              { 'is-current': props.activeCenterAction === 'profile-center' },
+            ]"
+            @click="emit('profile-center-click')"
+            @mouseenter="onProfileCenterMouseEnter"
+            @mouseleave="onProfileCenterMouseLeave"
+            @mousedown="onProfileCenterMouseDown"
+            @mouseup="onProfileCenterMouseUp"
+            @focus="onProfileCenterFocus"
+            @blur="onProfileCenterBlur"
+          >
+            <span :id="profileCenterParticleHostId" class="my-cities-particles" aria-hidden="true" />
+            <span class="my-cities-label">个人中心</span>
+          </button>
+          <button
+            v-if="props.showLoginList"
+            ref="loginListBtnRef"
+            type="button"
+            class="my-cities-btn login-list-btn"
+            :class="[
+              `is-${loginListParticleState}`,
+              { 'is-current': props.activeCenterAction === 'login-list' },
+            ]"
+            @click="emit('login-list-click')"
+            @mouseenter="onLoginListMouseEnter"
+            @mouseleave="onLoginListMouseLeave"
+            @mousedown="onLoginListMouseDown"
+            @mouseup="onLoginListMouseUp"
+            @focus="onLoginListFocus"
+            @blur="onLoginListBlur"
+          >
+            <span :id="loginListParticleHostId" class="my-cities-particles" aria-hidden="true" />
+            <span class="my-cities-label">登录列表</span>
+          </button>
       </div>
       <!-- 导航栏右侧 -->
       <div class="nav-right">
+        <div v-if="props.showCenterSearch" class="nav-right-search">
+          <div class="search-wrap">
+            <input
+              v-model="searchKeyword"
+              class="search"
+              type="text"
+              :placeholder="props.searchPlaceholder"
+              @keydown.enter="emitSearchSubmit"
+            />
+            <button type="button" class="search-trigger" aria-label="查询默认城市" @click="emitSearchSubmit">
+              <el-icon class="search-icon"><Search /></el-icon>
+            </button>
+          </div>
+        </div>
         <el-tooltip content="将前往Github仓库" placement="bottom" effect="dark">
           <a
             class="github-link"
@@ -144,6 +148,7 @@ const props = withDefaults(
     showMyCities?: boolean
     showProfileCenter?: boolean
     showLoginList?: boolean
+    centerNavCentered?: boolean
     searchPlaceholder?: string
     loginLabel?: string
     avatarUrl?: string
@@ -157,6 +162,7 @@ const props = withDefaults(
     showMyCities: false,
     showProfileCenter: false,
     showLoginList: false,
+    centerNavCentered: false,
     searchPlaceholder: '搜索城市',
     loginLabel: '未登录',
     avatarUrl: '',
@@ -635,14 +641,19 @@ onBeforeUnmount(() => {
 
 .nav-center {
   width: 100%;
+  min-width: 0;
 }
 
 .nav-center-button {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: stretch;
   gap: 12px;
   height: 100%;
+}
+
+.nav-center-button--centered {
+  justify-content: center;
 }
 
 .my-cities-btn {
@@ -822,6 +833,11 @@ onBeforeUnmount(() => {
 .search-wrap {
   width: 100%;
   position: relative;
+}
+
+.nav-right-search {
+  width: min(320px, 32vw);
+  min-width: 220px;
 }
 
 .search {
@@ -1031,6 +1047,11 @@ onBeforeUnmount(() => {
     order: 0;
     height: 100%;
     gap: 6px;
+  }
+
+  .nav-right-search {
+    width: 100%;
+    min-width: 0;
   }
 
   .logo-text {

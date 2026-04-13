@@ -9,7 +9,7 @@ export interface CityItem {
 
 const CITY_LIST_KEY = 'city_list'
 
-const defaultCities: CityItem[] = [
+const legacyDefaultCities: CityItem[] = [
   { cityName: '沙市区', weatherText: '多云', temperature: '11°C' },
   { cityName: '双港东大街', weatherText: '小雨', temperature: '10°C' },
   { cityName: '南昌市', weatherText: '阴天', temperature: '12°C' },
@@ -21,6 +21,8 @@ const isBrowser = () => typeof window !== 'undefined'
 const normalizeCityName = (cityName: string) => cityName.trim()
 const equalsCityName = (left: string, right: string) =>
   left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase()
+const isLegacyDefaultCityList = (items: unknown): items is CityItem[] =>
+  JSON.stringify(items) === JSON.stringify(legacyDefaultCities)
 
 export const useCityStore = defineStore('city', {
   state: () => ({
@@ -180,17 +182,6 @@ export const useCityStore = defineStore('city', {
       }
 
       this.setError('')
-      let cityExists = this.cities.some((item) => equalsCityName(item.cityName, normalizedName))
-      if (!cityExists) {
-        await this.fetchCities('')
-        cityExists = this.cities.some((item) => equalsCityName(item.cityName, normalizedName))
-      }
-
-      if (!cityExists) {
-        this.setError('未找到待删除的城市')
-        return false
-      }
-
       this.loading = true
       try {
         const response = await deleteCity(normalizedName)
@@ -210,24 +201,27 @@ export const useCityStore = defineStore('city', {
     },
     syncFromStorage() {
       if (!isBrowser()) {
-        this.cities = [...defaultCities]
+        this.cities = []
         return
       }
 
       const raw = localStorage.getItem(CITY_LIST_KEY)
       if (!raw) {
-        this.cities = [...defaultCities]
-        this.persistCities()
+        this.cities = []
         return
       }
 
       try {
         const parsed = JSON.parse(raw) as CityItem[]
-        this.cities = Array.isArray(parsed) && parsed.length > 0 ? parsed : [...defaultCities]
+        if (!Array.isArray(parsed) || isLegacyDefaultCityList(parsed)) {
+          this.cities = []
+          this.persistCities()
+          return
+        }
+        this.cities = [...parsed]
       } catch {
-        this.cities = [...defaultCities]
+        this.cities = []
       }
-      this.persistCities()
     },
   },
 })

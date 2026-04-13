@@ -16,6 +16,10 @@ const deleteFilterKeyword = ref('')
 const batchConfirmVisible = ref(false)
 const batchDeleteSummary = ref('')
 const singleDeletingName = ref('')
+const hasCities = computed(() => cityItems.value.length > 0)
+const allCitiesSelected = computed(
+  () => hasCities.value && selectedDeleteCities.value.length === cityItems.value.length,
+)
 
 const cityNameOptions = computed(() =>
   cityItems.value.map((item) => ({
@@ -81,6 +85,15 @@ const removeDeleteTag = (cityName: string) => {
   setCitySelected(cityName, false)
 }
 
+const handleSelectAllCities = () => {
+  if (!hasCities.value) {
+    return
+  }
+
+  selectedDeleteCities.value = cityItems.value.map((item) => item.cityName)
+  syncDeleteTags()
+}
+
 const handleSingleDelete = async (cityName: string) => {
   singleDeletingName.value = cityName
   const success = await cityStore.deleteCityByName(cityName)
@@ -139,7 +152,7 @@ watch(
 )
 
 onMounted(async () => {
-  await cityStore.ensureCitiesLoaded()
+  await cityStore.fetchCities('')
 })
 </script>
 
@@ -198,7 +211,7 @@ onMounted(async () => {
             <div class="manage-card-body">
               <el-select
                 v-model="editingCityName"
-                class="manage-select"
+                class="manage-select default-city-select"
                 popper-class="cyber-select-popper"
                 placeholder="选择要设为默认的城市"
                 filterable
@@ -227,7 +240,9 @@ onMounted(async () => {
                   <span class="delete-stage-count">{{ deleteTagCities.length }} 项待处理</span>
                 </div>
                 <div class="delete-tags-box">
-                  <p v-if="deleteTagCities.length === 0" class="delete-tags-empty">请选择下方城市加入删除队列</p>
+                  <p v-if="deleteTagCities.length === 0" class="delete-tags-empty">
+                    {{ hasCities ? '请选择下方城市加入删除队列' : '当前城市列表中还没有城市！' }}
+                  </p>
                   <button
                     v-for="cityName in deleteTagCities"
                     :key="cityName"
@@ -251,7 +266,7 @@ onMounted(async () => {
                   placeholder="筛选删除列表（仅过滤显示）"
                   clearable
                 />
-                <div class="delete-city-list">
+                <div class="delete-city-list" :data-delete-city-empty="!hasCities ? 'true' : undefined">
                   <article
                     v-for="item in filteredDeleteCities"
                     :key="item.cityName"
@@ -276,11 +291,24 @@ onMounted(async () => {
                       单独删除
                     </el-button>
                   </article>
-                  <p v-if="filteredDeleteCities.length === 0" class="delete-empty-text">当前筛选条件下无城市</p>
+                  <div v-if="!hasCities" class="delete-empty-state">
+                    <span class="delete-empty-state__grid" aria-hidden="true" />
+                    <p class="delete-empty-state__code">POOL://EMPTY</p>
+                    <p class="delete-empty-state__title">当前城市列表中还没有城市！</p>
+                    <p class="delete-empty-state__desc">暂无可加入删除队列的城市目标，请先新增城市后再进行管理。</p>
+                  </div>
+                  <p v-else-if="filteredDeleteCities.length === 0" class="delete-empty-text">当前筛选条件下无城市</p>
                 </div>
               </div>
             </div>
             <div class="delete-action-row">
+              <el-button
+                class="cyber-action-btn cyber-select-btn"
+                :disabled="!hasCities || allCitiesSelected"
+                @click="handleSelectAllCities"
+              >
+                全选
+              </el-button>
               <el-button
                 class="cyber-action-btn cyber-danger-btn"
                 :disabled="selectedDeleteCities.length === 0"
@@ -298,7 +326,9 @@ onMounted(async () => {
       </section>
       <el-dialog
         v-model="batchConfirmVisible"
+        append-to-body
         class="delete-confirm-dialog"
+        modal-class="delete-confirm-overlay"
         :show-close="false"
         align-center
       >
@@ -623,6 +653,48 @@ onMounted(async () => {
     inset 0 0 0 1px rgba(117, 241, 255, 0.2);
 }
 
+.manage-input :deep(.el-input__inner) {
+  color: #c8fbff;
+  text-shadow:
+    0 0 6px rgba(117, 241, 255, 0.5),
+    0 0 12px rgba(0, 145, 255, 0.18);
+  caret-color: var(--cyber-cyan);
+}
+
+.manage-input :deep(.el-input__inner::placeholder) {
+  color: rgba(156, 242, 255, 0.78);
+  text-shadow:
+    0 0 6px rgba(117, 241, 255, 0.28),
+    0 0 12px rgba(0, 145, 255, 0.12);
+}
+
+.default-city-select :deep(.el-select__wrapper) {
+  --el-input-text-color: #c8fbff;
+  --el-input-placeholder-color: rgba(156, 242, 255, 0.78);
+  color: #c8fbff;
+}
+
+.default-city-select :deep(.el-select__placeholder),
+.default-city-select :deep(.el-select__placeholder span),
+.default-city-select :deep(.el-select__selected-item),
+.default-city-select :deep(.el-select__selected-item span),
+.default-city-select :deep(.el-select__input),
+.default-city-select :deep(.el-select__input-wrapper input) {
+  color: #c8fbff;
+  text-shadow:
+    0 0 6px rgba(117, 241, 255, 0.5),
+    0 0 12px rgba(0, 145, 255, 0.18);
+  caret-color: var(--cyber-cyan);
+}
+
+.default-city-select :deep(.el-select__placeholder),
+.default-city-select :deep(.el-select__placeholder span) {
+  color: rgba(156, 242, 255, 0.78);
+  text-shadow:
+    0 0 6px rgba(117, 241, 255, 0.28),
+    0 0 12px rgba(0, 145, 255, 0.12);
+}
+
 .manage-input :deep(.el-input__wrapper:hover),
 .manage-select :deep(.el-select__wrapper:hover) {
   box-shadow:
@@ -701,6 +773,20 @@ onMounted(async () => {
   background:
     linear-gradient(180deg, rgba(255, 160, 224, 0.08), transparent 40%),
     linear-gradient(135deg, rgba(255, 82, 205, 0.18), rgba(0, 145, 255, 0.12));
+}
+
+.cyber-select-btn {
+  border-color: rgba(117, 241, 255, 0.52);
+  background:
+    linear-gradient(180deg, rgba(180, 252, 255, 0.1), transparent 40%),
+    linear-gradient(135deg, rgba(0, 214, 255, 0.16), rgba(117, 241, 255, 0.08));
+}
+
+.cyber-select-btn:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(190, 253, 255, 0.18),
+    inset 0 0 16px rgba(117, 241, 255, 0.28),
+    0 0 14px rgba(117, 241, 255, 0.22);
 }
 
 .delete-stage {
@@ -851,6 +937,7 @@ onMounted(async () => {
 .delete-action-row {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
   padding-top: 4px;
 }
 
@@ -861,6 +948,70 @@ onMounted(async () => {
   color: var(--cyber-text-muted);
 }
 
+.delete-empty-state {
+  position: relative;
+  overflow: hidden;
+  min-height: 160px;
+  border: 1px dashed rgba(117, 241, 255, 0.32);
+  border-radius: 14px;
+  padding: 18px 16px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  background:
+    radial-gradient(circle at top, rgba(117, 241, 255, 0.12), transparent 42%),
+    linear-gradient(145deg, rgba(255, 82, 205, 0.08), rgba(0, 214, 255, 0.06)),
+    rgba(4, 16, 38, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(180, 252, 255, 0.08),
+    inset 0 0 16px rgba(117, 241, 255, 0.08),
+    0 0 18px rgba(117, 241, 255, 0.08);
+  text-align: center;
+}
+
+.delete-empty-state__grid {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(117, 241, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 241, 255, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.delete-empty-state__code,
+.delete-empty-state__title,
+.delete-empty-state__desc {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+}
+
+.delete-empty-state__code {
+  color: rgba(117, 241, 255, 0.68);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.delete-empty-state__title {
+  color: var(--cyber-cyan);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 0 12px rgba(117, 241, 255, 0.42),
+    0 0 18px rgba(255, 82, 205, 0.14);
+}
+
+.delete-empty-state__desc {
+  max-width: 360px;
+  color: rgba(205, 241, 255, 0.72);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .batch-delete-summary {
   margin: 0;
   color: var(--cyber-cyan);
@@ -869,21 +1020,18 @@ onMounted(async () => {
 }
 
 /* ── Dialog shell (global — el-dialog is teleported to body) ── */
-:global(.el-overlay-dialog:has(.el-dialog.delete-confirm-dialog)) {
+:global(.delete-confirm-overlay) {
+  background:
+    radial-gradient(circle at 20% 18%, rgba(117, 241, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 82% 78%, rgba(255, 82, 205, 0.08), transparent 36%),
+    rgba(2, 8, 20, 0.28) !important;
+}
+
+:global(.el-overlay.delete-confirm-overlay .el-overlay-dialog) {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   padding: 16px !important;
-  background: transparent !important;
-}
-
-:global(.el-overlay-dialog:has(.el-dialog.delete-confirm-dialog) .el-dialog__wrapper) {
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-:global(.el-overlay-dialog .el-dialog.delete-confirm-dialog) {
-  margin: auto !important;
 }
 
 :global(.el-dialog.delete-confirm-dialog) {
@@ -898,6 +1046,7 @@ onMounted(async () => {
   border: 1px solid rgba(117, 241, 255, 0.45) !important;
   border-radius: 16px !important;
   max-height: calc(100vh - 32px) !important;
+  min-height: 260px !important;
   background-color: var(--delete-dialog-bg) !important;
   background:
     radial-gradient(ellipse at 10% 0%, rgba(117, 241, 255, 0.07) 0%, transparent 50%),
@@ -909,6 +1058,7 @@ onMounted(async () => {
     0 0 60px rgba(0, 145, 255, 0.12),
     0 24px 48px rgba(0, 0, 0, 0.6) !important;
   overflow: hidden !important;
+  pointer-events: auto !important;
 }
 
 :global(.el-dialog.delete-confirm-dialog .el-dialog__header) {
@@ -1236,7 +1386,14 @@ onMounted(async () => {
     width: 100%;
   }
 
-  :global(.el-overlay-dialog:has(.el-dialog.delete-confirm-dialog)) {
+  :global(.delete-confirm-overlay) {
+    background:
+      radial-gradient(circle at 18% 16%, rgba(117, 241, 255, 0.06), transparent 30%),
+      radial-gradient(circle at 82% 78%, rgba(255, 82, 205, 0.06), transparent 32%),
+      rgba(2, 8, 20, 0.24) !important;
+  }
+
+  :global(.el-overlay.delete-confirm-overlay .el-overlay-dialog) {
     padding: 12px !important;
   }
 

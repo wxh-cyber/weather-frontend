@@ -38,7 +38,7 @@ const handleCitySelect = (cityName: string) => {
 </script>
 
 <template>
-  <WeatherPageShell :city-name="selectedCity?.cityName ?? ''">
+  <WeatherPageShell :city-name="selectedCity?.cityName ?? ''" :weather-text="selectedCity?.weatherText ?? ''">
     <template v-if="selectedCity">
       <WeatherCityOverview
         :menus="menus"
@@ -53,8 +53,8 @@ const handleCitySelect = (cityName: string) => {
     <template v-else>
       <section class="weather-empty-state">
         <p class="weather-empty-state__kicker">DEFAULT CITY OFFLINE</p>
-        <h1 class="weather-empty-state__title">当前账户还没有可展示的城市</h1>
-        <p class="weather-empty-state__text">请先前往“我的城市”添加城市或设置默认城市，然后再进行天气查询。</p>
+        <h1 class="weather-empty-state__title">当前城市列表中还没有任何城市</h1>
+        <p class="weather-empty-state__text">请先前往“我的城市”添加城市，完成后再返回此页面查看天气信息。</p>
       </section>
     </template>
   </WeatherPageShell>
