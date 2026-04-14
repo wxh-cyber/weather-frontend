@@ -4,8 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import CityDetail from '@/views/CityDetail.vue'
 import { useCityStore } from '@/store/city'
 
-const { pushMock, routeMock } = vi.hoisted(() => ({
-  pushMock: vi.fn(),
+const { routeMock } = vi.hoisted(() => ({
   routeMock: {
     params: {
       cityName: '武汉市',
@@ -13,21 +12,22 @@ const { pushMock, routeMock } = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('vue-router', () => ({
-  useRoute: () => routeMock,
-  useRouter: () => ({
-    push: pushMock,
-  }),
-}))
+vi.mock('vue-router', async () => {
+  const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
+
+  return {
+    ...actual,
+    useRoute: () => routeMock,
+  }
+})
 
 describe('CityDetail view', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    pushMock.mockReset()
     routeMock.params.cityName = '武汉市'
   })
 
-  const mountCityDetail = () => {
+  it('renders weather shell with the selected city and keeps the overview mounted', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
 
@@ -37,47 +37,23 @@ describe('CityDetail view', () => {
       { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
     ])
 
-    return mount(CityDetail, {
+    const wrapper = mount(CityDetail, {
       global: {
         plugins: [pinia],
         stubs: {
           WeatherPageShell: {
             props: ['cityName', 'weatherText'],
-            template: '<section><slot /></section>',
+            template: '<section class="shell" :data-city-name="cityName" :data-weather-text="weatherText"><slot /></section>',
           },
-          WeatherCityOverview: {
-            name: 'WeatherCityOverview',
-            emits: ['city-select'],
-            template: `
-              <div>
-                <button class="select-shanghai" @click="$emit('city-select', '上海市')">切换上海</button>
-                <button class="select-wuhan" @click="$emit('city-select', '武汉市')">切换武汉</button>
-              </div>
-            `,
+          CityOverviewView: {
+            template: '<div class="city-overview-view-stub" />',
           },
         },
       },
     })
-  }
 
-  it('pushes a new city-detail route when selecting another city', async () => {
-    const wrapper = mountCityDetail()
-
-    await wrapper.find('.select-shanghai').trigger('click')
-
-    expect(pushMock).toHaveBeenCalledWith({
-      name: 'city-detail',
-      params: {
-        cityName: '上海市',
-      },
-    })
-  })
-
-  it('does not push again when selecting the current route city', async () => {
-    const wrapper = mountCityDetail()
-
-    await wrapper.find('.select-wuhan').trigger('click')
-
-    expect(pushMock).not.toHaveBeenCalled()
+    expect(wrapper.find('.shell').attributes('data-city-name')).toBe('武汉市')
+    expect(wrapper.find('.shell').attributes('data-weather-text')).toBe('晴')
+    expect(wrapper.find('.city-overview-view-stub').exists()).toBe(true)
   })
 })

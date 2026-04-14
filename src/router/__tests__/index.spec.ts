@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { resolveProtectedRoute, resolveWeatherEntryRoute } from '@/router'
+import router, { resolveProtectedRoute, resolveWeatherEntryRoute } from '@/router'
 
 describe('router auth guard', () => {
   beforeEach(() => {
@@ -43,5 +43,23 @@ describe('router auth guard', () => {
     const result = resolveWeatherEntryRoute()
 
     expect(result).toBe(true)
+  })
+
+  it('keeps city detail overview route available at /weather/:cityName', () => {
+    const result = router.resolve({
+      name: 'city-detail',
+      params: { cityName: '武汉市' },
+    })
+
+    expect(result.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82')
+  })
+
+  it('resolves the temperature trend child route for the current city', () => {
+    const result = router.resolve({
+      name: 'city-temperature-trend',
+      params: { cityName: '武汉市' },
+    })
+
+    expect(result.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/temperature-trend')
   })
 })

@@ -7,6 +7,8 @@ import Center from '../views/Center.vue'
 import List from '../views/List.vue'
 import LoginList from '../views/LoginList.vue'
 import CityDetail from '../views/CityDetail.vue'
+import CityOverviewView from '../views/CityOverviewView.vue'
+import TemperatureTrendView from '../views/TemperatureTrendView.vue'
 
 const CITY_LIST_STORAGE_KEY = 'city_list'
 
@@ -116,8 +118,19 @@ const router = createRouter({
     },
     {
       path: '/weather/:cityName',
-      name: 'city-detail',
       component: CityDetail,     //城市详情页面
+      children: [
+        {
+          path: '',
+          name: 'city-detail',
+          component: CityOverviewView,
+        },
+        {
+          path: 'temperature-trend',
+          name: 'city-temperature-trend',
+          component: TemperatureTrendView,
+        },
+      ],
       meta: { navVariant: 'home' },
     },
     {

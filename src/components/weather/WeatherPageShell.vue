@@ -164,20 +164,26 @@ const backgroundTime = ref(new Date())
 const overlayTime = ref(new Date())
 const isMobileViewport = ref(false)
 const prefersReducedMotion = ref(false)
+const displayedBackgroundCityName = ref(props.cityName?.trim() ?? '')
 
 let backgroundTimer: number | null = null
 let overlayTimer: number | null = null
+let backgroundSwitchTimer: number | null = null
 let mobileMediaQuery: MediaQueryList | null = null
 let reducedMotionMediaQuery: MediaQueryList | null = null
 let mediaCleanupCallbacks: Array<() => void> = []
 
 const normalizedCityName = computed(() => props.cityName?.trim() ?? '')
+const normalizedDisplayedBackgroundCityName = computed(() => displayedBackgroundCityName.value.trim())
 const backgroundVariant = computed(() => getCityBackgroundVariant(backgroundTime.value))
 const backgroundUrl = computed(() =>
-  normalizedCityName.value ? resolveCityBackground(normalizedCityName.value, backgroundTime.value) : '',
+  normalizedDisplayedBackgroundCityName.value
+    ? resolveCityBackground(normalizedDisplayedBackgroundCityName.value, backgroundTime.value)
+    : '',
 )
 const backgroundKey = computed(
-  () => `${normalizedCityName.value || 'empty'}:${backgroundVariant.value}:${backgroundUrl.value || 'none'}`,
+  () =>
+    `${normalizedDisplayedBackgroundCityName.value || 'empty'}:${backgroundVariant.value}:${backgroundUrl.value || 'none'}`,
 )
 const weatherOverlayPhase = computed(() => resolveWeatherOverlayPhase(props.weatherText ?? '', overlayTime.value))
 const hasWeatherOverlay = computed(() => weatherOverlayPhase.value.layer !== 'none')
@@ -222,6 +228,13 @@ const clearOverlayTimer = () => {
   }
 }
 
+const clearBackgroundSwitchTimer = () => {
+  if (backgroundSwitchTimer !== null) {
+    window.clearTimeout(backgroundSwitchTimer)
+    backgroundSwitchTimer = null
+  }
+}
+
 const syncPerformanceSignals = () => {
   isMobileViewport.value = (mobileMediaQuery?.matches ?? false) || window.innerWidth <= 768
   prefersReducedMotion.value = reducedMotionMediaQuery?.matches === true
@@ -259,6 +272,22 @@ const syncOverlayTicker = () => {
   overlayTimer = window.setInterval(syncOverlayTime, 250)
 }
 
+const syncDisplayedBackgroundCityName = (nextCityName: string, immediate = false) => {
+  clearBackgroundSwitchTimer()
+
+  if (immediate || nextCityName === normalizedDisplayedBackgroundCityName.value) {
+    displayedBackgroundCityName.value = nextCityName
+    syncBackgroundTime()
+    return
+  }
+
+  backgroundSwitchTimer = window.setTimeout(() => {
+    displayedBackgroundCityName.value = nextCityName
+    syncBackgroundTime()
+    backgroundSwitchTimer = null
+  }, 1_000)
+}
+
 onMounted(() => {
   bindMediaQuery('(max-width: 768px)', (list) => {
     mobileMediaQuery = list
@@ -276,11 +305,15 @@ onBeforeUnmount(() => {
   if (backgroundTimer !== null) {
     window.clearInterval(backgroundTimer)
   }
+  clearBackgroundSwitchTimer()
   clearOverlayTimer()
   mediaCleanupCallbacks.forEach((cleanup) => cleanup())
   mediaCleanupCallbacks = []
 })
 
+watch(normalizedCityName, (nextCityName) => {
+  syncDisplayedBackgroundCityName(nextCityName)
+})
 watch(() => props.weatherText, syncOverlayTicker)
 </script>
 
@@ -443,6 +476,18 @@ watch(() => props.weatherText, syncOverlayTicker)
             v-if="weatherOverlayPhase.isLightningActive"
             class="weather-overlay-layer weather-overlay-layer--lightning"
           />
+          <div
+            v-if="weatherOverlayPhase.isLightningActive"
+            class="weather-overlay-layer weather-overlay-layer--lightning weather-overlay-layer--lightning-structure"
+            data-weather-lightning-stage="active"
+          >
+            <div class="weather-lightning-flash" data-weather-lightning-flash="active" />
+            <div class="weather-lightning-afterglow" data-weather-lightning-afterglow="active" />
+            <div class="weather-lightning-bolt weather-lightning-bolt--primary" data-weather-lightning-bolt="primary" />
+            <div class="weather-lightning-bolt weather-lightning-bolt--secondary" data-weather-lightning-bolt="secondary" />
+            <div class="weather-lightning-branch weather-lightning-branch--left" data-weather-lightning-branch="left" />
+            <div class="weather-lightning-branch weather-lightning-branch--right" data-weather-lightning-branch="right" />
+          </div>
         </div>
       </div>
       <div class="cyber-grid-layer" />
@@ -881,11 +926,100 @@ watch(() => props.weatherText, syncOverlayTicker)
 
 .weather-overlay-layer--lightning {
   background:
-    linear-gradient(112deg, transparent 36%, rgba(192, 115, 255, 0.14) 47%, transparent 57%),
-    radial-gradient(circle at 72% 24%, rgba(186, 120, 255, 0.24), transparent 16%),
-    radial-gradient(circle at 30% 38%, rgba(138, 92, 255, 0.12), transparent 14%);
-  opacity: 0.76;
-  animation: lightning-pulse 0.38s ease-out forwards;
+    linear-gradient(112deg, transparent 30%, rgba(170, 214, 255, 0.1) 42%, rgba(193, 124, 255, 0.12) 54%, transparent 66%),
+    radial-gradient(circle at 64% 18%, rgba(235, 245, 255, 0.34), transparent 12%),
+    radial-gradient(circle at 72% 24%, rgba(146, 207, 255, 0.32), transparent 18%),
+    radial-gradient(circle at 32% 38%, rgba(144, 110, 255, 0.16), transparent 16%);
+  opacity: 0.92;
+  mix-blend-mode: screen;
+  animation: lightning-sky-pulse 0.52s cubic-bezier(0.18, 0.72, 0.2, 1) forwards;
+}
+
+.weather-overlay-layer--lightning-structure {
+  overflow: hidden;
+  mix-blend-mode: screen;
+}
+
+.weather-lightning-flash,
+.weather-lightning-afterglow,
+.weather-lightning-bolt,
+.weather-lightning-branch {
+  position: absolute;
+  pointer-events: none;
+}
+
+.weather-lightning-flash {
+  inset: -8%;
+  background:
+    radial-gradient(circle at 70% 20%, rgba(244, 251, 255, 0.88), rgba(195, 232, 255, 0.4) 12%, rgba(117, 194, 255, 0.16) 24%, transparent 42%),
+    radial-gradient(circle at 58% 16%, rgba(181, 212, 255, 0.26), transparent 24%),
+    linear-gradient(180deg, rgba(230, 242, 255, 0.18), rgba(136, 186, 255, 0.08) 30%, rgba(96, 66, 168, 0.08) 64%, transparent 100%);
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: lightning-flash-bloom 0.52s ease-out forwards;
+}
+
+.weather-lightning-afterglow {
+  inset: 0;
+  background:
+    radial-gradient(circle at 68% 22%, rgba(218, 240, 255, 0.34), transparent 16%),
+    linear-gradient(180deg, rgba(129, 178, 255, 0.12), rgba(74, 108, 188, 0.04) 42%, transparent 72%),
+    linear-gradient(120deg, transparent 34%, rgba(174, 117, 255, 0.1) 48%, transparent 62%);
+  opacity: 0;
+  filter: blur(10px);
+  animation: lightning-afterglow-fade 0.72s ease-out forwards;
+}
+
+.weather-lightning-bolt,
+.weather-lightning-branch {
+  top: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(222, 244, 255, 0.94) 36%, rgba(151, 222, 255, 0.86) 68%, rgba(180, 126, 255, 0.56) 100%);
+  box-shadow:
+    0 0 8px rgba(238, 248, 255, 0.92),
+    0 0 18px rgba(148, 221, 255, 0.72),
+    0 0 28px rgba(162, 125, 255, 0.4);
+  filter: drop-shadow(0 0 8px rgba(230, 246, 255, 0.82)) drop-shadow(0 0 18px rgba(137, 213, 255, 0.48));
+  opacity: 0;
+  transform-origin: top center;
+  animation: lightning-bolt-flicker 0.5s ease-out forwards;
+}
+
+.weather-lightning-bolt--primary {
+  left: 69%;
+  width: 12px;
+  height: 68%;
+  clip-path: polygon(46% 0, 72% 0, 58% 12%, 80% 12%, 48% 32%, 68% 32%, 32% 57%, 48% 57%, 20% 82%, 34% 82%, 10% 100%, 18% 86%, 0 86%, 22% 62%, 8% 62%, 38% 36%, 18% 36%, 48% 12%, 34% 12%);
+  animation-delay: 0.02s;
+}
+
+.weather-lightning-bolt--secondary {
+  left: 61%;
+  width: 9px;
+  height: 54%;
+  clip-path: polygon(40% 0, 70% 0, 58% 16%, 80% 16%, 42% 42%, 60% 42%, 18% 72%, 34% 72%, 8% 100%, 18% 80%, 0 80%, 28% 50%, 12% 50%, 44% 18%, 28% 18%);
+  opacity: 0;
+  animation-delay: 0.12s;
+}
+
+.weather-lightning-branch--left {
+  left: 64.5%;
+  top: 24%;
+  width: 7px;
+  height: 22%;
+  clip-path: polygon(46% 0, 70% 0, 56% 20%, 100% 22%, 48% 58%, 76% 58%, 10% 100%, 32% 72%, 0 72%, 36% 40%, 16% 40%);
+  transform: rotate(-32deg);
+  animation-delay: 0.08s;
+}
+
+.weather-lightning-branch--right {
+  left: 71.5%;
+  top: 34%;
+  width: 6px;
+  height: 18%;
+  clip-path: polygon(42% 0, 68% 0, 54% 18%, 100% 20%, 46% 60%, 72% 60%, 4% 100%, 28% 70%, 0 70%, 34% 40%, 14% 40%);
+  transform: rotate(24deg);
+  animation-delay: 0.16s;
 }
 
 .container {
@@ -1145,6 +1279,24 @@ watch(() => props.weatherText, syncOverlayTicker)
   filter: none;
 }
 
+.weather-page[data-weather-performance-mode='lite'] .weather-lightning-flash {
+  background:
+    radial-gradient(circle at 70% 20%, rgba(244, 251, 255, 0.72), rgba(176, 221, 255, 0.28) 14%, transparent 34%),
+    linear-gradient(180deg, rgba(230, 242, 255, 0.12), transparent 64%);
+}
+
+.weather-page[data-weather-performance-mode='lite'] .weather-lightning-afterglow {
+  filter: blur(6px);
+}
+
+.weather-page[data-weather-performance-mode='lite'] .weather-lightning-bolt,
+.weather-page[data-weather-performance-mode='lite'] .weather-lightning-branch {
+  box-shadow:
+    0 0 6px rgba(238, 248, 255, 0.7),
+    0 0 14px rgba(148, 221, 255, 0.44);
+  filter: drop-shadow(0 0 6px rgba(230, 246, 255, 0.58));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .city-background-layer {
     animation: none;
@@ -1160,6 +1312,117 @@ watch(() => props.weatherText, syncOverlayTicker)
   .bg-fade-enter-active,
   .bg-fade-leave-active {
     transition: none;
+  }
+
+  .weather-overlay-layer--lightning,
+  .weather-lightning-flash,
+  .weather-lightning-afterglow,
+  .weather-lightning-bolt,
+  .weather-lightning-branch {
+    animation: none;
+  }
+
+  .weather-overlay-layer--lightning {
+    opacity: 0.52;
+  }
+
+  .weather-lightning-flash,
+  .weather-lightning-afterglow,
+  .weather-lightning-bolt,
+  .weather-lightning-branch {
+    opacity: 0.72;
+  }
+}
+
+@keyframes lightning-sky-pulse {
+  0% {
+    opacity: 0;
+    filter: brightness(1);
+  }
+
+  14% {
+    opacity: 0.98;
+    filter: brightness(1.22);
+  }
+
+  26% {
+    opacity: 0.28;
+    filter: brightness(1.04);
+  }
+
+  42% {
+    opacity: 0.76;
+    filter: brightness(1.16);
+  }
+
+  100% {
+    opacity: 0;
+    filter: brightness(1);
+  }
+}
+
+@keyframes lightning-flash-bloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+
+  10% {
+    opacity: 0.92;
+    transform: scale(1.02);
+  }
+
+  26% {
+    opacity: 0.24;
+    transform: scale(1);
+  }
+
+  38% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes lightning-bolt-flicker {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.7) translate3d(0, -2%, 0);
+  }
+
+  12% {
+    opacity: 1;
+    transform: scaleY(1.02) translate3d(0, 0, 0);
+  }
+
+  28% {
+    opacity: 0.26;
+  }
+
+  40% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleY(1) translate3d(0, 1%, 0);
+  }
+}
+
+@keyframes lightning-afterglow-fade {
+  0% {
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 0.34;
+  }
+
+  100% {
+    opacity: 0;
   }
 }
 </style>

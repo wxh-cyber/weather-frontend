@@ -47,6 +47,7 @@ describe('WeatherPageShell', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useRealTimers()
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
       configurable: true,
@@ -85,7 +86,8 @@ describe('WeatherPageShell', () => {
     expect(wrapper.find('.shell-content').exists()).toBe(true)
   })
 
-  it('updates background key when selected city changes', async () => {
+  it('delays background key updates by 1 second when selected city changes', async () => {
+    vi.useFakeTimers()
     resolveCityBackgroundMock.mockImplementation((cityName: string) =>
       cityName === '武汉市' ? '/assets/wuhan-day.jpg' : '/assets/nanchang-day.jpg',
     )
@@ -110,6 +112,12 @@ describe('WeatherPageShell', () => {
     })
     await nextTick()
 
+    expect(wrapper.find('[data-background-key="武汉市:day:/assets/wuhan-day.jpg"]').exists()).toBe(true)
+    expect(wrapper.find('[data-background-key="南昌市:day:/assets/nanchang-day.jpg"]').exists()).toBe(false)
+
+    vi.advanceTimersByTime(1_000)
+    await nextTick()
+
     expect(wrapper.find('[data-background-key="南昌市:day:/assets/nanchang-day.jpg"]').exists()).toBe(true)
   })
 
@@ -130,6 +138,96 @@ describe('WeatherPageShell', () => {
     })
 
     expect(wrapper.find('[data-background-key="empty"]').exists()).toBe(true)
+  })
+
+  it('falls back to empty background 1 second after switching to a city without background', async () => {
+    vi.useFakeTimers()
+    resolveCityBackgroundMock.mockImplementation((cityName: string) =>
+      cityName === '武汉市' ? '/assets/wuhan-day.jpg' : '',
+    )
+    getCityBackgroundVariantMock.mockReturnValue('day')
+    resolveWeatherOverlayPhaseMock.mockReturnValue(overlayNone)
+
+    const wrapper = mount(WeatherPageShell, {
+      props: {
+        cityName: '武汉市',
+      },
+      global: {
+        stubs: {
+          Transition: TransitionStub,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-background-key="武汉市:day:/assets/wuhan-day.jpg"]').exists()).toBe(true)
+
+    await wrapper.setProps({
+      cityName: '不存在城市',
+    })
+    await nextTick()
+
+    expect(wrapper.find('[data-background-key="武汉市:day:/assets/wuhan-day.jpg"]').exists()).toBe(true)
+
+    vi.advanceTimersByTime(1_000)
+    await nextTick()
+
+    expect(wrapper.find('[data-background-key="empty"]').exists()).toBe(true)
+  })
+
+  it('only applies the last delayed background switch when cities change rapidly', async () => {
+    vi.useFakeTimers()
+    resolveCityBackgroundMock.mockImplementation((cityName: string) => {
+      if (cityName === '武汉市') {
+        return '/assets/wuhan-day.jpg'
+      }
+
+      if (cityName === '南昌市') {
+        return '/assets/nanchang-day.jpg'
+      }
+
+      if (cityName === '上海市') {
+        return '/assets/shanghai-day.jpg'
+      }
+
+      return ''
+    })
+    getCityBackgroundVariantMock.mockReturnValue('day')
+    resolveWeatherOverlayPhaseMock.mockReturnValue(overlayNone)
+
+    const wrapper = mount(WeatherPageShell, {
+      props: {
+        cityName: '武汉市',
+      },
+      global: {
+        stubs: {
+          Transition: TransitionStub,
+        },
+      },
+    })
+
+    await wrapper.setProps({
+      cityName: '南昌市',
+    })
+    await nextTick()
+
+    vi.advanceTimersByTime(500)
+
+    await wrapper.setProps({
+      cityName: '上海市',
+    })
+    await nextTick()
+
+    vi.advanceTimersByTime(500)
+    await nextTick()
+
+    expect(wrapper.find('[data-background-key="武汉市:day:/assets/wuhan-day.jpg"]').exists()).toBe(true)
+    expect(wrapper.find('[data-background-key="南昌市:day:/assets/nanchang-day.jpg"]').exists()).toBe(false)
+    expect(wrapper.find('[data-background-key="上海市:day:/assets/shanghai-day.jpg"]').exists()).toBe(false)
+
+    vi.advanceTimersByTime(500)
+    await nextTick()
+
+    expect(wrapper.find('[data-background-key="上海市:day:/assets/shanghai-day.jpg"]').exists()).toBe(true)
   })
 
   it('renders weather overlay layers when weather text matches an effect', () => {
@@ -161,6 +259,13 @@ describe('WeatherPageShell', () => {
     expect(wrapper.find('[data-weather-rain-group="back"]').exists()).toBe(true)
     expect(wrapper.find('[data-weather-rain-group="mid"]').exists()).toBe(true)
     expect(wrapper.find('[data-weather-rain-group="front"]').exists()).toBe(true)
+    expect(wrapper.find('[data-weather-lightning-stage="active"]').exists()).toBe(true)
+    expect(wrapper.find('[data-weather-lightning-flash="active"]').exists()).toBe(true)
+    expect(wrapper.find('[data-weather-lightning-afterglow="active"]').exists()).toBe(true)
+    expect(wrapper.find('[data-weather-lightning-bolt="primary"]').exists()).toBe(true)
+    expect(wrapper.find('[data-weather-lightning-bolt="secondary"]').exists()).toBe(true)
+    expect(wrapper.find('[data-weather-lightning-branch="left"]').exists()).toBe(true)
+    expect(wrapper.find('[data-weather-lightning-branch="right"]').exists()).toBe(true)
     expect(wrapper.find('.weather-overlay-layer--lightning').exists()).toBe(true)
   })
 
@@ -192,6 +297,7 @@ describe('WeatherPageShell', () => {
     })
     await nextTick()
 
+    expect(wrapper.find('[data-weather-lightning-stage="active"]').exists()).toBe(false)
     expect(wrapper.find('[data-weather-overlay-layer="snowy"]').exists()).toBe(true)
     expect(wrapper.find('[data-weather-snow-stage="active"]').exists()).toBe(true)
     expect(wrapper.find('[data-weather-snow-group="back"]').exists()).toBe(true)

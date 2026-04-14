@@ -46,6 +46,21 @@ npx vitest run --reporter=verbose -t "shows unregistered"
 
 **Route `meta.navVariant`** controls which navigation style the layout renders: `'start'` (landing/auth pages) or `'home'` (main app pages).
 
+**City detail routing (nested):** `/weather/:cityName` maps to `CityDetail.vue` (layout shell) with two child routes:
+- `''` → `CityOverviewView.vue` (named `city-detail`) — weather overview with city tabs
+- `temperature-trend` → `TemperatureTrendView.vue` (named `city-temperature-trend`)
+
+`CityDetail.vue` loads city data and passes it to `WeatherPageShell.vue`; the child views read `route.params.cityName` and call `cityStore.ensureCitiesLoaded()` independently. Navigation between cities uses `router.push({ name: 'city-detail', params: { cityName } })`. The `/weather` route redirects to the first city in `localStorage` via `resolveWeatherEntryRoute()`.
+
+**City backgrounds & weather overlays:**
+- `src/utils/cityBackgrounds.ts` — eagerly imports all `src/assets/cities/*.{png,jpg,webp}` at build time. File names must follow the pattern `城市名（昼|昏|夜）.ext` to be parsed. `resolveCityBackground(cityName)` returns the correct image URL for the current time of day (day: 07:00–18:00, dusk: 05:00–07:00 & 18:00–20:00, night: otherwise).
+- `src/utils/weatherOverlays.ts` — maps Chinese weather text (e.g. `晴`, `阵雨`, `雷阵雨`) to overlay kinds. Showers and thunder-showers cycle between rain and sunny phases on a 10-second period; lightning flashes fire at fixed time windows within the rain phase.
+- Both utilities are consumed by `WeatherPageShell.vue`, which renders the dynamic background image + CSS particle effects (rain drops / snowflakes).
+
+**`cityStore` localStorage key** is `city_list`. On startup, `syncFromStorage()` strips legacy default city data (hardcoded sentinel check). The first element of the cities array is treated as the default city throughout the app.
+
+**`authStore` dispatches `auth-user-updated` DOM events** on `setAuth`, `clearAuth`, and `updateUserProfile` so that non-reactive code (e.g. `AppTopNav`) can respond to auth changes without direct store coupling.
+
 **Testing patterns:**
 - Unit tests use `@vue/test-utils` with `mount()` + Element Plus component stubs.
 - `vue-router` and service modules are fully mocked with `vi.mock()`.
