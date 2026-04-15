@@ -136,6 +136,53 @@ describe('city store', () => {
     expect(store.cities).toEqual(sampleResponse.data)
   })
 
+  it('createCityByName should keep the new city as default when list was empty', async () => {
+    mockedCreateCity.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }],
+    })
+    const store = useCityStore()
+
+    const result = await store.createCityByName('武汉市')
+
+    expect(result).toBe(true)
+    expect(store.cities[0]?.cityName).toBe('武汉市')
+    expect(localStorage.getItem('city_list')).toBe(
+      JSON.stringify([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }]),
+    )
+  })
+
+  it('createCityByName should preserve the existing default city when list is not empty', async () => {
+    mockedCreateCity.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [
+        { cityName: '北京市', weatherText: '小雨', temperature: '19°C' },
+        { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+        { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+      ],
+    })
+    const store = useCityStore()
+    store.setCities([
+      { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+      { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+    ])
+
+    const result = await store.createCityByName('北京市')
+
+    expect(result).toBe(true)
+    expect(store.cities.map((item) => item.cityName)).toEqual(['上海市', '武汉市', '北京市'])
+    expect(store.cities[0]?.cityName).toBe('上海市')
+    expect(localStorage.getItem('city_list')).toBe(
+      JSON.stringify([
+        { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+        { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+        { cityName: '北京市', weatherText: '小雨', temperature: '19°C' },
+      ]),
+    )
+  })
+
   it('renameCity should fallback fetch when source not found in pinia', async () => {
     mockedGetCityList.mockResolvedValue(sampleResponse)
     mockedUpdateCity.mockResolvedValue({

@@ -8,10 +8,30 @@
         <span class="logo-text">{{ props.brandText }}</span>
       </div>
       <div
-        v-if="props.showMyCities || props.showProfileCenter || props.showLoginList"
+        v-if="props.showCityDetail || props.showMyCities || props.showProfileCenter || props.showLoginList"
         class="nav-center nav-center-button"
         :class="{ 'nav-center-button--centered': props.centerNavCentered }"
       >
+          <button
+            v-if="props.showCityDetail"
+            ref="cityDetailBtnRef"
+            type="button"
+            class="my-cities-btn city-detail-btn"
+            :class="[
+              `is-${cityDetailParticleState}`,
+              { 'is-current': props.activeCenterAction === 'city-detail' },
+            ]"
+            @click="emit('city-detail-click')"
+            @mouseenter="onCityDetailMouseEnter"
+            @mouseleave="onCityDetailMouseLeave"
+            @mousedown="onCityDetailMouseDown"
+            @mouseup="onCityDetailMouseUp"
+            @focus="onCityDetailFocus"
+            @blur="onCityDetailBlur"
+          >
+            <span :id="cityDetailParticleHostId" class="my-cities-particles" aria-hidden="true" />
+            <span class="my-cities-label">城市详情</span>
+          </button>
           <button
             v-if="props.showMyCities"
             ref="myCitiesBtnRef"
@@ -145,6 +165,7 @@ const props = withDefaults(
     githubUrl?: string
     brandText?: string
     showCenterSearch?: boolean
+    showCityDetail?: boolean
     showMyCities?: boolean
     showProfileCenter?: boolean
     showLoginList?: boolean
@@ -159,6 +180,7 @@ const props = withDefaults(
     githubUrl: 'https://github.com/wxh-cyber/weather-frontend',
     brandText: '小慕天气 · 控制台',
     showCenterSearch: true,
+    showCityDetail: false,
     showMyCities: false,
     showProfileCenter: false,
     showLoginList: false,
@@ -173,6 +195,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'login-click'): void
+  (e: 'city-detail-click'): void
   (e: 'my-cities-click'): void
   (e: 'profile-center-click'): void
   (e: 'login-list-click'): void
@@ -183,6 +206,11 @@ const emit = defineEmits<{
 type MyCitiesParticleState = 'idle' | 'hover' | 'active'
 
 const searchKeyword = ref('')
+const cityDetailParticleHostId = 'city-detail-particles'
+const cityDetailParticleState = ref<MyCitiesParticleState>('idle')
+const cityDetailHovered = ref(false)
+const cityDetailFocused = ref(false)
+const cityDetailBtnRef = ref<HTMLButtonElement | null>(null)
 const myCitiesParticleHostId = 'my-cities-particles'
 const myCitiesParticleState = ref<MyCitiesParticleState>('idle')
 const myCitiesHovered = ref(false)
@@ -200,6 +228,7 @@ const loginListFocused = ref(false)
 const loginListBtnRef = ref<HTMLButtonElement | null>(null)
 const avatarLoadFailed = ref(false)
 let myCitiesContainer: Container | undefined
+let cityDetailContainer: Container | undefined
 let profileCenterContainer: Container | undefined
 let loginListContainer: Container | undefined
 let slimLoader: Promise<void> | null = null
@@ -294,7 +323,12 @@ const getParticleOptions = (state: MyCitiesParticleState, emitterWidth: number):
   }
 }
 
-const destroyButtonParticles = (containerRef: 'myCities' | 'profileCenter' | 'loginList') => {
+const destroyButtonParticles = (containerRef: 'cityDetail' | 'myCities' | 'profileCenter' | 'loginList') => {
+  if (containerRef === 'cityDetail') {
+    cityDetailContainer?.destroy()
+    cityDetailContainer = undefined
+    return
+  }
   if (containerRef === 'myCities') {
     myCitiesContainer?.destroy()
     myCitiesContainer = undefined
@@ -314,7 +348,7 @@ const mountButtonParticles = async (
   state: MyCitiesParticleState,
   buttonRef: HTMLButtonElement | null,
   visible: boolean,
-  containerRef: 'myCities' | 'profileCenter' | 'loginList',
+  containerRef: 'cityDetail' | 'myCities' | 'profileCenter' | 'loginList',
 ) => {
   if (!visible || isReducedMotion()) {
     destroyButtonParticles(containerRef)
@@ -335,6 +369,10 @@ const mountButtonParticles = async (
     options: getParticleOptions(state, emitterWidth),
   })
 
+  if (containerRef === 'cityDetail') {
+    cityDetailContainer = container
+    return
+  }
   if (containerRef === 'myCities') {
     myCitiesContainer = container
     return
@@ -345,6 +383,16 @@ const mountButtonParticles = async (
   }
 
   loginListContainer = container
+}
+
+const mountCityDetailParticles = async () => {
+  await mountButtonParticles(
+    cityDetailParticleHostId,
+    cityDetailParticleState.value,
+    cityDetailBtnRef.value,
+    props.showCityDetail,
+    'cityDetail',
+  )
 }
 
 const mountMyCitiesParticles = async () => {
@@ -377,6 +425,14 @@ const mountProfileCenterParticles = async () => {
   )
 }
 
+const updateCityDetailParticleState = (nextState: MyCitiesParticleState) => {
+  if (cityDetailParticleState.value === nextState) {
+    return
+  }
+  cityDetailParticleState.value = nextState
+  void mountCityDetailParticles()
+}
+
 const updateMyCitiesParticleState = (nextState: MyCitiesParticleState) => {
   if (myCitiesParticleState.value === nextState) {
     return
@@ -399,6 +455,38 @@ const updateProfileCenterParticleState = (nextState: MyCitiesParticleState) => {
   }
   profileCenterParticleState.value = nextState
   void mountProfileCenterParticles()
+}
+
+const onCityDetailMouseEnter = () => {
+  cityDetailHovered.value = true
+  updateCityDetailParticleState('hover')
+}
+
+const onCityDetailMouseLeave = () => {
+  cityDetailHovered.value = false
+  if (cityDetailFocused.value) {
+    updateCityDetailParticleState('hover')
+    return
+  }
+  updateCityDetailParticleState('idle')
+}
+
+const onCityDetailMouseDown = () => {
+  updateCityDetailParticleState('active')
+}
+
+const onCityDetailMouseUp = () => {
+  updateCityDetailParticleState(cityDetailHovered.value || cityDetailFocused.value ? 'hover' : 'idle')
+}
+
+const onCityDetailFocus = () => {
+  cityDetailFocused.value = true
+  updateCityDetailParticleState('hover')
+}
+
+const onCityDetailBlur = () => {
+  cityDetailFocused.value = false
+  updateCityDetailParticleState(cityDetailHovered.value ? 'hover' : 'idle')
 }
 
 const onMyCitiesMouseEnter = () => {
@@ -510,6 +598,19 @@ watch(
 )
 
 watch(
+  () => props.showCityDetail,
+  (show) => {
+    if (!show) {
+      cityDetailParticleState.value = 'idle'
+      destroyButtonParticles('cityDetail')
+      return
+    }
+    void mountCityDetailParticles()
+  },
+  { immediate: true },
+)
+
+watch(
   () => props.showMyCities,
   (show) => {
     if (!show) {
@@ -549,6 +650,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  destroyButtonParticles('cityDetail')
   destroyButtonParticles('myCities')
   destroyButtonParticles('profileCenter')
   destroyButtonParticles('loginList')

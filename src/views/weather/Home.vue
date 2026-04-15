@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
 import WeatherPageShell from '@/components/weather/WeatherPageShell.vue'
 import WeatherCityOverview from '@/components/weather/WeatherCityOverview.vue'
 import { useCityStore } from '@/store/city'
 
+const router = useRouter()
 const cityStore = useCityStore()
-const menus = ['发现', '天气', '地图', '每小时预报', '月度天气', '天气趋势', '台风']
 const selectedCityName = ref('')
+const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weatherSearchSubmitKey, undefined)
+const navItems = [
+  { key: 'overview', label: '城市概览' },
+  { key: 'temperature-trend', label: '温度趋势' },
+  { key: 'weather-map', label: '天气地图', disabled: true },
+  { key: 'hourly-forecast', label: '每小时预报', disabled: true },
+] as const
 
 const defaultCity = computed(() => cityStore.cities[0] ?? null)
 const cities = computed(() => cityStore.cities)
@@ -35,19 +44,46 @@ onMounted(async () => {
 const handleCitySelect = (cityName: string) => {
   selectedCityName.value = cityName
 }
+
+const handleNavSelect = (navKey: string) => {
+  const currentCityName = selectedCity.value?.cityName
+  if (!currentCityName) {
+    return
+  }
+
+  if (navKey === 'temperature-trend') {
+    void router.push(`/weather/${encodeURIComponent(currentCityName)}/temperature-trend`)
+    return
+  }
+
+  if (navKey === 'overview') {
+    void router.push(`/weather/${encodeURIComponent(currentCityName)}`)
+  }
+}
+
+const handleSearchSubmit = (keyword: string) => {
+  if (!weatherSearchSubmit) {
+    return
+  }
+
+  void weatherSearchSubmit(keyword)
+}
 </script>
 
 <template>
   <WeatherPageShell :city-name="selectedCity?.cityName ?? ''" :weather-text="selectedCity?.weatherText ?? ''">
     <template v-if="selectedCity">
       <WeatherCityOverview
-        :menus="menus"
+        :nav-items="navItems"
+        active-nav-key="overview"
         :cities="cities"
         :default-city-name="defaultCity?.cityName ?? ''"
         :selected-city-name="selectedCity.cityName"
         :temperature="selectedCity.temperature"
         :weather-text="selectedCity.weatherText"
         @city-select="handleCitySelect"
+        @nav-select="handleNavSelect"
+        @search-submit="handleSearchSubmit"
       />
     </template>
     <template v-else>

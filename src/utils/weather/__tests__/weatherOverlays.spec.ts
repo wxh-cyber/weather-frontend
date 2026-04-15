@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveWeatherOverlayKind, resolveWeatherOverlayPhase } from '@/utils/weatherOverlays'
+import { resolveWeatherOverlayKind, resolveWeatherOverlayPhase } from '@/utils/weather/weatherOverlays'
 
 describe('weather overlay utils', () => {
   it('resolves overlay kind from weather text', () => {

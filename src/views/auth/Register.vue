@@ -156,7 +156,7 @@ const handleRegisterSubmit = async () => {
 </script>
 
 <style scoped>
-@import '../assets/auth-page.css';
+@import '../../assets/auth-page.css';
 
 .earth-bg-layer {
   position: absolute;

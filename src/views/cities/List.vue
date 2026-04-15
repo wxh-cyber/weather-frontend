@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import CityList from '@/components/List/CityList.vue'
+import CityList from '@/components/city-list/CityList.vue'
 import { useCityStore } from '@/store/city'
 
 const cityStore = useCityStore()

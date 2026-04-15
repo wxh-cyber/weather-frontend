@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getWeatherIcon, type WeatherIconKey } from '@/components/weather/weatherIconMap'
+import { getWeatherIcon, type WeatherIconKey } from '@/utils/weather/weatherIconMap'
 
 const props = withDefaults(
   defineProps<{

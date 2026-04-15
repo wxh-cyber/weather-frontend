@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import CityDetail from '@/views/CityDetail.vue'
+import CityDetail from '@/views/weather/CityDetail.vue'
 import { useCityStore } from '@/store/city'
 
 const { routeMock } = vi.hoisted(() => ({

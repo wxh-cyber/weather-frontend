@@ -7,12 +7,12 @@ const resolveCityBackgroundMock = vi.fn()
 const getCityBackgroundVariantMock = vi.fn()
 const resolveWeatherOverlayPhaseMock = vi.fn()
 
-vi.mock('@/utils/cityBackgrounds', () => ({
+vi.mock('@/utils/weather/cityBackgrounds', () => ({
   resolveCityBackground: (...args: unknown[]) => resolveCityBackgroundMock(...args),
   getCityBackgroundVariant: (...args: unknown[]) => getCityBackgroundVariantMock(...args),
 }))
 
-vi.mock('@/utils/weatherOverlays', () => ({
+vi.mock('@/utils/weather/weatherOverlays', () => ({
   resolveWeatherOverlayPhase: (...args: unknown[]) => resolveWeatherOverlayPhaseMock(...args),
 }))
 

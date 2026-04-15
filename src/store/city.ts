@@ -83,8 +83,9 @@ export const useCityStore = defineStore('city', {
 
       this.loading = true
       try {
+        const previousCities = [...this.cities]
         const response = await createCity(normalizedName)
-        this.setCities(response.data)
+        this.setCities(this.mergeCreatedCityList(previousCities, response.data, normalizedName))
         return true
       } catch (error) {
         const message = error instanceof Error ? error.message : '新增城市失败'
@@ -222,6 +223,38 @@ export const useCityStore = defineStore('city', {
       } catch {
         this.cities = []
       }
+    },
+    mergeCreatedCityList(previousCities: CityItem[], nextCities: CityItem[], createdCityName: string) {
+      if (previousCities.length === 0) {
+        return [...nextCities]
+      }
+
+      const previousNames = new Set(previousCities.map((item) => item.cityName))
+      const mergedCities: CityItem[] = []
+
+      for (const item of previousCities) {
+        const latestItem = nextCities.find((candidate) => equalsCityName(candidate.cityName, item.cityName))
+        mergedCities.push(latestItem ?? item)
+      }
+
+      const createdCity = nextCities.find((item) => equalsCityName(item.cityName, createdCityName))
+      if (createdCity && !mergedCities.some((item) => equalsCityName(item.cityName, createdCity.cityName))) {
+        mergedCities.push(createdCity)
+      }
+
+      for (const item of nextCities) {
+        if (previousNames.has(item.cityName)) {
+          continue
+        }
+
+        if (mergedCities.some((candidate) => equalsCityName(candidate.cityName, item.cityName))) {
+          continue
+        }
+
+        mergedCities.push(item)
+      }
+
+      return mergedCities
     },
   },
 })

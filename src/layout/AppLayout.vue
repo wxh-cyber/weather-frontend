@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppTopNav from '@/layout/AppTopNav.vue'
 import CyberCursorOverlay from '@/layout/CyberCursorOverlay.vue'
+import { weatherSearchSubmitKey } from '@/layout/helpers/weatherSearch'
 import { getProfile } from '@/service/auth'
 import { getCityList, type CityWeatherItem } from '@/service/city'
 import { useAuthStore } from '@/store/auth'
@@ -15,6 +16,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const cityStore = useCityStore()
 const { isLoggedIn, displayName, user } = storeToRefs(authStore)
+const weatherRouteNames = ['weather', 'city-detail', 'city-temperature-trend'] as const
 
 const syncUserStatus = () => {
   authStore.syncFromStorage()
@@ -43,11 +45,17 @@ const navVariant = computed(() => {
   return 'home'
 })
 const brandText = computed(() => (navVariant.value === 'start' ? '小慕天气' : '小慕天气 · 控制台'))
-const centeredNavRoutes = ['center', 'list', 'login-list'] as const
+const centeredNavRoutes = ['center', 'list', 'login-list', 'city-detail', 'city-temperature-trend'] as const
 const showCenterButtons = computed(() =>
-  route.name === 'center' || route.name === 'login-list' || route.name === 'list' || route.name === 'weather',
+  route.name === 'center'
+    || route.name === 'login-list'
+    || route.name === 'list'
+    || route.name === 'weather'
+    || route.name === 'city-detail'
+    || route.name === 'city-temperature-trend',
 )
 const showCenterSearch = computed(() => navVariant.value === 'home' && !centeredNavRoutes.includes(route.name as typeof centeredNavRoutes[number]))
+const showCityDetail = computed(() => showCenterButtons.value)
 const showMyCities = computed(() => showCenterButtons.value)
 const showProfileCenter = computed(() => showCenterButtons.value)
 const showLoginList = computed(() => showCenterButtons.value)
@@ -61,6 +69,8 @@ const pendingSearchFromCandidate = ref(false)
 const activeCenterAction = computed(() =>
   route.name === 'login-list'
     ? 'login-list'
+    : route.name === 'city-detail' || route.name === 'city-temperature-trend'
+      ? 'city-detail'
     : route.name === 'center'
       ? 'profile-center'
       : route.name === 'list'
@@ -151,6 +161,18 @@ const goToList = () => {
   router.push('/list')
 }
 
+const goToCityDetail = async () => {
+  await cityStore.ensureCitiesLoaded()
+  const defaultCity = cityStore.cities[0]
+
+  if (!defaultCity) {
+    await router.push('/weather')
+    return
+  }
+
+  await router.push(`/weather/${encodeURIComponent(defaultCity.cityName)}`)
+}
+
 const goToLoginList = () => {
   router.push('/login-list')
 }
@@ -160,7 +182,7 @@ const goToCenter = () => {
 }
 
 const handleSearchSubmit = async (keyword: string) => {
-  if (route.name !== 'weather') {
+  if (!weatherRouteNames.includes(route.name as typeof weatherRouteNames[number])) {
     await cityStore.ensureCitiesLoaded()
     const defaultCity = cityStore.cities[0]
 
@@ -210,6 +232,8 @@ const handleSearchSubmit = async (keyword: string) => {
   }
 }
 
+provide(weatherSearchSubmitKey, handleSearchSubmit)
+
 const confirmAddSearchedCity = async () => {
   const targetCityName = pendingSearchCityName.value
   if (!targetCityName) {
@@ -232,6 +256,7 @@ const confirmAddSearchedCity = async () => {
     <AppTopNav
       :brand-text="brandText"
       :show-center-search="showCenterSearch"
+      :show-city-detail="showCityDetail"
       :show-my-cities="showMyCities"
       :show-profile-center="showProfileCenter"
       :show-login-list="showLoginList"
@@ -241,6 +266,7 @@ const confirmAddSearchedCity = async () => {
       :avatar-url="navAvatarUrl"
       :show-logout="isLoggedIn"
       @login-click="goToLogin"
+      @city-detail-click="goToCityDetail"
       @my-cities-click="goToList"
       @profile-center-click="goToCenter"
       @login-list-click="goToLoginList"

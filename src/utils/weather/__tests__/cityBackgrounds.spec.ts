@@ -4,7 +4,7 @@ import {
   getCityBackgroundEntry,
   parseCityBackgroundAssetPath,
   resolveCityBackground,
-} from '@/utils/cityBackgrounds'
+} from '@/utils/weather/cityBackgrounds'
 
 describe('city background utilities', () => {
   it('should parse full-width parenthesis asset paths', () => {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getWeatherIcon } from '@/components/weather/weatherIconMap'
+import { getWeatherIcon } from '@/utils/weather/weatherIconMap'
 
 const props = withDefaults(
   defineProps<{

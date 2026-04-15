@@ -5,9 +5,11 @@ import AppLayout from '@/layout/AppLayout.vue'
 import { useCityStore } from '@/store/city'
 import { createCity, deleteCity, getCityList, updateCity } from '@/service/city'
 
-const pushMock = vi.fn()
-const warningMock = vi.fn()
-const successMock = vi.fn()
+const { pushMock, warningMock, successMock } = vi.hoisted(() => ({
+  pushMock: vi.fn(),
+  warningMock: vi.fn(),
+  successMock: vi.fn(),
+}))
 const routeState = {
   name: 'center',
   fullPath: '/center',
@@ -51,6 +53,7 @@ const AppTopNavStub = {
   name: 'AppTopNav',
   props: [
     'showCenterSearch',
+    'showCityDetail',
     'showMyCities',
     'showProfileCenter',
     'showLoginList',
@@ -60,15 +63,17 @@ const AppTopNavStub = {
     'avatarUrl',
     'showLogout',
   ],
-  emits: ['profile-center-click', 'login-list-click', 'search-submit'],
+  emits: ['city-detail-click', 'profile-center-click', 'login-list-click', 'search-submit'],
   template: `
     <div>
       <span class="show-center-search">{{ showCenterSearch }}</span>
+      <span class="show-city-detail">{{ showCityDetail }}</span>
       <span class="show-my-cities">{{ showMyCities }}</span>
       <span class="show-profile-center">{{ showProfileCenter }}</span>
       <span class="show-login-list">{{ showLoginList }}</span>
       <span class="center-nav-centered">{{ centerNavCentered }}</span>
       <span class="active-center-action">{{ activeCenterAction }}</span>
+      <button class="city-detail-trigger" @click="$emit('city-detail-click')" />
       <button class="profile-center-trigger" @click="$emit('profile-center-click')" />
       <button class="login-list-trigger" @click="$emit('login-list-click')" />
     </div>
@@ -97,6 +102,7 @@ describe('AppLayout center actions', () => {
     mockedCreateCity.mockReset()
     mockedUpdateCity.mockReset()
     mockedDeleteCity.mockReset()
+    localStorage.clear()
     routeState.name = 'center'
     routeState.fullPath = '/center'
     routeState.meta = { navVariant: 'home' }
@@ -128,6 +134,7 @@ describe('AppLayout center actions', () => {
     const { wrapper } = await mountLayout('center', '/center')
 
     expect(wrapper.find('.show-my-cities').text()).toBe('true')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
     expect(wrapper.find('.show-profile-center').text()).toBe('true')
     expect(wrapper.find('.show-login-list').text()).toBe('true')
     expect(wrapper.find('.show-center-search').text()).toBe('false')
@@ -145,10 +152,30 @@ describe('AppLayout center actions', () => {
     expect(pushMock).toHaveBeenCalledWith('/login-list')
   })
 
+  it('navigates to default city detail when top nav emits city-detail-click', async () => {
+    const { wrapper, pinia } = await mountLayout('center', '/center')
+    const cityStore = useCityStore(pinia)
+    cityStore.setCities([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }])
+
+    await wrapper.find('.city-detail-trigger').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82')
+  })
+
+  it('falls back to /weather when city-detail-click has no cities available', async () => {
+    const { wrapper } = await mountLayout('center', '/center')
+
+    await wrapper.find('.city-detail-trigger').trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith('/weather')
+  })
+
   it('shows center modules and search together on weather route', async () => {
     const { wrapper } = await mountLayout('weather', '/weather')
 
     expect(wrapper.find('.show-center-search').text()).toBe('true')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
     expect(wrapper.find('.show-my-cities').text()).toBe('true')
     expect(wrapper.find('.show-profile-center').text()).toBe('true')
     expect(wrapper.find('.show-login-list').text()).toBe('true')
@@ -156,10 +183,38 @@ describe('AppLayout center actions', () => {
     expect(wrapper.find('.active-center-action').text()).toBe('')
   })
 
+  it('shows centered route modules and hides search on city detail route', async () => {
+    const { wrapper } = await mountLayout('city-detail', '/weather/%E6%AD%A6%E6%B1%89%E5%B8%82')
+
+    expect(wrapper.find('.show-center-search').text()).toBe('false')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
+    expect(wrapper.find('.show-my-cities').text()).toBe('true')
+    expect(wrapper.find('.show-profile-center').text()).toBe('true')
+    expect(wrapper.find('.show-login-list').text()).toBe('true')
+    expect(wrapper.find('.center-nav-centered').text()).toBe('true')
+    expect(wrapper.find('.active-center-action').text()).toBe('city-detail')
+  })
+
+  it('shows centered route modules and hides search on temperature trend route', async () => {
+    const { wrapper } = await mountLayout(
+      'city-temperature-trend',
+      '/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/temperature-trend',
+    )
+
+    expect(wrapper.find('.show-center-search').text()).toBe('false')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
+    expect(wrapper.find('.show-my-cities').text()).toBe('true')
+    expect(wrapper.find('.show-profile-center').text()).toBe('true')
+    expect(wrapper.find('.show-login-list').text()).toBe('true')
+    expect(wrapper.find('.center-nav-centered').text()).toBe('true')
+    expect(wrapper.find('.active-center-action').text()).toBe('city-detail')
+  })
+
   it('hides search and keeps center nav centered on my cities route', async () => {
     const { wrapper } = await mountLayout('list', '/list')
 
     expect(wrapper.find('.show-center-search').text()).toBe('false')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
     expect(wrapper.find('.show-my-cities').text()).toBe('true')
     expect(wrapper.find('.show-profile-center').text()).toBe('true')
     expect(wrapper.find('.show-login-list').text()).toBe('true')
@@ -171,6 +226,7 @@ describe('AppLayout center actions', () => {
     const { wrapper } = await mountLayout('login-list', '/login-list')
 
     expect(wrapper.find('.show-center-search').text()).toBe('false')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
     expect(wrapper.find('.show-my-cities').text()).toBe('true')
     expect(wrapper.find('.show-profile-center').text()).toBe('true')
     expect(wrapper.find('.show-login-list').text()).toBe('true')
@@ -259,5 +315,58 @@ describe('AppLayout center actions', () => {
 
     expect(cityStore.createCityByName).toHaveBeenCalledWith('洪山区')
     expect(pushMock).toHaveBeenCalledWith('/weather/%E6%B4%AA%E5%B1%B1%E5%8C%BA')
+  })
+
+  it('reuses search-and-add flow on city detail route', async () => {
+    const { wrapper, pinia } = await mountLayout('city-detail', '/weather/%E4%B8%8A%E6%B5%B7%E5%B8%82')
+    const cityStore = useCityStore(pinia)
+    cityStore.setCities([{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }])
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }],
+    })
+    vi.spyOn(cityStore, 'createCityByName').mockResolvedValue(true)
+
+    await wrapper.findComponent(AppTopNavStub).vm.$emit('search-submit', '武汉')
+    await flushPromises()
+
+    expect(wrapper.find('.el-dialog-stub').exists()).toBe(true)
+    expect(wrapper.text()).toContain('武汉市')
+
+    const confirmButton = wrapper.findAll('button').find((button) => button.text() === '确认添加')
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(cityStore.createCityByName).toHaveBeenCalledWith('武汉市')
+    expect(pushMock).toHaveBeenCalledWith('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82')
+  })
+
+  it('closes dialog without side effects when canceling on city detail route', async () => {
+    const { wrapper, pinia } = await mountLayout(
+      'city-temperature-trend',
+      '/weather/%E4%B8%8A%E6%B5%B7%E5%B8%82/temperature-trend',
+    )
+    const cityStore = useCityStore(pinia)
+    cityStore.setCities([{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }])
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [],
+    })
+    const createSpy = vi.spyOn(cityStore, 'createCityByName').mockResolvedValue(true)
+
+    await wrapper.findComponent(AppTopNavStub).vm.$emit('search-submit', '杭州')
+    await flushPromises()
+
+    expect(wrapper.find('.el-dialog-stub').exists()).toBe(true)
+
+    const cancelButton = wrapper.findAll('button').find((button) => button.text() === '取消')
+    await cancelButton?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.el-dialog-stub').exists()).toBe(false)
+    expect(createSpy).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 })

@@ -2,7 +2,7 @@ export type CityBackgroundVariant = 'day' | 'dusk' | 'night'
 
 export type CityBackgroundEntry = Partial<Record<CityBackgroundVariant, string>>
 
-const rawCityImages = import.meta.glob('../assets/cities/*.{png,jpg,jpeg,webp}', {
+const rawCityImages = import.meta.glob('../../assets/cities/*.{png,jpg,jpeg,webp}', {
   eager: true,
   import: 'default',
 }) as Record<string, string>

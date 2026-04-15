@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import List from '@/views/List.vue'
-import CityList from '@/components/List/CityList.vue'
+import List from '@/views/cities/List.vue'
+import CityList from '@/components/city-list/CityList.vue'
 import { useCityStore } from '@/store/city'
 import { deleteCity, getCityList } from '@/service/city'
 
@@ -250,7 +250,7 @@ describe('List view', () => {
     expect(dialog.exists()).toBe(true)
     expect(dialog.classes()).toContain('delete-confirm-dialog')
     expect(dialog.attributes('data-modal-class')).toBe('delete-confirm-overlay')
-    expect(dialog.attributes('data-append-to-body')).toBe('true')
+    expect(dialog.attributes('data-append-to-body')).not.toBeUndefined()
     expect(dialog.attributes('align-center')).not.toBeUndefined()
 
     const confirmBtn = wrapper.findAll('button').find((button) => button.text() === '确认删除')

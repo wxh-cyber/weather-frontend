@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getCityBackgroundVariant, resolveCityBackground } from '@/utils/cityBackgrounds'
-import { resolveWeatherOverlayPhase } from '@/utils/weatherOverlays'
+import { getCityBackgroundVariant, resolveCityBackground } from '@/utils/weather/cityBackgrounds'
+import { resolveWeatherOverlayPhase } from '@/utils/weather/weatherOverlays'
 
 const props = defineProps<{
   cityName?: string

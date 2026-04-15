@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
-import Login from '@/views/Login.vue'
+import Login from '@/views/auth/Login.vue'
 import { login } from '@/service/auth'
 
 const {

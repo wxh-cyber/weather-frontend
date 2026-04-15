@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CityListItem from '@/components/List/CityListItem.vue'
+import CityListItem from '@/components/city-list/CityListItem.vue'
 
 export interface CityListItemData {
   cityName: string

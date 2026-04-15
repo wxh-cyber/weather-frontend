@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import Home from '@/views/Home.vue'
+import Home from '@/views/weather/Home.vue'
 import { getCityList } from '@/service/city'
 
 vi.mock('@/service/city', () => ({

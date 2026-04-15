@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import LoginList from '@/views/LoginList.vue'
+import LoginList from '@/views/auth/LoginList.vue'
 import { getLoginRecords } from '@/service/auth'
 
 vi.mock('@/service/auth', () => ({

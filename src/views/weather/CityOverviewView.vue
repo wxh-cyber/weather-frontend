@@ -1,20 +1,31 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import WeatherCityOverview from '@/components/weather/WeatherCityOverview.vue'
+import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
 import { useCityStore } from '@/store/city'
 
 const route = useRoute()
 const router = useRouter()
 const cityStore = useCityStore()
-const menus = ['发现', '天气', '地图', '每小时预报', '月度天气', '天气趋势', '台风']
 const selectedCityName = ref('')
+const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weatherSearchSubmitKey, undefined)
+
+const navItems = [
+  { key: 'overview', label: '城市概览' },
+  { key: 'temperature-trend', label: '温度趋势' },
+  { key: 'weather-map', label: '天气地图', disabled: true },
+  { key: 'hourly-forecast', label: '每小时预报', disabled: true },
+] as const
 
 const routeCityName = computed(() => String(route.params.cityName ?? ''))
 const selectedCity = computed(
   () => cityStore.cities.find((city) => city.cityName === selectedCityName.value)
     ?? cityStore.cities.find((city) => city.cityName === routeCityName.value)
     ?? null,
+)
+const activeNavKey = computed(() =>
+  route.name === 'city-temperature-trend' ? 'temperature-trend' : 'overview',
 )
 
 const syncSelectedCity = () => {
@@ -47,17 +58,57 @@ const handleCitySelect = (cityName: string) => {
     params: { cityName },
   })
 }
+
+const handleNavSelect = (navKey: string) => {
+  if (!routeCityName.value) {
+    return
+  }
+
+  if (navKey === 'temperature-trend') {
+    if (route.name === 'city-temperature-trend') {
+      return
+    }
+
+    void router.push({
+      name: 'city-temperature-trend',
+      params: { cityName: routeCityName.value },
+    })
+    return
+  }
+
+  if (navKey === 'overview') {
+    if (route.name === 'city-detail') {
+      return
+    }
+
+    void router.push({
+      name: 'city-detail',
+      params: { cityName: routeCityName.value },
+    })
+  }
+}
+
+const handleSearchSubmit = (keyword: string) => {
+  if (!weatherSearchSubmit) {
+    return
+  }
+
+  void weatherSearchSubmit(keyword)
+}
 </script>
 
 <template>
   <WeatherCityOverview
     v-if="selectedCity"
-    :menus="menus"
+    :nav-items="navItems"
+    :active-nav-key="activeNavKey"
     :cities="cityStore.cities"
     :default-city-name="cityStore.cities[0]?.cityName ?? ''"
     :selected-city-name="selectedCity.cityName"
     :temperature="selectedCity.temperature"
     :weather-text="selectedCity.weatherText"
     @city-select="handleCitySelect"
+    @nav-select="handleNavSelect"
+    @search-submit="handleSearchSubmit"
   />
 </template>

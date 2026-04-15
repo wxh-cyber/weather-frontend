@@ -243,7 +243,7 @@
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import CityListItem from '@/components/List/CityListItem.vue'
+import CityListItem from '@/components/city-list/CityListItem.vue'
 import { getProfile, updateProfile, uploadAvatar } from '@/service/auth'
 import { getCityList } from '@/service/city'
 import { useAuthStore } from '@/store/auth'

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import CityList from '@/components/List/CityList.vue'
+import CityList from '@/components/city-list/CityList.vue'
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
