@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import WeatherMapExplorer from '@/components/weather/WeatherMapExplorer.vue'
+import WeatherMapExplorer from '@/components/weather/map/WeatherMapExplorer.vue'
 
 let currentZoom = 9
 const mapEventHandlers = new Map<string, ((event?: any) => void)>()
@@ -23,7 +23,7 @@ const layerOffMock = vi.fn()
 const offMock = vi.fn()
 const onMock = vi.fn()
 
-vi.mock('@/components/weather/mapTheme', () => ({
+vi.mock('@/components/weather/map/mapTheme', () => ({
   createEcoBasemapLayer: vi.fn(() => ({
     addTo: layerAddToMock,
     remove: layerRemoveMock,

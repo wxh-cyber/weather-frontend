@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import WeatherMapPanel from '@/components/weather/WeatherMapPanel.vue'
+import WeatherMapPanel from '@/components/weather/map/WeatherMapPanel.vue'
 
 const pushMock = vi.fn()
 const destroyMock = vi.fn()
@@ -25,7 +25,7 @@ vi.mock('vue-router', async () => {
   }
 })
 
-vi.mock('@/components/weather/mapTheme', () => ({
+vi.mock('@/components/weather/map/mapTheme', () => ({
   createEcoBasemapLayer: vi.fn(() => ({
     addTo: layerAddToMock,
     remove: layerRemoveMock,

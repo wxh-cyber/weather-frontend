@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
-import WeatherPageShell from '@/components/weather/WeatherPageShell.vue'
+import WeatherPageShell from '@/components/weather/shell/WeatherPageShell.vue'
 import { useCityStore } from '@/store/city'
 
 const route = useRoute()

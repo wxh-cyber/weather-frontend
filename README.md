@@ -13,7 +13,7 @@
 
 ## 项目简介
 
-`weather-frontend` 是"小慕天气"系统的前端工程，基于 `Vue 3 + Vite + TypeScript` 构建，当前用于毕业设计场景下的页面展示与前后端联调。项目已覆盖开始页、天气主页、城市详情、登录注册、个人中心、登录记录和我的城市管理等核心界面。
+`weather-frontend` 是"小慕天气"系统的前端工程，基于 `Vue 3 + Vite + TypeScript` 构建，当前用于毕业设计场景下的页面展示、交互动画与前后端联调。项目已覆盖开始页、天气主页、城市详情、登录注册、个人中心、登录记录、我的城市管理以及地图浏览等核心界面。
 
 ## 技术栈
 
@@ -84,7 +84,7 @@ npx playwright install
 运行单个测试文件：
 
 ```bash
-npx vitest run src/views/__tests__/Login.spec.ts
+npx vitest run src/views/auth/__tests__/Login.spec.ts
 ```
 
 按描述匹配测试：
@@ -96,6 +96,7 @@ npx vitest run --reporter=verbose -t "shows unregistered"
 ## 当前功能
 
 - 天气主页展示城市天气总览
+- 开始页支持多组天气动效背景轮播与实时时间显示
 - 登录、注册与本地登录态持久化（`localStorage` + Pinia `authStore`）
 - 个人中心资料编辑与头像上传
 - 登录记录查询（需鉴权）
@@ -104,6 +105,7 @@ npx vitest run --reporter=verbose -t "shows unregistered"
 - 温度趋势图支持在详情页内部进行局部视图切换，不替换整页内容
 - 动态城市背景：按城市名 + 时段（昼 / 昏 / 夜）自动切换背景图片
 - 天气粒子特效叠加层：雨、雪、阵雨（含晴雨交替）、雷阵雨（含闪电帧动画）
+- 天气地图页支持地图面板与天气点位浏览组件联动
 - 用户退出后会清空当前账号城市缓存；重新登录不同账号时，城市列表会按账号隔离展示
 
 ## 路由说明
@@ -152,6 +154,7 @@ src/components/ 可复用业务组件（按功能分组）
 - Base URL 为 `/api`，开发环境代理至 `localhost:3000`。
 - 请求拦截器自动注入 `Authorization: Bearer <token>`。
 - 响应拦截器解包 `response.data`；收到 401 时清除 auth 状态并重定向到 `/login?reason=expired&redirect=<path>`。
+- `src/service/weather.ts` 负责封装天气详情、小时趋势、地图逆地理编码等天气相关接口调用。
 
 ### 状态管理
 
@@ -182,6 +185,15 @@ src/components/ 可复用业务组件（按功能分组）
 - `'start'`：着陆页 / 登录注册页导航
 - `'home'`：主应用页导航
 
+### weather 目录职责拆分
+
+- `src/components/weather/overview`：承载城市概览、当前天气、短时预报和温度轨迹面板。
+- `src/components/weather/map`：承载地图面板、地图探索页组件以及地图底图主题配置。
+- `src/components/weather/shell`：承载天气页外壳、顶部栏和城市切换标签等页面容器型组件。
+- `src/views/weather/entry`：天气首页入口页。
+- `src/views/weather/detail`：城市详情、概览和温度趋势等详情子视图。
+- `src/views/weather/map`：独立天气地图页视图。
+
 ## 项目结构
 
 ```text
@@ -189,44 +201,79 @@ weather-frontend/
 ├─ public/                    静态资源
 ├─ src/
 │  ├─ assets/
+│  │  ├─ animations/
+│  │  │  ├─ auth/             登录/注册背景动图
+│  │  │  └─ weather/          开始页天气轮播动图
 │  │  ├─ cities/              城市背景图（昼/昏/夜）
-│  │  └─ theme.css            全局 CSS 变量（暗色科幻主题）
+│  │  ├─ fonts/               数码管字体等本地字体
+│  │  ├─ icons/               GitHub 图标与天气 SVG 图标
+│  │  ├─ styles/              全局样式入口（main/base/theme/auth-page）
+│  │  └─ logo.svg             项目 logo
 │  ├─ components/
 │  │  ├─ city-list/           城市列表业务组件（CityList / CityListItem）
+│  │  │  └─ __tests__/        城市列表组件单测
 │  │  └─ weather/             天气页面业务组件
-│  │     ├─ CurrentWeatherPanel.vue
-│  │     ├─ HourlyForecastPanel.vue
-│  │     ├─ TemperatureTrendPanel.vue
-│  │     ├─ WeatherCityOverview.vue
-│  │     ├─ WeatherCityTabs.vue
-│  │     ├─ WeatherMapPanel.vue
-│  │     ├─ WeatherPageShell.vue
-│  │     └─ WeatherTopBar.vue
+│  │     ├─ __tests__/
+│  │     │  ├─ map/           地图组件单测
+│  │     │  ├─ overview/      概览组件单测
+│  │     │  └─ shell/         页面外壳组件单测
+│  │     ├─ map/
+│  │     │  ├─ mapTheme.ts
+│  │     │  ├─ WeatherMapExplorer.vue
+│  │     │  └─ WeatherMapPanel.vue
+│  │     ├─ overview/
+│  │     │  ├─ CurrentWeatherPanel.vue
+│  │     │  ├─ HourlyForecastPanel.vue
+│  │     │  ├─ TemperatureTrendPanel.vue
+│  │     │  └─ WeatherCityOverview.vue
+│  │     └─ shell/
+│  │        ├─ WeatherCityTabs.vue
+│  │        ├─ WeatherPageShell.vue
+│  │        └─ WeatherTopBar.vue
 │  ├─ layout/
+│  │  ├─ __tests__/           布局与导航单测
 │  │  ├─ helpers/
 │  │  │  └─ weatherSearch.ts  城市搜索 provide/inject key
 │  │  ├─ AppLayout.vue
 │  │  ├─ AppTopNav.vue
 │  │  └─ CyberCursorOverlay.vue
 │  ├─ router/
+│  │  ├─ __tests__/           路由守卫与入口逻辑单测
 │  │  └─ index.ts             路由配置 + 守卫（resolveProtectedRoute / resolveWeatherEntryRoute）
 │  ├─ service/
 │  │  ├─ auth.ts              登录/注册/用户资料/登录记录接口
 │  │  ├─ city.ts              城市 CRUD 接口
-│  │  └─ http.ts              Axios 实例 + 拦截器
+│  │  ├─ http.ts              Axios 实例 + 拦截器
+│  │  └─ weather.ts           天气详情 / 预报 / 地图相关接口
 │  ├─ store/
+│  │  ├─ __tests__/           authStore / cityStore 单测
 │  │  ├─ auth.ts              authStore
 │  │  └─ city.ts              cityStore
 │  ├─ utils/
 │  │  └─ weather/
+│  │     ├─ __tests__/        动态背景与天气工具函数单测
 │  │     ├─ cityBackgrounds.ts  动态背景解析
 │  │     ├─ weatherIconMap.ts   天气图标映射
 │  │     └─ weatherOverlays.ts  粒子特效叠加层逻辑
 │  ├─ views/
 │  │  ├─ auth/                登录 / 注册 / 个人中心 / 登录记录
+│  │  │  └─ __tests__/        认证相关页面单测
 │  │  ├─ cities/              我的城市管理页
+│  │  │  └─ __tests__/        城市列表页单测
 │  │  ├─ system/              开始页（Start）
-│  │  └─ weather/             天气相关页（Home / CityDetail / CityOverviewView / TemperatureTrendView / CityWeatherMapView）
+│  │  └─ weather/             天气相关页
+│  │     ├─ __tests__/
+│  │     │  ├─ detail/        详情页单测
+│  │     │  ├─ entry/         首页入口单测
+│  │     │  └─ map/           地图页单测
+│  │     ├─ detail/
+│  │     │  ├─ CityDetail.vue
+│  │     │  ├─ CityOverviewView.vue
+│  │     │  └─ TemperatureTrendView.vue
+│  │     ├─ entry/
+│  │     │  └─ Home.vue
+│  │     └─ map/
+│  │        └─ CityWeatherMapView.vue
 │  ├─ App.vue
 │  └─ main.ts
 ├─ e2e/                       Playwright 端到端测试
@@ -239,7 +286,8 @@ weather-frontend/
 - 前端默认通过 `/api` 前缀代理访问后端，启动前须先确保 `weather-backend` 服务已启动。
 - 当前已接入的服务端点：
   - `auth`：登录、注册、资料编辑、头像上传、登录记录查询
-  - `cities`：城市列表拉取与 CRUD（新增/修改/删除）
+  - `cities`：城市列表拉取与 CRUD（新增/删除/默认城市/用户隔离）
+  - `weather`：当前天气、小时级趋势、多日预报与地图逆地理编码
 - 当前 `/cities` 已由后端按登录态自适应处理：
   - 未登录时可获取公共城市列表 / 搜索结果
   - 已登录且不带 `keyword` 时返回当前用户自己的城市列表
@@ -274,5 +322,5 @@ weather-frontend/
 
 ## 说明
 
-- 项目整体视觉风格延续暗色科幻主题，核心样式变量集中在 `src/assets/theme.css`。
+- 项目整体视觉风格延续暗色科幻主题，核心样式变量集中在 `src/assets/styles/theme.css`。
 - 当前实现优先服务于毕业设计展示与联调闭环，功能边界以"已落地且联调通过"为准。

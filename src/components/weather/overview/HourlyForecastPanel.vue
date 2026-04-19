@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getWeatherIcon, type WeatherIconKey } from '@/utils/weather/weatherIconMap'
-import TemperatureTrendPanel from '@/components/weather/TemperatureTrendPanel.vue'
+import TemperatureTrendPanel from '@/components/weather/overview/TemperatureTrendPanel.vue'
 
 const props = withDefaults(
   defineProps<{

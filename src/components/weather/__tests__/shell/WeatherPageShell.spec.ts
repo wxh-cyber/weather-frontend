@@ -1,7 +1,7 @@
 import { defineComponent, nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import WeatherPageShell from '@/components/weather/WeatherPageShell.vue'
+import WeatherPageShell from '@/components/weather/shell/WeatherPageShell.vue'
 
 const resolveCityBackgroundMock = vi.fn()
 const getCityBackgroundVariantMock = vi.fn()

@@ -65,7 +65,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import earthGif from '@/assets/登录注册背景.gif'
+import earthGif from '@/assets/animations/auth/登录注册背景.gif'
 import { register } from '@/service/auth'
 import { useAuthStore } from '@/store/auth'
 
@@ -156,7 +156,7 @@ const handleRegisterSubmit = async () => {
 </script>
 
 <style scoped>
-@import '../../assets/auth-page.css';
+@import '../../assets/styles/auth-page.css';
 
 .earth-bg-layer {
   position: absolute;

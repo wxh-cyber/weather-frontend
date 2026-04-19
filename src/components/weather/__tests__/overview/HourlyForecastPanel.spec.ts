@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import HourlyForecastPanel from '@/components/weather/HourlyForecastPanel.vue'
+import HourlyForecastPanel from '@/components/weather/overview/HourlyForecastPanel.vue'
 
 const { echartsInstanceMock, echartsInitMock } = vi.hoisted(() => ({
   echartsInstanceMock: {

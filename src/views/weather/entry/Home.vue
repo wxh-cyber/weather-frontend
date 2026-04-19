@@ -2,8 +2,8 @@
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
-import WeatherPageShell from '@/components/weather/WeatherPageShell.vue'
-import WeatherCityOverview from '@/components/weather/WeatherCityOverview.vue'
+import WeatherPageShell from '@/components/weather/shell/WeatherPageShell.vue'
+import WeatherCityOverview from '@/components/weather/overview/WeatherCityOverview.vue'
 import { useCityStore } from '@/store/city'
 
 const router = useRouter()

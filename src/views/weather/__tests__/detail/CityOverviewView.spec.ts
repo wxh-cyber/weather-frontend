@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { weatherSearchSubmitKey } from '@/layout/helpers/weatherSearch'
-import CityOverviewView from '@/views/weather/CityOverviewView.vue'
+import CityOverviewView from '@/views/weather/detail/CityOverviewView.vue'
 import { useCityStore } from '@/store/city'
 
 describe('CityOverviewView', () => {

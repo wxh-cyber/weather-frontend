@@ -22,12 +22,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Cloudy } from '@element-plus/icons-vue'
-import sunnyBg1 from '@/assets/晴天(1).gif';
-import sunnyBg2 from '@/assets/晴天(2).gif';
-import rainyBg1 from '@/assets/雨天(1).gif';
-import rainyBg2 from '@/assets/雨天(2).gif';
-import snowyBg1 from '@/assets/雪天(1).gif';
-import snowyBg2 from '@/assets/雪天(2).gif';
+import sunnyBg1 from '@/assets/animations/weather/晴天(1).gif';
+import sunnyBg2 from '@/assets/animations/weather/晴天(2).gif';
+import rainyBg1 from '@/assets/animations/weather/雨天(1).gif';
+import rainyBg2 from '@/assets/animations/weather/雨天(2).gif';
+import snowyBg1 from '@/assets/animations/weather/雪天(1).gif';
+import snowyBg2 from '@/assets/animations/weather/雪天(2).gif';
 
 const currentTime = ref('');            //当前时间
 const currentBgIndex = ref(0);          //当前背景索引

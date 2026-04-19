@@ -45,7 +45,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import earthGif from '@/assets/登录注册背景.gif'
+import earthGif from '@/assets/animations/auth/登录注册背景.gif'
 import { getProfile, login } from '@/service/auth'
 import { useAuthStore } from '@/store/auth'
 import { useCityStore } from '@/store/city'
@@ -139,7 +139,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-@import '../../assets/auth-page.css';
+@import '../../assets/styles/auth-page.css';
 
 .earth-bg-layer {
   position: absolute;

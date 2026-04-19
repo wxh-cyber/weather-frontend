@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import WeatherCityOverview from '@/components/weather/WeatherCityOverview.vue'
+import WeatherCityOverview from '@/components/weather/overview/WeatherCityOverview.vue'
 import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
 import { useCityStore } from '@/store/city'
 

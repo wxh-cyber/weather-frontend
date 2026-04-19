@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Search } from '@element-plus/icons-vue'
 import { computed, ref } from 'vue'
-import CurrentWeatherPanel from '@/components/weather/CurrentWeatherPanel.vue'
-import HourlyForecastPanel from '@/components/weather/HourlyForecastPanel.vue'
-import WeatherCityTabs from '@/components/weather/WeatherCityTabs.vue'
-import WeatherMapPanel from '@/components/weather/WeatherMapPanel.vue'
+import CurrentWeatherPanel from '@/components/weather/overview/CurrentWeatherPanel.vue'
+import HourlyForecastPanel from '@/components/weather/overview/HourlyForecastPanel.vue'
+import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
+import WeatherMapPanel from '@/components/weather/map/WeatherMapPanel.vue'
 import type { CityItem } from '@/store/city'
 
 const props = defineProps<{

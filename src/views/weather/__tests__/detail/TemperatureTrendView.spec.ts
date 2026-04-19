@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import TemperatureTrendView from '@/views/weather/TemperatureTrendView.vue'
+import TemperatureTrendView from '@/views/weather/detail/TemperatureTrendView.vue'
 import { useCityStore } from '@/store/city'
 
 const { echartsInstanceMock, echartsInitMock } = vi.hoisted(() => ({

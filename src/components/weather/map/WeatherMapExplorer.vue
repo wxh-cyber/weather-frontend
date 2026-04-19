@@ -4,7 +4,7 @@ import 'mars2d/mars2d.css'
 
 import * as mars2d from 'mars2d'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { createEcoBasemapLayer } from '@/components/weather/mapTheme'
+import { createEcoBasemapLayer } from '@/components/weather/map/mapTheme'
 import { getReverseGeocode } from '@/service/weather'
 
 const MIN_ZOOM = 4

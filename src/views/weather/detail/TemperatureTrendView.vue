@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import TemperatureTrendPanel from '@/components/weather/TemperatureTrendPanel.vue'
+import TemperatureTrendPanel from '@/components/weather/overview/TemperatureTrendPanel.vue'
 import { useCityStore } from '@/store/city'
 
 const route = useRoute()

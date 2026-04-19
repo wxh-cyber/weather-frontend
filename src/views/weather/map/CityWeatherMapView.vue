@@ -2,8 +2,8 @@
 import { Search } from '@element-plus/icons-vue'
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import WeatherCityTabs from '@/components/weather/WeatherCityTabs.vue'
-import WeatherMapExplorer from '@/components/weather/WeatherMapExplorer.vue'
+import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
+import WeatherMapExplorer from '@/components/weather/map/WeatherMapExplorer.vue'
 import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
 import { useCityStore } from '@/store/city'
 
