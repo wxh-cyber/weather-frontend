@@ -17,6 +17,7 @@ describe('CityOverviewView', () => {
       routes: [
         { path: '/weather/:cityName', name: 'city-detail', component: CityOverviewView },
         { path: '/weather/:cityName/temperature-trend', name: 'city-temperature-trend', component: CityOverviewView },
+        { path: '/weather/:cityName/map', name: 'city-weather-map', component: CityOverviewView },
       ],
     })
 
@@ -27,8 +28,8 @@ describe('CityOverviewView', () => {
     setActivePinia(pinia)
     const cityStore = useCityStore(pinia)
     cityStore.setCities([
-      { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
-      { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+      { cityName: '武汉市', province: '湖北省', latitude: 30.5928, longitude: 114.3055, weatherText: '晴', temperature: '26°C' },
+      { cityName: '上海市', province: '上海市', latitude: 31.2304, longitude: 121.4737, weatherText: '多云', temperature: '22°C' },
     ])
     const searchSubmitMock = vi.fn()
 
@@ -50,6 +51,7 @@ describe('CityOverviewView', () => {
                 <span class="active-nav-key">{{ activeNavKey }}</span>
                 <button class="to-overview" @click="$emit('nav-select', 'overview')" />
                 <button class="to-trend" @click="$emit('nav-select', 'temperature-trend')" />
+                <button class="to-map" @click="$emit('nav-select', 'weather-map')" />
                 <button class="submit-search" @click="$emit('search-submit', '南京')" />
               </section>
             `,
@@ -88,6 +90,16 @@ describe('CityOverviewView', () => {
     await wrapper.find('.to-overview').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('city-detail')
+  })
+
+  it('switches to the dedicated map route from local nav actions', async () => {
+    const { wrapper, router } = await mountOverviewView('/weather/武汉市')
+
+    await wrapper.find('.to-map').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('city-weather-map')
+    expect(router.currentRoute.value.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/map')
   })
 
   it('forwards local search submit to the shared weather search handler', async () => {

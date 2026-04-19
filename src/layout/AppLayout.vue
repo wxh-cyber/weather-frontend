@@ -76,6 +76,7 @@ const navVariant = computed(() => {
 })
 const brandText = computed(() => (navVariant.value === 'start' ? '小慕天气' : '小慕天气 · 控制台'))
 const centeredNavRoutes = ['center', 'list', 'login-list', 'city-detail', 'city-temperature-trend'] as const
+const isWeatherRouteWithoutCities = computed(() => route.name === 'weather' && cityStore.cities.length === 0)
 const showCenterButtons = computed(() =>
   route.name === 'center'
     || route.name === 'login-list'
@@ -84,12 +85,21 @@ const showCenterButtons = computed(() =>
     || route.name === 'city-detail'
     || route.name === 'city-temperature-trend',
 )
-const showCenterSearch = computed(() => navVariant.value === 'home' && !centeredNavRoutes.includes(route.name as typeof centeredNavRoutes[number]))
+const showCenterSearch = computed(
+  () =>
+    navVariant.value === 'home'
+    && !centeredNavRoutes.includes(route.name as typeof centeredNavRoutes[number])
+    && !isWeatherRouteWithoutCities.value,
+)
 const showCityDetail = computed(() => showCenterButtons.value)
 const showMyCities = computed(() => showCenterButtons.value)
 const showProfileCenter = computed(() => showCenterButtons.value)
 const showLoginList = computed(() => showCenterButtons.value)
-const centerNavCentered = computed(() => centeredNavRoutes.includes(route.name as typeof centeredNavRoutes[number]))
+const centerNavCentered = computed(
+  () =>
+    centeredNavRoutes.includes(route.name as typeof centeredNavRoutes[number])
+    || isWeatherRouteWithoutCities.value,
+)
 const loginLabel = computed(() => displayName.value)
 const navAvatarUrl = computed(() => user.value?.avatarUrl || '')
 const searchConfirmVisible = ref(false)

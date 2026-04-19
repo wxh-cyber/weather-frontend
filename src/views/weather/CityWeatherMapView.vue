@@ -1,58 +1,114 @@
 <script setup lang="ts">
 import { Search } from '@element-plus/icons-vue'
-import { computed, ref } from 'vue'
-import CurrentWeatherPanel from '@/components/weather/CurrentWeatherPanel.vue'
-import HourlyForecastPanel from '@/components/weather/HourlyForecastPanel.vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import WeatherCityTabs from '@/components/weather/WeatherCityTabs.vue'
-import WeatherMapPanel from '@/components/weather/WeatherMapPanel.vue'
-import type { CityItem } from '@/store/city'
+import WeatherMapExplorer from '@/components/weather/WeatherMapExplorer.vue'
+import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
+import { useCityStore } from '@/store/city'
 
-const props = defineProps<{
-  navItems: ReadonlyArray<{
-    key: string
-    label: string
-    disabled?: boolean
-  }>
-  activeNavKey: string
-  cities: CityItem[]
-  defaultCityName: string
-  selectedCityName: string
-  temperature?: string
-  weatherText?: string
-}>()
-
-const emit = defineEmits<{
-  (e: 'city-select', cityName: string): void
-  (e: 'nav-select', navKey: string): void
-  (e: 'search-submit', keyword: string): void
-}>()
-
+const route = useRoute()
+const router = useRouter()
+const cityStore = useCityStore()
+const selectedCityName = ref('')
 const searchKeyword = ref('')
-const selectedCityMeta = computed(
-  () => props.cities.find((city) => city.cityName === props.selectedCityName) ?? null,
+const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weatherSearchSubmitKey, undefined)
+
+const navItems: ReadonlyArray<{
+  key: string
+  label: string
+  disabled?: boolean
+}> = [
+  { key: 'overview', label: '城市概览' },
+  { key: 'temperature-trend', label: '温度趋势' },
+  { key: 'weather-map', label: '天气地图' },
+  { key: 'hourly-forecast', label: '每小时预报', disabled: true },
+]
+
+const routeCityName = computed(() => String(route.params.cityName ?? ''))
+const selectedCity = computed(
+  () => cityStore.cities.find((city) => city.cityName === selectedCityName.value)
+    ?? cityStore.cities.find((city) => city.cityName === routeCityName.value)
+    ?? null,
 )
 
+const syncSelectedCity = () => {
+  const currentName = selectedCityName.value.trim()
+  const hasCurrentCity = cityStore.cities.some((city) => city.cityName === currentName)
+  if (hasCurrentCity) {
+    return
+  }
+
+  selectedCityName.value = routeCityName.value
+}
+
 const submitSearch = () => {
-  emit('search-submit', searchKeyword.value.trim())
+  if (!weatherSearchSubmit) {
+    return
+  }
+
+  void weatherSearchSubmit(searchKeyword.value.trim())
+}
+
+watch(routeCityName, (nextCityName) => {
+  selectedCityName.value = nextCityName
+})
+watch(() => cityStore.cities, syncSelectedCity, { deep: true, immediate: true })
+
+onMounted(async () => {
+  await cityStore.ensureCitiesLoaded()
+  syncSelectedCity()
+})
+
+const handleCitySelect = (cityName: string) => {
+  if (routeCityName.value === cityName && route.name === 'city-weather-map') {
+    return
+  }
+
+  void router.push({
+    name: 'city-weather-map',
+    params: { cityName },
+  })
+}
+
+const handleNavSelect = (navKey: string) => {
+  if (!routeCityName.value) {
+    return
+  }
+
+  if (navKey === 'overview') {
+    void router.push({
+      name: 'city-detail',
+      params: { cityName: routeCityName.value },
+    })
+    return
+  }
+
+  if (navKey === 'temperature-trend') {
+    void router.push({
+      name: 'city-temperature-trend',
+      params: { cityName: routeCityName.value },
+    })
+  }
 }
 </script>
 
 <template>
-  <section class="city-overview">
+  <section v-if="selectedCity" class="map-view">
     <header class="dashboard-head">
       <div class="dashboard-head__inner">
         <nav class="menu" aria-label="城市详情导航">
           <button
-            v-for="item in props.navItems"
+            v-for="item in navItems"
             :key="item.key"
             type="button"
             class="menu-button"
             :class="{
-              'is-current': item.key === props.activeNavKey,
+              'is-current': item.key === 'weather-map',
               'is-disabled': item.disabled,
             }"
             :disabled="item.disabled"
-            @click="emit('nav-select', item.key)"
+            @click="handleNavSelect(item.key)"
           >
             <span class="menu-button__label">{{ item.label }}</span>
           </button>
@@ -81,38 +137,25 @@ const submitSearch = () => {
     </header>
 
     <WeatherCityTabs
-      :cities="props.cities"
-      :default-city-name="props.defaultCityName"
-      :selected-city-name="props.selectedCityName"
-      @select="emit('city-select', $event)"
+      :cities="cityStore.cities"
+      :default-city-name="cityStore.cities[0]?.cityName ?? ''"
+      :selected-city-name="selectedCity.cityName"
+      @select="handleCitySelect"
     />
 
-    <section class="overview-grid">
-      <CurrentWeatherPanel
-        :city-name="props.selectedCityName"
-        :temperature="props.temperature"
-        :weather-text="props.weatherText"
-      />
-      <WeatherMapPanel
-        :city-name="props.selectedCityName"
-        :weather-text="props.weatherText"
-        :province="selectedCityMeta?.province"
-        :country="selectedCityMeta?.country"
-        :latitude="selectedCityMeta?.latitude"
-        :longitude="selectedCityMeta?.longitude"
-      />
-    </section>
-
-    <HourlyForecastPanel
-      :city-name="props.selectedCityName"
-      :temperature="props.temperature"
-      :weather-text="props.weatherText"
+    <WeatherMapExplorer
+      :city-name="selectedCity.cityName"
+      :weather-text="selectedCity.weatherText"
+      :province="selectedCity.province"
+      :country="selectedCity.country"
+      :latitude="selectedCity.latitude"
+      :longitude="selectedCity.longitude"
     />
   </section>
 </template>
 
 <style scoped>
-.city-overview {
+.map-view {
   display: grid;
   gap: 14px;
   min-width: 0;
@@ -157,34 +200,6 @@ const submitSearch = () => {
   font-size: 13px;
   letter-spacing: 0.08em;
   cursor: pointer;
-  box-shadow:
-    inset 0 0 14px rgba(117, 241, 255, 0.06),
-    0 0 0 rgba(117, 241, 255, 0);
-  transition:
-    color var(--cyber-ease),
-    border-color var(--cyber-ease),
-    box-shadow var(--cyber-ease),
-    transform var(--cyber-ease),
-    background var(--cyber-ease);
-}
-
-.menu-button::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(117, 241, 255, 0.12), rgba(117, 241, 255, 0));
-  opacity: 0.42;
-  pointer-events: none;
-}
-
-.menu-button:hover:not(:disabled) {
-  color: var(--cyber-cyan);
-  border-color: rgba(117, 241, 255, 0.46);
-  box-shadow:
-    inset 0 0 18px rgba(117, 241, 255, 0.12),
-    0 0 16px rgba(117, 241, 255, 0.18);
-  transform: translateY(-1px);
 }
 
 .menu-button.is-current {
@@ -228,13 +243,6 @@ const submitSearch = () => {
     0 0 20px rgba(117, 241, 255, 0.08);
 }
 
-.search-wrap:focus-within {
-  border-color: rgba(117, 241, 255, 0.56);
-  box-shadow:
-    inset 0 0 18px rgba(117, 241, 255, 0.1),
-    0 0 22px rgba(117, 241, 255, 0.18);
-}
-
 .search {
   flex: 1;
   min-width: 0;
@@ -260,34 +268,10 @@ const submitSearch = () => {
   background: linear-gradient(135deg, rgba(117, 241, 255, 0.22), rgba(255, 82, 205, 0.18));
   color: var(--cyber-cyan);
   cursor: pointer;
-  transition:
-    transform var(--cyber-ease),
-    box-shadow var(--cyber-ease),
-    border-color var(--cyber-ease);
-}
-
-.search-trigger:hover {
-  transform: translateY(-1px);
-  border-color: rgba(117, 241, 255, 0.52);
-  box-shadow: 0 0 16px rgba(117, 241, 255, 0.22);
 }
 
 .search-icon {
   font-size: 16px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dashboard-head {
-    animation: none;
-  }
-}
-
-.overview-grid {
-  margin-top: 4px;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: 1.8fr 1fr;
-  min-width: 0;
 }
 
 @media (max-width: 940px) {
@@ -299,9 +283,11 @@ const submitSearch = () => {
     justify-self: stretch;
     width: 100%;
   }
+}
 
-  .overview-grid {
-    grid-template-columns: 1fr;
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-head {
+    animation: none;
   }
 }
 </style>

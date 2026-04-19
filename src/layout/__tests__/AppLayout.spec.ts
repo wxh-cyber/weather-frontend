@@ -221,7 +221,10 @@ describe('AppLayout center actions', () => {
     )
     mockedGetProfile.mockRejectedValue(new Error('获取资料失败'))
 
-    const { wrapper } = await mountLayout('weather', '/weather')
+    const { wrapper, pinia } = await mountLayout('weather', '/weather')
+    const cityStore = useCityStore(pinia)
+    cityStore.setCities([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }])
+    await flushPromises()
 
     expect(mockedGetProfile).toHaveBeenCalledTimes(1)
     expect(wrapper.find('.show-center-search').text()).toBe('true')
@@ -251,7 +254,10 @@ describe('AppLayout center actions', () => {
   })
 
   it('shows center modules and search together on weather route', async () => {
-    const { wrapper } = await mountLayout('weather', '/weather')
+    const { wrapper, pinia } = await mountLayout('weather', '/weather')
+    const cityStore = useCityStore(pinia)
+    cityStore.setCities([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }])
+    await flushPromises()
 
     expect(wrapper.find('.show-center-search').text()).toBe('true')
     expect(wrapper.find('.show-city-detail').text()).toBe('true')
@@ -259,6 +265,21 @@ describe('AppLayout center actions', () => {
     expect(wrapper.find('.show-profile-center').text()).toBe('true')
     expect(wrapper.find('.show-login-list').text()).toBe('true')
     expect(wrapper.find('.center-nav-centered').text()).toBe('false')
+    expect(wrapper.find('.active-center-action').text()).toBe('')
+  })
+
+  it('hides search and centers route modules when weather route has no cities', async () => {
+    const { wrapper, pinia } = await mountLayout('weather', '/weather')
+    const cityStore = useCityStore(pinia)
+    cityStore.setCities([])
+    await flushPromises()
+
+    expect(wrapper.find('.show-center-search').text()).toBe('false')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
+    expect(wrapper.find('.show-my-cities').text()).toBe('true')
+    expect(wrapper.find('.show-profile-center').text()).toBe('true')
+    expect(wrapper.find('.show-login-list').text()).toBe('true')
+    expect(wrapper.find('.center-nav-centered').text()).toBe('true')
     expect(wrapper.find('.active-center-action').text()).toBe('')
   })
 

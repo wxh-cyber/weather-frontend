@@ -14,7 +14,7 @@ const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weath
 const navItems = [
   { key: 'overview', label: '城市概览' },
   { key: 'temperature-trend', label: '温度趋势' },
-  { key: 'weather-map', label: '天气地图', disabled: true },
+  { key: 'weather-map', label: '天气地图' },
   { key: 'hourly-forecast', label: '每小时预报', disabled: true },
 ] as const
 
@@ -25,7 +25,11 @@ const selectedCity = computed(
     ?? null,
 )
 const activeNavKey = computed(() =>
-  route.name === 'city-temperature-trend' ? 'temperature-trend' : 'overview',
+  route.name === 'city-temperature-trend'
+    ? 'temperature-trend'
+    : route.name === 'city-weather-map'
+      ? 'weather-map'
+      : 'overview',
 )
 
 const syncSelectedCity = () => {
@@ -83,6 +87,18 @@ const handleNavSelect = (navKey: string) => {
 
     void router.push({
       name: 'city-detail',
+      params: { cityName: routeCityName.value },
+    })
+    return
+  }
+
+  if (navKey === 'weather-map') {
+    if (route.name === 'city-weather-map') {
+      return
+    }
+
+    void router.push({
+      name: 'city-weather-map',
       params: { cityName: routeCityName.value },
     })
   }

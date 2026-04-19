@@ -9,6 +9,7 @@ import LoginList from '../views/auth/LoginList.vue'
 import CityDetail from '../views/weather/CityDetail.vue'
 import CityOverviewView from '../views/weather/CityOverviewView.vue'
 import TemperatureTrendView from '../views/weather/TemperatureTrendView.vue'
+import CityWeatherMapView from '../views/weather/CityWeatherMapView.vue'
 
 const CITY_LIST_STORAGE_KEY = 'city_list'
 
@@ -129,6 +130,11 @@ const router = createRouter({
           path: 'temperature-trend',
           name: 'city-temperature-trend',
           component: TemperatureTrendView,
+        },
+        {
+          path: 'map',
+          name: 'city-weather-map',
+          component: CityWeatherMapView,
         },
       ],
       meta: { navVariant: 'home' },

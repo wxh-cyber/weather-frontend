@@ -1,7 +1,13 @@
 import http from './http'
 
 export interface CityWeatherItem {
+  cityId?: string
   cityName: string
+  cityCode?: string | null
+  province?: string
+  country?: string
+  latitude?: number | null
+  longitude?: number | null
   weatherText: string
   temperature: string
 }

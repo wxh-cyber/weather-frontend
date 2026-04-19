@@ -2,7 +2,13 @@ import { defineStore } from 'pinia'
 import { createCity, deleteCity, getCityList, updateCity } from '@/service/city'
 
 export interface CityItem {
+  cityId?: string
   cityName: string
+  cityCode?: string | null
+  province?: string
+  country?: string
+  latitude?: number | null
+  longitude?: number | null
   weatherText: string
   temperature: string
 }

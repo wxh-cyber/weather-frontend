@@ -45,8 +45,8 @@ describe('CityDetail view', () => {
             props: ['cityName', 'weatherText'],
             template: '<section class="shell" :data-city-name="cityName" :data-weather-text="weatherText"><slot /></section>',
           },
-          CityOverviewView: {
-            template: '<div class="city-overview-view-stub" />',
+          RouterView: {
+            template: '<div class="city-router-view-stub" />',
           },
         },
       },
@@ -54,6 +54,6 @@ describe('CityDetail view', () => {
 
     expect(wrapper.find('.shell').attributes('data-city-name')).toBe('武汉市')
     expect(wrapper.find('.shell').attributes('data-weather-text')).toBe('晴')
-    expect(wrapper.find('.city-overview-view-stub').exists()).toBe(true)
+    expect(wrapper.find('.city-router-view-stub').exists()).toBe(true)
   })
 })

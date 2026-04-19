@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import CityOverviewView from '@/views/weather/CityOverviewView.vue'
+import { RouterView, useRoute } from 'vue-router'
 import WeatherPageShell from '@/components/weather/WeatherPageShell.vue'
 import { useCityStore } from '@/store/city'
 
@@ -20,6 +19,6 @@ onMounted(async () => {
 
 <template>
   <WeatherPageShell :city-name="selectedCity?.cityName ?? ''" :weather-text="selectedCity?.weatherText ?? ''">
-    <CityOverviewView />
+    <RouterView />
   </WeatherPageShell>
 </template>

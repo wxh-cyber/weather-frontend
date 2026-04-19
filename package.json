@@ -20,6 +20,8 @@
     "axios": "^1.14.0",
     "echarts": "^6.0.0",
     "element-plus": "^2.13.5",
+    "leaflet": "^1.9.4",
+    "mars2d": "^3.4.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.29",
     "vue-router": "^5.0.3"

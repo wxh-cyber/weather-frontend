@@ -13,7 +13,7 @@ const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weath
 const navItems = [
   { key: 'overview', label: '城市概览' },
   { key: 'temperature-trend', label: '温度趋势' },
-  { key: 'weather-map', label: '天气地图', disabled: true },
+  { key: 'weather-map', label: '天气地图' },
   { key: 'hourly-forecast', label: '每小时预报', disabled: true },
 ] as const
 
@@ -53,6 +53,11 @@ const handleNavSelect = (navKey: string) => {
 
   if (navKey === 'temperature-trend') {
     void router.push(`/weather/${encodeURIComponent(currentCityName)}/temperature-trend`)
+    return
+  }
+
+  if (navKey === 'weather-map') {
+    void router.push(`/weather/${encodeURIComponent(currentCityName)}/map`)
     return
   }
 

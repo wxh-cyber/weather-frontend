@@ -62,4 +62,13 @@ describe('router auth guard', () => {
 
     expect(result.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/temperature-trend')
   })
+
+  it('resolves the dedicated weather map child route for the current city', () => {
+    const result = router.resolve({
+      name: 'city-weather-map',
+      params: { cityName: '武汉市' },
+    })
+
+    expect(result.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/map')
+  })
 })
