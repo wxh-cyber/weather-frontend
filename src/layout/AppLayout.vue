@@ -21,6 +21,7 @@ let profileHydrationPromise: Promise<void> | null = null
 
 const syncUserStatus = () => {
   authStore.syncFromStorage()
+  cityStore.syncFromStorage()
 }
 
 const clearAuthState = () => {
@@ -75,30 +76,31 @@ const navVariant = computed(() => {
   return 'home'
 })
 const brandText = computed(() => (navVariant.value === 'start' ? '小慕天气' : '小慕天气 · 控制台'))
-const centeredNavRoutes = ['center', 'list', 'login-list', 'city-detail', 'city-temperature-trend'] as const
-const isWeatherRouteWithoutCities = computed(() => route.name === 'weather' && cityStore.cities.length === 0)
+const centeredNavRoutes = [
+  'center',
+  'list',
+  'login-list',
+  'weather',
+  'city-detail',
+  'city-temperature-trend',
+  'city-weather-map',
+] as const
 const showCenterButtons = computed(() =>
   route.name === 'center'
     || route.name === 'login-list'
     || route.name === 'list'
     || route.name === 'weather'
     || route.name === 'city-detail'
-    || route.name === 'city-temperature-trend',
+    || route.name === 'city-temperature-trend'
+    || route.name === 'city-weather-map',
 )
-const showCenterSearch = computed(
-  () =>
-    navVariant.value === 'home'
-    && !centeredNavRoutes.includes(route.name as typeof centeredNavRoutes[number])
-    && !isWeatherRouteWithoutCities.value,
-)
+const showCenterSearch = computed(() => false)
 const showCityDetail = computed(() => showCenterButtons.value)
 const showMyCities = computed(() => showCenterButtons.value)
 const showProfileCenter = computed(() => showCenterButtons.value)
 const showLoginList = computed(() => showCenterButtons.value)
 const centerNavCentered = computed(
-  () =>
-    centeredNavRoutes.includes(route.name as typeof centeredNavRoutes[number])
-    || isWeatherRouteWithoutCities.value,
+  () => centeredNavRoutes.includes(route.name as typeof centeredNavRoutes[number]),
 )
 const loginLabel = computed(() => displayName.value)
 const navAvatarUrl = computed(() => user.value?.avatarUrl || '')
@@ -109,7 +111,9 @@ const pendingSearchFromCandidate = ref(false)
 const activeCenterAction = computed(() =>
   route.name === 'login-list'
     ? 'login-list'
-    : route.name === 'city-detail' || route.name === 'city-temperature-trend'
+    : route.name === 'city-detail'
+        || route.name === 'city-temperature-trend'
+        || route.name === 'city-weather-map'
       ? 'city-detail'
     : route.name === 'center'
       ? 'profile-center'
@@ -190,14 +194,21 @@ const goToLogin = async () => {
 }
 
 const handleLogout = async () => {
+  const currentUserId = user.value?.userId ?? ''
+  cityStore.clearPersistedCitiesForUser(currentUserId)
+  cityStore.clearCities()
   clearAuthState()
   ElMessage.success('已退出登录')
-  if (route.name === 'center' || route.name === 'list' || route.name === 'login-list') {
-    await router.push('/login')
-  }
+  await router.push('/weather')
 }
 
 const goToList = () => {
+  syncUserStatus()
+  if (!isLoggedIn.value) {
+    router.push('/login')
+    return
+  }
+
   router.push('/list')
 }
 

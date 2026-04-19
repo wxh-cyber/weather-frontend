@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { getActivePinia } from 'pinia'
 import { useAuthStore } from '@/store/auth'
+import { clearPersistedCitiesForUserId, useCityStore } from '@/store/city'
+import { getStoredAuthUserId } from '@/store/auth'
 
 const getAuthToken = () => {
   const activePinia = getActivePinia()
@@ -12,12 +14,17 @@ const getAuthToken = () => {
 }
 
 const clearAuthState = () => {
+  const storedUserId = getStoredAuthUserId()
   const activePinia = getActivePinia()
   if (activePinia) {
+    const cityStore = useCityStore(activePinia)
     const authStore = useAuthStore(activePinia)
+    cityStore.clearPersistedCitiesForUser(storedUserId)
+    cityStore.clearCities()
     authStore.clearAuth()
     return
   }
+  clearPersistedCitiesForUserId(storedUserId)
   localStorage.removeItem('auth_token')
   localStorage.removeItem('auth_user')
   if (typeof window !== 'undefined') {

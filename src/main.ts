@@ -21,6 +21,10 @@ app.use(router);
 const authStore = useAuthStore(pinia)
 const cityStore = useCityStore(pinia)
 authStore.syncFromStorage()
-cityStore.syncFromStorage()
+if (authStore.isLoggedIn) {
+  cityStore.syncFromStorage()
+} else {
+  cityStore.clearCities()
+}
 
 app.mount('#app');

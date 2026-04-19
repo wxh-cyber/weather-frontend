@@ -5,12 +5,14 @@ import WeatherMapPanel from '@/components/weather/WeatherMapPanel.vue'
 const pushMock = vi.fn()
 const destroyMock = vi.fn()
 const setViewMock = vi.fn()
-const clearMock = vi.fn()
 const addGraphicMock = vi.fn()
 const markerRemoveMock = vi.fn()
 const markerSetLatLngMock = vi.fn()
 const markerSetTooltipContentMock = vi.fn()
-const baiduAddToMock = vi.fn()
+const layerAddToMock = vi.fn()
+const layerRemoveMock = vi.fn()
+const layerOnMock = vi.fn()
+const layerOffMock = vi.fn()
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -23,31 +25,31 @@ vi.mock('vue-router', async () => {
   }
 })
 
+vi.mock('@/components/weather/mapTheme', () => ({
+  createEcoBasemapLayer: vi.fn(() => ({
+    addTo: layerAddToMock,
+    remove: layerRemoveMock,
+    on: layerOnMock,
+    off: layerOffMock,
+  })),
+}))
+
 vi.mock('mars2d', () => ({
   Map: vi.fn().mockImplementation(function MockMap() {
     return {
-    destroy: destroyMock,
-    setView: setViewMock,
-    graphicLayer: {
-      addGraphic: addGraphicMock,
-      clear: clearMock,
-    },
+      destroy: destroyMock,
+      setView: setViewMock,
+      graphicLayer: {
+        addGraphic: addGraphicMock,
+      },
     }
   }),
-  layer: {
-    BaiduLayer: vi.fn().mockImplementation(function MockBaiduLayer() {
-      return {
-      addTo: baiduAddToMock,
-      remove: vi.fn(),
-      }
-    }),
-  },
   graphic: {
     Marker: vi.fn().mockImplementation(function MockMarker() {
       return {
-      remove: markerRemoveMock,
-      setLatLng: markerSetLatLngMock,
-      setTooltipContent: markerSetTooltipContentMock,
+        remove: markerRemoveMock,
+        setLatLng: markerSetLatLngMock,
+        setTooltipContent: markerSetTooltipContentMock,
       }
     }),
   },
@@ -58,12 +60,14 @@ describe('WeatherMapPanel', () => {
     pushMock.mockReset()
     destroyMock.mockReset()
     setViewMock.mockReset()
-    clearMock.mockReset()
     addGraphicMock.mockReset()
     markerRemoveMock.mockReset()
     markerSetLatLngMock.mockReset()
     markerSetTooltipContentMock.mockReset()
-    baiduAddToMock.mockReset()
+    layerAddToMock.mockReset()
+    layerRemoveMock.mockReset()
+    layerOnMock.mockReset()
+    layerOffMock.mockReset()
   })
 
   it('initializes the map when coordinates are available', async () => {

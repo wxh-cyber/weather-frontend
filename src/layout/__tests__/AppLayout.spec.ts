@@ -3,7 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import AppLayout from '@/layout/AppLayout.vue'
 import { getProfile } from '@/service/auth'
+import { useAuthStore } from '@/store/auth'
 import { useCityStore } from '@/store/city'
+import { buildCityListStorageKey } from '@/store/city'
 import { createCity, deleteCity, getCityList, updateCity } from '@/service/city'
 
 const { pushMock, warningMock, successMock } = vi.hoisted(() => ({
@@ -65,7 +67,7 @@ const AppTopNavStub = {
     'avatarUrl',
     'showLogout',
   ],
-  emits: ['city-detail-click', 'profile-center-click', 'login-list-click', 'search-submit'],
+  emits: ['city-detail-click', 'my-cities-click', 'profile-center-click', 'login-list-click', 'logout-click', 'search-submit'],
   template: `
     <div>
       <span class="show-center-search">{{ showCenterSearch }}</span>
@@ -79,8 +81,10 @@ const AppTopNavStub = {
       <span class="avatar-url">{{ avatarUrl }}</span>
       <span class="show-logout">{{ showLogout }}</span>
       <button class="city-detail-trigger" @click="$emit('city-detail-click')" />
+      <button class="my-cities-trigger" @click="$emit('my-cities-click')" />
       <button class="profile-center-trigger" @click="$emit('profile-center-click')" />
       <button class="login-list-trigger" @click="$emit('login-list-click')" />
+      <button class="logout-trigger" @click="$emit('logout-click')" />
     </div>
   `,
 }
@@ -227,7 +231,7 @@ describe('AppLayout center actions', () => {
     await flushPromises()
 
     expect(mockedGetProfile).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('.show-center-search').text()).toBe('true')
+    expect(wrapper.find('.show-center-search').text()).toBe('false')
     expect(wrapper.find('.login-label').text()).toBe('容错用户')
     expect(wrapper.find('.avatar-url').text()).toBe('')
     expect(localStorage.getItem('auth_token')).toBe('token-3')
@@ -235,6 +239,14 @@ describe('AppLayout center actions', () => {
   })
 
   it('navigates to default city detail when top nav emits city-detail-click', async () => {
+    localStorage.setItem('auth_token', 'token-city-detail')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-city-detail',
+        email: 'city-detail@weather.com',
+      }),
+    )
     const { wrapper, pinia } = await mountLayout('center', '/center')
     const cityStore = useCityStore(pinia)
     cityStore.setCities([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }])
@@ -253,18 +265,18 @@ describe('AppLayout center actions', () => {
     expect(pushMock).toHaveBeenCalledWith('/weather')
   })
 
-  it('shows center modules and search together on weather route', async () => {
+  it('shows centered route modules and hides search on weather route', async () => {
     const { wrapper, pinia } = await mountLayout('weather', '/weather')
     const cityStore = useCityStore(pinia)
     cityStore.setCities([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }])
     await flushPromises()
 
-    expect(wrapper.find('.show-center-search').text()).toBe('true')
+    expect(wrapper.find('.show-center-search').text()).toBe('false')
     expect(wrapper.find('.show-city-detail').text()).toBe('true')
     expect(wrapper.find('.show-my-cities').text()).toBe('true')
     expect(wrapper.find('.show-profile-center').text()).toBe('true')
     expect(wrapper.find('.show-login-list').text()).toBe('true')
-    expect(wrapper.find('.center-nav-centered').text()).toBe('false')
+    expect(wrapper.find('.center-nav-centered').text()).toBe('true')
     expect(wrapper.find('.active-center-action').text()).toBe('')
   })
 
@@ -310,6 +322,21 @@ describe('AppLayout center actions', () => {
     expect(wrapper.find('.active-center-action').text()).toBe('city-detail')
   })
 
+  it('shows centered route modules and marks city detail group active on map route', async () => {
+    const { wrapper } = await mountLayout(
+      'city-weather-map',
+      '/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/map',
+    )
+
+    expect(wrapper.find('.show-center-search').text()).toBe('false')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
+    expect(wrapper.find('.show-my-cities').text()).toBe('true')
+    expect(wrapper.find('.show-profile-center').text()).toBe('true')
+    expect(wrapper.find('.show-login-list').text()).toBe('true')
+    expect(wrapper.find('.center-nav-centered').text()).toBe('true')
+    expect(wrapper.find('.active-center-action').text()).toBe('city-detail')
+  })
+
   it('hides search and keeps center nav centered on my cities route', async () => {
     const { wrapper } = await mountLayout('list', '/list')
 
@@ -320,6 +347,31 @@ describe('AppLayout center actions', () => {
     expect(wrapper.find('.show-login-list').text()).toBe('true')
     expect(wrapper.find('.center-nav-centered').text()).toBe('true')
     expect(wrapper.find('.active-center-action').text()).toBe('my-cities')
+  })
+
+  it('navigates to /login when my cities is clicked while logged out', async () => {
+    const { wrapper } = await mountLayout('weather', '/weather')
+
+    await wrapper.find('.my-cities-trigger').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith('/login')
+  })
+
+  it('navigates to /list when my cities is clicked while logged in', async () => {
+    localStorage.setItem('auth_token', 'token-my-cities')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-my-cities',
+        email: 'my-cities@weather.com',
+      }),
+    )
+
+    const { wrapper } = await mountLayout('weather', '/weather')
+
+    await wrapper.find('.my-cities-trigger').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith('/list')
   })
 
   it('hides search and keeps center nav centered on login list route', async () => {
@@ -334,7 +386,110 @@ describe('AppLayout center actions', () => {
     expect(wrapper.find('.active-center-action').text()).toBe('login-list')
   })
 
+  it('clears auth and city state, then redirects to /weather when logging out', async () => {
+    localStorage.setItem('auth_token', 'token-logout')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-logout',
+        email: 'logout@weather.com',
+        nickname: '退出用户',
+      }),
+    )
+    localStorage.setItem(
+      buildCityListStorageKey('u-logout'),
+      JSON.stringify([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }]),
+    )
+
+    const { wrapper, pinia } = await mountLayout('center', '/center')
+    const authStore = useAuthStore(pinia)
+    const cityStore = useCityStore(pinia)
+
+    expect(wrapper.find('.show-logout').text()).toBe('true')
+
+    await wrapper.find('.logout-trigger').trigger('click')
+    await flushPromises()
+
+    expect(authStore.isLoggedIn).toBe(false)
+    expect(cityStore.cities).toEqual([])
+    expect(localStorage.getItem('auth_token')).toBeNull()
+    expect(localStorage.getItem(buildCityListStorageKey('u-logout'))).toBeNull()
+    expect(successMock).toHaveBeenCalledWith('已退出登录')
+    expect(pushMock).toHaveBeenCalledWith('/weather')
+    expect(wrapper.find('.show-logout').text()).toBe('false')
+  })
+
+  it('navigates to /login when my cities is clicked after logout', async () => {
+    localStorage.setItem('auth_token', 'token-after-logout')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-after-logout',
+        email: 'after-logout@weather.com',
+      }),
+    )
+
+    const { wrapper } = await mountLayout('weather', '/weather')
+
+    await wrapper.find('.logout-trigger').trigger('click')
+    await flushPromises()
+
+    pushMock.mockReset()
+
+    await wrapper.find('.my-cities-trigger').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith('/login')
+  })
+
+  it('hydrates city store from the current logged-in user instead of reusing the previous user cache', async () => {
+    localStorage.setItem(
+      buildCityListStorageKey('u-1'),
+      JSON.stringify([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }]),
+    )
+    localStorage.setItem(
+      buildCityListStorageKey('u-2'),
+      JSON.stringify([{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }]),
+    )
+    localStorage.setItem('auth_token', 'token-u-1')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-1',
+        email: 'user1@weather.com',
+        nickname: '用户一',
+      }),
+    )
+
+    const { pinia } = await mountLayout('weather', '/weather')
+    const authStore = useAuthStore(pinia)
+    const cityStore = useCityStore(pinia)
+
+    cityStore.syncFromStorage()
+    expect(cityStore.cities.map((city) => city.cityName)).toEqual(['武汉市'])
+
+    cityStore.clearPersistedCitiesForUser(authStore.user?.userId ?? '')
+    cityStore.clearCities()
+    authStore.clearAuth()
+    authStore.setAuth('token-u-2', {
+      userId: 'u-2',
+      email: 'user2@weather.com',
+      nickname: '用户二',
+    })
+    cityStore.syncFromStorage()
+
+    expect(cityStore.cities.map((city) => city.cityName)).toEqual(['上海市'])
+    expect(cityStore.cities.map((city) => city.cityName)).not.toContain('武汉市')
+  })
+
   it('jumps directly when weather search hits current city list', async () => {
+    localStorage.setItem('auth_token', 'token-search')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-search',
+        email: 'search@weather.com',
+      }),
+    )
     const { wrapper, pinia } = await mountLayout('weather', '/weather')
     const cityStore = useCityStore(pinia)
     cityStore.setCities([{ cityName: '武汉市', weatherText: '晴', temperature: '26°C' }])

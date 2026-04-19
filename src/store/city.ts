@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { createCity, deleteCity, getCityList, updateCity } from '@/service/city'
+import { getStoredAuthUserId } from '@/store/auth'
 
 export interface CityItem {
   cityId?: string
@@ -13,7 +14,8 @@ export interface CityItem {
   temperature: string
 }
 
-const CITY_LIST_KEY = 'city_list'
+const LEGACY_CITY_LIST_KEY = 'city_list'
+const CITY_LIST_KEY_PREFIX = 'city_list:user:'
 
 const legacyDefaultCities: CityItem[] = [
   { cityName: '沙市区', weatherText: '多云', temperature: '11°C' },
@@ -24,17 +26,50 @@ const legacyDefaultCities: CityItem[] = [
 ]
 
 const isBrowser = () => typeof window !== 'undefined'
+const getCurrentUserId = () => getStoredAuthUserId()
 const normalizeCityName = (cityName: string) => cityName.trim()
 const equalsCityName = (left: string, right: string) =>
   left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase()
 const isLegacyDefaultCityList = (items: unknown): items is CityItem[] =>
   JSON.stringify(items) === JSON.stringify(legacyDefaultCities)
+const isStoredCityItem = (item: unknown): item is CityItem =>
+  typeof item === 'object'
+  && item !== null
+  && typeof (item as CityItem).cityName === 'string'
+  && (item as CityItem).cityName.trim().length > 0
+
+export const buildCityListStorageKey = (userId: string) => `${CITY_LIST_KEY_PREFIX}${userId}`
+
+export const clearLegacyCityListStorage = () => {
+  if (!isBrowser()) {
+    return
+  }
+
+  localStorage.removeItem(LEGACY_CITY_LIST_KEY)
+}
+
+export const clearPersistedCitiesForUserId = (userId: string) => {
+  if (!isBrowser() || !userId.trim()) {
+    return
+  }
+
+  localStorage.removeItem(buildCityListStorageKey(userId))
+}
+
+const readStoredCitiesForUser = (userId: string) => {
+  if (!isBrowser() || !userId.trim()) {
+    return null
+  }
+
+  return localStorage.getItem(buildCityListStorageKey(userId))
+}
 
 export const useCityStore = defineStore('city', {
   state: () => ({
     cities: [] as CityItem[],
     loading: false,
     error: '',
+    hydratedFromStorage: false,
   }),
   getters: {
     hasCities: (state) => state.cities.length > 0,
@@ -42,6 +77,7 @@ export const useCityStore = defineStore('city', {
   actions: {
     setCities(items: CityItem[]) {
       this.cities = [...items]
+      this.hydratedFromStorage = false
       this.persistCities()
     },
     addCity(item: CityItem) {
@@ -54,6 +90,15 @@ export const useCityStore = defineStore('city', {
     removeCity(cityName: string) {
       this.cities = this.cities.filter((city) => city.cityName !== cityName)
       this.persistCities()
+    },
+    clearCities() {
+      this.cities = []
+      this.error = ''
+      this.loading = false
+      this.hydratedFromStorage = false
+    },
+    clearPersistedCitiesForUser(userId: string) {
+      clearPersistedCitiesForUserId(userId)
     },
     async fetchCities(keyword = '') {
       this.loading = true
@@ -69,12 +114,22 @@ export const useCityStore = defineStore('city', {
       }
     },
     async ensureCitiesLoaded() {
-      if (this.cities.length > 0) {
+      if (!getCurrentUserId()) {
+        this.clearCities()
+        return
+      }
+
+      if (this.cities.length > 0 && !this.hydratedFromStorage) {
         return
       }
       await this.fetchCities('')
     },
     async createCityByName(cityName: string) {
+      if (!getCurrentUserId()) {
+        this.setError('请先登录后再添加城市')
+        return false
+      }
+
       const normalizedName = normalizeCityName(cityName)
       if (!normalizedName) {
         this.setError('城市名称不能为空')
@@ -102,6 +157,11 @@ export const useCityStore = defineStore('city', {
       }
     },
     async renameCity(oldCityName: string, newCityName: string) {
+      if (!getCurrentUserId()) {
+        this.setError('请先登录后再修改城市')
+        return false
+      }
+
       const sourceName = normalizeCityName(oldCityName)
       const targetName = normalizeCityName(newCityName)
 
@@ -148,6 +208,11 @@ export const useCityStore = defineStore('city', {
       }
     },
     async setDefaultCityByName(cityName: string) {
+      if (!getCurrentUserId()) {
+        this.setError('请先登录后再设置默认城市')
+        return false
+      }
+
       const normalizedName = normalizeCityName(cityName)
       if (!normalizedName) {
         this.setError('默认城市不能为空')
@@ -182,6 +247,11 @@ export const useCityStore = defineStore('city', {
       return true
     },
     async deleteCityByName(cityName: string) {
+      if (!getCurrentUserId()) {
+        this.setError('请先登录后再删除城市')
+        return false
+      }
+
       const normalizedName = normalizeCityName(cityName)
       if (!normalizedName) {
         this.setError('城市名称不能为空')
@@ -204,30 +274,47 @@ export const useCityStore = defineStore('city', {
     },
     persistCities() {
       if (!isBrowser()) return
-      localStorage.setItem(CITY_LIST_KEY, JSON.stringify(this.cities))
-    },
-    syncFromStorage() {
-      if (!isBrowser()) {
-        this.cities = []
+      const userId = getCurrentUserId()
+      if (!userId) {
         return
       }
 
-      const raw = localStorage.getItem(CITY_LIST_KEY)
+      localStorage.setItem(buildCityListStorageKey(userId), JSON.stringify(this.cities))
+    },
+    syncFromStorage() {
+      clearLegacyCityListStorage()
+
+      const userId = getCurrentUserId()
+      if (!userId) {
+        this.clearCities()
+        return
+      }
+
+      if (!isBrowser()) {
+        this.clearCities()
+        return
+      }
+
+      const raw = readStoredCitiesForUser(userId)
       if (!raw) {
-        this.cities = []
+        this.clearCities()
         return
       }
 
       try {
-        const parsed = JSON.parse(raw) as CityItem[]
-        if (!Array.isArray(parsed) || isLegacyDefaultCityList(parsed)) {
-          this.cities = []
+        const parsed = JSON.parse(raw) as unknown
+        if (!Array.isArray(parsed) || isLegacyDefaultCityList(parsed) || !parsed.every(isStoredCityItem)) {
+          this.clearCities()
           this.persistCities()
           return
         }
         this.cities = [...parsed]
+        this.error = ''
+        this.loading = false
+        this.hydratedFromStorage = true
       } catch {
-        this.cities = []
+        this.clearCities()
+        this.persistCities()
       }
     },
     mergeCreatedCityList(previousCities: CityItem[], nextCities: CityItem[], createdCityName: string) {

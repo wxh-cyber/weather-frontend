@@ -95,20 +95,6 @@
       </div>
       <!-- 导航栏右侧 -->
       <div class="nav-right">
-        <div v-if="props.showCenterSearch" class="nav-right-search">
-          <div class="search-wrap">
-            <input
-              v-model="searchKeyword"
-              class="search"
-              type="text"
-              :placeholder="props.searchPlaceholder"
-              @keydown.enter="emitSearchSubmit"
-            />
-            <button type="button" class="search-trigger" aria-label="查询默认城市" @click="emitSearchSubmit">
-              <el-icon class="search-icon"><Search /></el-icon>
-            </button>
-          </div>
-        </div>
         <el-tooltip content="将前往Github仓库" placement="bottom" effect="dark">
           <a
             class="github-link"
@@ -153,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import { Cloudy, Search } from '@element-plus/icons-vue'
+import { Cloudy } from '@element-plus/icons-vue'
 import type { Container, ISourceOptions } from '@tsparticles/engine'
 import { tsParticles } from '@tsparticles/engine'
 import { loadSlim } from '@tsparticles/slim'
@@ -205,7 +191,6 @@ const emit = defineEmits<{
 
 type MyCitiesParticleState = 'idle' | 'hover' | 'active'
 
-const searchKeyword = ref('')
 const cityDetailParticleHostId = 'city-detail-particles'
 const cityDetailParticleState = ref<MyCitiesParticleState>('idle')
 const cityDetailHovered = ref(false)
@@ -234,10 +219,6 @@ let loginListContainer: Container | undefined
 let slimLoader: Promise<void> | null = null
 
 const showAvatar = computed(() => Boolean(props.avatarUrl && !avatarLoadFailed.value))
-
-const emitSearchSubmit = () => {
-  emit('search-submit', searchKeyword.value.trim())
-}
 
 const isReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -682,7 +663,7 @@ onBeforeUnmount(() => {
   height: 100%;
   margin: 0 auto;                     /* 水平居中容器 */
   display: grid;
-  grid-template-columns: auto minmax(220px, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
 }
@@ -748,7 +729,7 @@ onBeforeUnmount(() => {
 
 .nav-center-button {
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: stretch;
   gap: 12px;
   height: 100%;
@@ -932,69 +913,6 @@ onBeforeUnmount(() => {
   opacity: 1;
 }
 
-.search-wrap {
-  width: 100%;
-  position: relative;
-}
-
-.nav-right-search {
-  width: min(320px, 32vw);
-  min-width: 220px;
-}
-
-.search {
-  width: 100%;
-  border: 1px solid rgba(117, 241, 255, 0.28);
-  border-radius: 999px;
-  padding: 10px 42px 10px 14px;
-  background: rgba(5, 18, 54, 0.78);
-  color: var(--cyber-text);
-  outline: none;
-  transition: border-color var(--cyber-ease), box-shadow var(--cyber-ease), background var(--cyber-ease);
-}
-
-.search::placeholder {
-  color: var(--cyber-text-muted);
-}
-
-.search:focus {
-  border-color: rgba(117, 241, 255, 0.58);
-  box-shadow: 0 0 0 3px rgba(117, 241, 255, 0.12);
-  background: rgba(7, 24, 56, 0.86);
-}
-
-.search-icon {
-  font-size: 18px;
-}
-
-.search-trigger {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transform: translateY(-50%);
-  color: var(--cyber-cyan);
-  cursor: pointer;
-  filter: drop-shadow(0 0 8px rgba(117, 241, 255, 0.7));
-  animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
-  transition: transform var(--cyber-ease), filter var(--cyber-ease), color var(--cyber-ease);
-}
-
-.search-trigger:hover,
-.search-trigger:focus-visible {
-  color: #eafcff;
-  transform: translateY(-50%) scale(1.05);
-  filter: drop-shadow(0 0 10px rgba(117, 241, 255, 0.88));
-  outline: none;
-}
-
 /* 右侧github链接样式 */
 .github-link {
   width: 34px;
@@ -1151,11 +1069,6 @@ onBeforeUnmount(() => {
     gap: 6px;
   }
 
-  .nav-right-search {
-    width: 100%;
-    min-width: 0;
-  }
-
   .logo-text {
     font-size: 15px;
     letter-spacing: 0.05em;
@@ -1205,10 +1118,6 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .search-icon {
-    animation: none;
-  }
-
   .my-cities-particles {
     display: none;
   }

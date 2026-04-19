@@ -48,11 +48,13 @@ import { useRoute, useRouter } from 'vue-router'
 import earthGif from '@/assets/登录注册背景.gif'
 import { getProfile, login } from '@/service/auth'
 import { useAuthStore } from '@/store/auth'
+import { useCityStore } from '@/store/city'
 
 const earthBgImage = `url("${earthGif}")`
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const cityStore = useCityStore()
 const isSubmitting = ref(false)
 
 interface LoginForm {
@@ -108,6 +110,7 @@ const handleLoginSubmit = async () => {
     })
     if (res.code === 0) {
       authStore.setAuth(res.data.token, res.data.user)
+      cityStore.syncFromStorage()
       try {
         const profileRes = await getProfile()
         if (profileRes.code === 0) {

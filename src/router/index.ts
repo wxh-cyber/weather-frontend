@@ -10,8 +10,14 @@ import CityDetail from '../views/weather/CityDetail.vue'
 import CityOverviewView from '../views/weather/CityOverviewView.vue'
 import TemperatureTrendView from '../views/weather/TemperatureTrendView.vue'
 import CityWeatherMapView from '../views/weather/CityWeatherMapView.vue'
+import { getStoredAuthUserId } from '@/store/auth'
+import { buildCityListStorageKey, clearLegacyCityListStorage } from '@/store/city'
 
-const CITY_LIST_STORAGE_KEY = 'city_list'
+const isStoredCityEntry = (item: unknown): item is { cityName: string } =>
+  typeof item === 'object'
+  && item !== null
+  && typeof (item as { cityName?: unknown }).cityName === 'string'
+  && (item as { cityName: string }).cityName.trim().length > 0
 
 const hasStoredAuth = () => {
   if (typeof window === 'undefined') {
@@ -28,15 +34,26 @@ const getStoredDefaultCityName = () => {
     return ''
   }
 
-  const raw = localStorage.getItem(CITY_LIST_STORAGE_KEY)
+  clearLegacyCityListStorage()
+
+  const userId = getStoredAuthUserId()
+  if (!userId) {
+    return ''
+  }
+
+  const raw = localStorage.getItem(buildCityListStorageKey(userId))
   if (!raw) {
     return ''
   }
 
   try {
-    const parsed = JSON.parse(raw) as Array<{ cityName?: unknown }>
-    const firstCityName = parsed[0]?.cityName
-    return typeof firstCityName === 'string' ? firstCityName.trim() : ''
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) {
+      return ''
+    }
+
+    const firstCity = parsed.find(isStoredCityEntry)
+    return firstCity?.cityName.trim() ?? ''
   } catch {
     return ''
   }

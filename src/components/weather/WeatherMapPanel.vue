@@ -349,7 +349,7 @@ h3 {
 .map {
   height: 220px;
   width: 100%;
-  filter: saturate(1.01) brightness(0.95) contrast(1);
+  filter: saturate(1.03) brightness(0.98) contrast(1);
 }
 
 .map-shell :deep(.leaflet-control-container) {
@@ -360,7 +360,7 @@ h3 {
 .map-shell :deep(.leaflet-layer),
 .map-shell :deep(.leaflet-tile-container),
 .map-shell :deep(.leaflet-marker-pane) {
-  filter: saturate(0.98) brightness(0.97) contrast(1);
+  filter: saturate(1) brightness(1) contrast(1);
 }
 
 .map-hud {

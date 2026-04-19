@@ -15,11 +15,30 @@ type RegisterStatus = {
   timestamp: number | null
 }
 
-const AUTH_TOKEN_KEY = 'auth_token'
-const AUTH_USER_KEY = 'auth_user'
+export const AUTH_TOKEN_KEY = 'auth_token'
+export const AUTH_USER_KEY = 'auth_user'
 const AUTH_REGISTER_KEY = 'auth_register_status'
 
 const isBrowser = () => typeof window !== 'undefined'
+
+export const getStoredAuthUser = () => {
+  if (!isBrowser()) {
+    return null
+  }
+
+  const userRaw = localStorage.getItem(AUTH_USER_KEY)
+  if (!userRaw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(userRaw) as AuthUser
+  } catch {
+    return null
+  }
+}
+
+export const getStoredAuthUserId = () => getStoredAuthUser()?.userId?.trim() ?? ''
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({

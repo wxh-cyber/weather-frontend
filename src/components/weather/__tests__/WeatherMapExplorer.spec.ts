@@ -182,6 +182,39 @@ describe('WeatherMapExplorer', () => {
     expect(wrapper.text()).toContain('114.0579E · 22.5431N')
   })
 
+  it('renders the resolved place name when backend fallback provider returns a location', async () => {
+    reverseGeocodeMock.mockResolvedValueOnce({
+      code: 0,
+      message: '地点名称解析成功',
+      data: {
+        displayName: '广东省 · 广州市 · 天河区 · 天河路208号',
+        latitude: 23.1291,
+        longitude: 113.2644,
+      },
+    })
+
+    const wrapper = mount(WeatherMapExplorer, {
+      props: {
+        cityName: '广州市',
+        latitude: 23.1291,
+        longitude: 113.2644,
+      },
+    })
+
+    await flushPromises()
+
+    mapEventHandlers.get('click')?.({
+      latlng: {
+        lat: 23.1291,
+        lng: 113.2644,
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('广东省 · 广州市 · 天河区 · 天河路208号')
+    expect(wrapper.text()).not.toContain('名称解析失败，已回退坐标')
+  })
+
   it('keeps only the latest place name when clicks happen in quick succession', async () => {
     let firstResolve: ((value: unknown) => void) | undefined
     let secondResolve: ((value: unknown) => void) | undefined
