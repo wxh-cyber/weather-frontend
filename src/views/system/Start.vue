@@ -86,7 +86,7 @@ onBeforeUnmount(() => {
 /* 设置数码管字体样式 */
 @font-face {
   font-family: 'DSEG7Classic';
-  src: url('../assets/fonts/DSEG7Classic-Regular.woff2') format('woff2');
+  src: url('@/assets/fonts/DSEG7Classic-Regular.woff2') format('woff2');
   font-style: normal;
   font-weight: 400;
 }

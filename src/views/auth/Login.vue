@@ -46,7 +46,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import earthGif from '@/assets/登录注册背景.gif'
-import { login } from '@/service/auth'
+import { getProfile, login } from '@/service/auth'
 import { useAuthStore } from '@/store/auth'
 
 const earthBgImage = `url("${earthGif}")`
@@ -108,6 +108,14 @@ const handleLoginSubmit = async () => {
     })
     if (res.code === 0) {
       authStore.setAuth(res.data.token, res.data.user)
+      try {
+        const profileRes = await getProfile()
+        if (profileRes.code === 0) {
+          authStore.updateUserProfile(profileRes.data)
+        }
+      } catch {
+        // 资料同步失败不影响登录主流程，保留已登录状态并继续跳转
+      }
       ElMessage.success(res.message || '登录成功')
       const redirectTarget = typeof route.query.redirect === 'string' ? route.query.redirect : '/weather'
       await router.push(redirectTarget)

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import AppLayout from '@/layout/AppLayout.vue'
+import { getProfile } from '@/service/auth'
 import { useCityStore } from '@/store/city'
 import { createCity, deleteCity, getCityList, updateCity } from '@/service/city'
 
@@ -48,6 +49,7 @@ const mockedGetCityList = vi.mocked(getCityList)
 const mockedCreateCity = vi.mocked(createCity)
 const mockedUpdateCity = vi.mocked(updateCity)
 const mockedDeleteCity = vi.mocked(deleteCity)
+const mockedGetProfile = vi.mocked(getProfile)
 
 const AppTopNavStub = {
   name: 'AppTopNav',
@@ -73,6 +75,9 @@ const AppTopNavStub = {
       <span class="show-login-list">{{ showLoginList }}</span>
       <span class="center-nav-centered">{{ centerNavCentered }}</span>
       <span class="active-center-action">{{ activeCenterAction }}</span>
+      <span class="login-label">{{ loginLabel }}</span>
+      <span class="avatar-url">{{ avatarUrl }}</span>
+      <span class="show-logout">{{ showLogout }}</span>
       <button class="city-detail-trigger" @click="$emit('city-detail-click')" />
       <button class="profile-center-trigger" @click="$emit('profile-center-click')" />
       <button class="login-list-trigger" @click="$emit('login-list-click')" />
@@ -102,6 +107,7 @@ describe('AppLayout center actions', () => {
     mockedCreateCity.mockReset()
     mockedUpdateCity.mockReset()
     mockedDeleteCity.mockReset()
+    mockedGetProfile.mockReset()
     localStorage.clear()
     routeState.name = 'center'
     routeState.fullPath = '/center'
@@ -150,6 +156,79 @@ describe('AppLayout center actions', () => {
     await wrapper.find('.login-list-trigger').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith('/login-list')
+  })
+
+  it('hydrates avatar on first mount when stored auth user misses avatarUrl', async () => {
+    localStorage.setItem('auth_token', 'token-1')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-1',
+        email: 'demo@weather.com',
+        nickname: '演示用户',
+      }),
+    )
+    mockedGetProfile.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: {
+        userId: 'u-1',
+        email: 'demo@weather.com',
+        nickname: '演示用户',
+        phone: '',
+        qq: '',
+        wechat: '',
+        avatarUrl: 'http://localhost:3000/uploads/avatars/demo.png',
+      },
+    })
+
+    const { wrapper } = await mountLayout('weather', '/weather')
+
+    expect(mockedGetProfile).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.avatar-url').text()).toBe('http://localhost:3000/uploads/avatars/demo.png')
+    expect(JSON.parse(localStorage.getItem('auth_user') || '{}').avatarUrl).toBe(
+      'http://localhost:3000/uploads/avatars/demo.png',
+    )
+  })
+
+  it('skips profile hydration when stored auth user already has avatarUrl', async () => {
+    localStorage.setItem('auth_token', 'token-2')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-2',
+        email: 'avatar@weather.com',
+        nickname: '已有头像用户',
+        avatarUrl: 'http://localhost:3000/uploads/avatars/existing.png',
+      }),
+    )
+
+    const { wrapper } = await mountLayout('weather', '/weather')
+
+    expect(mockedGetProfile).not.toHaveBeenCalled()
+    expect(wrapper.find('.avatar-url').text()).toBe('http://localhost:3000/uploads/avatars/existing.png')
+  })
+
+  it('keeps page rendered and stored login state when startup hydration fails', async () => {
+    localStorage.setItem('auth_token', 'token-3')
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        userId: 'u-3',
+        email: 'fallback@weather.com',
+        nickname: '容错用户',
+      }),
+    )
+    mockedGetProfile.mockRejectedValue(new Error('获取资料失败'))
+
+    const { wrapper } = await mountLayout('weather', '/weather')
+
+    expect(mockedGetProfile).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('.show-center-search').text()).toBe('true')
+    expect(wrapper.find('.login-label').text()).toBe('容错用户')
+    expect(wrapper.find('.avatar-url').text()).toBe('')
+    expect(localStorage.getItem('auth_token')).toBe('token-3')
+    expect(JSON.parse(localStorage.getItem('auth_user') || '{}').nickname).toBe('容错用户')
   })
 
   it('navigates to default city detail when top nav emits city-detail-click', async () => {

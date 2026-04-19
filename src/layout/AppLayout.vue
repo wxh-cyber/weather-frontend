@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, provide, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppTopNav from '@/layout/AppTopNav.vue'
 import CyberCursorOverlay from '@/layout/CyberCursorOverlay.vue'
@@ -17,6 +17,7 @@ const authStore = useAuthStore()
 const cityStore = useCityStore()
 const { isLoggedIn, displayName, user } = storeToRefs(authStore)
 const weatherRouteNames = ['weather', 'city-detail', 'city-temperature-trend'] as const
+let profileHydrationPromise: Promise<void> | null = null
 
 const syncUserStatus = () => {
   authStore.syncFromStorage()
@@ -24,6 +25,31 @@ const syncUserStatus = () => {
 
 const clearAuthState = () => {
   authStore.clearAuth()
+}
+
+const hydrateUserProfileIfNeeded = async () => {
+  if (profileHydrationPromise) {
+    await profileHydrationPromise
+    return
+  }
+  if (!isLoggedIn.value || !user.value || user.value.avatarUrl) {
+    return
+  }
+
+  profileHydrationPromise = (async () => {
+    try {
+      const profileRes = await getProfile()
+      if (profileRes.code === 0) {
+        authStore.updateUserProfile(profileRes.data)
+      }
+    } catch {
+      // 启动阶段资料补拉失败时保留当前登录态，避免打断页面进入
+    } finally {
+      profileHydrationPromise = null
+    }
+  })()
+
+  await profileHydrationPromise
 }
 
 watch(
@@ -38,6 +64,10 @@ window.addEventListener('storage', syncUserStatus)
 onBeforeUnmount(() => {
   window.removeEventListener('auth-user-updated', syncUserStatus as EventListener)
   window.removeEventListener('storage', syncUserStatus)
+})
+
+onMounted(() => {
+  void hydrateUserProfileIfNeeded()
 })
 
 const navVariant = computed(() => {
