@@ -1,21 +1,34 @@
 # 小慕天气前端项目
 
+![Vue 3](https://img.shields.io/badge/Vue%203-3.5.29-42b883?style=for-the-badge&logo=vuedotjs&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-beta-646cff?style=for-the-badge&logo=vite&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178c6?style=for-the-badge&logo=typescript&logoColor=white)
+![Pinia](https://img.shields.io/badge/Pinia-3.0.4-ffd859?style=for-the-badge&logo=pinia&logoColor=1f2937)
+![Vue Router](https://img.shields.io/badge/Vue%20Router-5.0.3-35495e?style=for-the-badge&logo=vuedotjs&logoColor=white)
+![Element Plus](https://img.shields.io/badge/Element%20Plus-2.13.5-409eff?style=for-the-badge&logo=element&logoColor=white)
+![Axios](https://img.shields.io/badge/Axios-1.14.0-5a29e4?style=for-the-badge&logo=axios&logoColor=white)
+![ECharts](https://img.shields.io/badge/ECharts-6.0.0-aa344d?style=for-the-badge&logo=apacheecharts&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-4.0.18-6e9f18?style=for-the-badge&logo=vitest&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-1.58.2-2ead33?style=for-the-badge&logo=playwright&logoColor=white)
+
 ## 项目简介
 
 `weather-frontend` 是"小慕天气"系统的前端工程，基于 `Vue 3 + Vite + TypeScript` 构建，当前用于毕业设计场景下的页面展示与前后端联调。项目已覆盖开始页、天气主页、城市详情、登录注册、个人中心、登录记录和我的城市管理等核心界面。
 
 ## 技术栈
 
-- `Vue 3`（Composition API + `<script setup>`）
-- `Vite`
-- `TypeScript`
-- `Vue Router 5`
-- `Pinia`
-- `Element Plus`
-- `Axios`
-- `ECharts`
-- `Vitest`
-- `Playwright`
+| 技术栈 | 当前版本 | 主要作用 |
+|------|------|------|
+| `Vue 3` | `3.5.29` | 构建前端页面与组件逻辑，使用 Composition API 和 `<script setup>` 组织业务代码 |
+| `Vite` | `beta` | 提供本地开发服务器、构建流程与前后端代理能力 |
+| `TypeScript` | `5.9.3` | 提供类型约束与工程可维护性 |
+| `Vue Router` | `5.0.3` | 管理开始页、天气页、登录注册、个人中心、我的城市等路由 |
+| `Pinia` | `3.0.4` | 维护登录态、城市列表、默认城市等全局响应式状态 |
+| `Element Plus` | `2.13.5` | 提供表单、弹窗、输入框、按钮等 UI 组件 |
+| `Axios` | `1.14.0` | 统一封装 HTTP 请求、鉴权头注入与错误响应处理 |
+| `ECharts` | `6.0.0` | 渲染温度趋势图等图表内容 |
+| `Vitest` | `4.0.18` | 承担单元测试与组件测试 |
+| `Playwright` | `1.58.2` | 承担端到端流程测试 |
 
 ## 运行环境
 
@@ -86,11 +99,12 @@ npx vitest run --reporter=verbose -t "shows unregistered"
 - 登录、注册与本地登录态持久化（`localStorage` + Pinia `authStore`）
 - 个人中心资料编辑与头像上传
 - 登录记录查询（需鉴权）
-- 我的城市页面支持查询、新增、修改（重命名）、删除和设置默认城市
+- 我的城市页面支持查询、新增、设置默认城市、删除和批量删除
 - 城市详情页展示当前天气、地图、短时预报与温度趋势图
 - 温度趋势图支持在详情页内部进行局部视图切换，不替换整页内容
 - 动态城市背景：按城市名 + 时段（昼 / 昏 / 夜）自动切换背景图片
 - 天气粒子特效叠加层：雨、雪、阵雨（含晴雨交替）、雷阵雨（含闪电帧动画）
+- 用户退出后会清空当前账号城市缓存；重新登录不同账号时，城市列表会按账号隔离展示
 
 ## 路由说明
 
@@ -100,21 +114,23 @@ npx vitest run --reporter=verbose -t "shows unregistered"
 | `/weather` | 天气主页，有默认城市时自动重定向到对应城市详情 | — |
 | `/weather/:cityName` | 城市详情概览（`CityOverviewView`） | — |
 | `/weather/:cityName/temperature-trend` | 城市详情内的温度趋势子视图 | — |
+| `/weather/:cityName/map` | 城市详情内的天气地图子视图 | — |
 | `/login` | 登录页 | — |
 | `/register` | 注册页 | — |
 | `/center` | 个人中心 | — |
-| `/list` | 我的城市管理 | — |
+| `/list` | 我的城市管理；未登录时从导航点击会先跳转到登录页 | — |
 | `/login-list` | 登录记录，需要登录后访问 | `requiresAuth: true` |
 
 未匹配路由统一重定向至 `/weather`。
 
 ## 城市详情页说明
 
-- 城市详情页外层由 `CityDetail.vue` + 子路由承载，地址栏在概览与温度趋势之间同步变化。
+- 城市详情页外层由 `CityDetail.vue` + 子路由承载，地址栏在概览、温度趋势和天气地图之间同步变化。
 - `CityOverviewView` 始终负责整页概览内容，切换至温度趋势时上方天气概览和地图区域不会重绘。
 - `HourlyForecastPanel` 内部通过右上角按钮在「概览 / 温度轨迹」之间切换：
   - `/weather/:cityName` 显示短时预报卡片
   - `/weather/:cityName/temperature-trend` 显示温度趋势图
+- 城市详情顶部导航已接入 `map` 子路由，可在概览 / 温度趋势 / 天气地图之间切换。
 - `TemperatureTrendView` 保留为路由组件，承接现有路由语义与趋势图能力复用。
 
 ## 核心模块说明
@@ -141,11 +157,12 @@ src/components/ 可复用业务组件（按功能分组）
 
 | Store | 文件 | 持久化键 | 职责 |
 |-------|------|---------|------|
-| `authStore` | `src/store/auth.ts` | `auth_token` / `auth_user` | 登录态、用户信息 |
-| `cityStore` | `src/store/city.ts` | `city_list` | 城市列表、默认城市、CRUD |
+| `authStore` | `src/store/auth.ts` | `auth_token` / `auth_user` | 登录态、用户信息、注册状态同步 |
+| `cityStore` | `src/store/city.ts` | `city_list:user:<userId>` | 按用户隔离的城市列表、默认城市、城市 CRUD、本地恢复 |
 
 - `authStore` 在 `setAuth` / `clearAuth` / `updateUserProfile` 时派发 `auth-user-updated` DOM 事件，供非响应式代码（如 `AppTopNav`）监听。
-- `cityStore` 启动时通过 `syncFromStorage()` 读取本地数据，并自动剔除旧版硬编码的默认城市哨兵数据。
+- `cityStore` 启动时通过 `syncFromStorage()` 读取当前登录用户对应的本地缓存，并自动清理旧版共享 `city_list` 与哨兵数据。
+- 退出登录时会同时清空当前用户的内存城市状态与对应本地缓存，避免下一个账号复用旧数据。
 
 ### 动态背景（`src/utils/weather/cityBackgrounds.ts`）
 
@@ -209,7 +226,7 @@ weather-frontend/
 │  │  ├─ auth/                登录 / 注册 / 个人中心 / 登录记录
 │  │  ├─ cities/              我的城市管理页
 │  │  ├─ system/              开始页（Start）
-│  │  └─ weather/             天气相关页（Home / CityDetail / CityOverviewView / TemperatureTrendView）
+│  │  └─ weather/             天气相关页（Home / CityDetail / CityOverviewView / TemperatureTrendView / CityWeatherMapView）
 │  ├─ App.vue
 │  └─ main.ts
 ├─ e2e/                       Playwright 端到端测试
@@ -223,6 +240,10 @@ weather-frontend/
 - 当前已接入的服务端点：
   - `auth`：登录、注册、资料编辑、头像上传、登录记录查询
   - `cities`：城市列表拉取与 CRUD（新增/修改/删除）
+- 当前 `/cities` 已由后端按登录态自适应处理：
+  - 未登录时可获取公共城市列表 / 搜索结果
+  - 已登录且不带 `keyword` 时返回当前用户自己的城市列表
+  - 已登录且带 `keyword` 时继续走全局搜索语义，便于搜索候选城市后加入当前账号列表
 
 ## 后续可扩展点
 
@@ -230,26 +251,26 @@ weather-frontend/
 
 ### 功能扩展
 
-- **天气预报接入**：`service/` 层可增加 `/weather/:cityName` 端点封装，将实时气象数据（风速、湿度、AQI、未来 7 日预报）接入 `CurrentWeatherPanel` 与 `HourlyForecastPanel`，目前面板内数据为静态占位。
-- **城市搜索联想**：`AppTopNav` 顶部搜索框当前仅支持精确跳转，可对接后端模糊搜索接口并在下拉面板中展示候选结果。
-- **多城市天气概览**：`Home.vue` 当前直接重定向到默认城市，可扩展为在落地页同时展示所有已订阅城市的天气卡片列表。
-- **城市顺序拖拽排序**：`cityStore` 中城市数组顺序即默认城市语义，可在 `List.vue` 中接入拖拽排序（如 `@vueuse/core` + `Sortable.js`）并持久化顺序。
-- **消息通知与天气预警**：可扩展为在严重天气时通过 Element Plus `ElNotification` 或浏览器 Notification API 推送预警信息。
+- **天气预报深化展示**：当前详情页已具备实时天气、温度趋势和地图骨架，可继续扩展风速、湿度、AQI、未来 7 日卡片与生活指数展示。
+- **城市搜索联想**：`AppTopNav` 顶部搜索目前仍以输入后确认搜索为主，可继续扩展候选下拉、拼音匹配与热门城市推荐。
+- **多城市总览页**：`Home.vue` 当前围绕默认城市进入详情，可扩展为在天气主页直接展示当前账号所有订阅城市的概览卡片矩阵。
+- **城市拖拽排序**：后端已具备用户城市排序语义，可在 `List.vue` 接入拖拽交互并把顺序同步到服务端。
+- **消息通知与天气预警**：可结合浏览器通知或站内消息，在恶劣天气、雷暴、暴雨等条件下推送提醒。
 
 ### 体验优化
 
 - **PWA 离线支持**：项目已使用 Vite，可接入 `vite-plugin-pwa` 实现 Service Worker 离线缓存，优先缓存已访问城市的天气数据与背景图片。
 - **骨架屏**：天气面板、城市列表加载时可引入骨架屏组件代替当前的加载指示器，改善首屏体验。
 - **动画过渡**：路由切换与天气叠加层切换可通过 Vue `<Transition>` / `<TransitionGroup>` 增加淡入淡出或滑动效果。
-- **暗色/亮色主题切换**：CSS 变量已集中在 `theme.css`，可在此基础上实现 `prefers-color-scheme` 跟随系统或手动切换逻辑。
+- **暗色/亮色主题切换**：CSS 变量已集中管理，可在现有赛博主题基础上增加浅色主题、跟随系统主题或主题持久化逻辑。
 
 ### 工程能力
 
-- **Weather 数据 Store**：当前天气数据由各视图组件独立拉取，后续可抽取 `weatherStore` 统一管理请求状态、缓存策略与失效刷新。
-- **接口层类型完善**：`service/` 下的响应类型目前较为简略，可随后端 OpenAPI/Swagger 文档完善而补全，并引入 `zod` 等运行时校验。
-- **E2E 覆盖扩展**：当前 Playwright 测试覆盖有限，可补充城市 CRUD 流程、登录跳转、背景图切换等关键路径的端到端用例。
-- **生产化部署**：可补充 Nginx 反向代理配置（静态文件 + `/api` 代理）、Docker Compose 联合后端一键启动方案，以及 CI/CD 流水线接入。
-- **国际化（i18n）**：项目当前全量使用中文，若需扩展受众，可引入 `vue-i18n` 并将界面文案抽取到语言包中。
+- **Weather 数据 Store**：当前天气数据仍主要由视图组件协作拉取，后续可抽取 `weatherStore` 统一管理缓存策略、过期刷新与错误恢复。
+- **接口层类型完善**：`service/` 下的类型已经具备基础定义，后续可进一步和后端 Swagger / OpenAPI 描述同步，并增加运行时校验。
+- **E2E 覆盖扩展**：当前 Playwright 覆盖仍偏轻量，可继续补充登录、退出、用户切换、城市 CRUD、详情页子路由切换等关键路径。
+- **生产化部署**：可补充 Nginx、Docker Compose、静态资源缓存策略与 CI/CD 流水线，实现前后端一体化部署。
+- **国际化（i18n）**：项目当前整体以中文界面为主，后续若需面向更广用户可引入 `vue-i18n` 做文案抽离。
 
 ## 说明
 
