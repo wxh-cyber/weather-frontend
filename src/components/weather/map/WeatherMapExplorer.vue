@@ -211,97 +211,28 @@ const globalWindFlowPath = computed(() => {
   }
 
   const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const vectors = [
-    { start: { x: -120, y: 118 }, end: { x: 1020, y: 312 }, bend: 64 },
-    { start: { x: 1040, y: 86 }, end: { x: 132, y: 352 }, bend: 58 },
-    { start: { x: -88, y: 492 }, end: { x: 962, y: 188 }, bend: 72 },
-    { start: { x: 1038, y: 512 }, end: { x: 208, y: 146 }, bend: 60 },
-    { start: { x: 102, y: 1030 }, end: { x: 712, y: 248 }, bend: 84 },
-    { start: { x: 922, y: 1018 }, end: { x: 344, y: 392 }, bend: 68 },
-    { start: { x: 506, y: -90 }, end: { x: 612, y: 1018 }, bend: 52 },
-  ] as const
+  const baseAngle = ((seed * 13) % 360) * (Math.PI / 180)
+  const lanes = [140, 265, 390, 515, 640, 765, 890]
 
-  return vectors.map((vector, laneIndex) => {
-    const phase = seed * 0.021 + laneIndex * 0.67
-    const driftX = Math.sin(phase * 1.12) * 46
-    const driftY = Math.cos(phase * 1.26) * 40
-    const controlX1 = vector.start.x + (vector.end.x - vector.start.x) * 0.22 + Math.cos(phase * 0.92) * (vector.bend * 1.22)
-    const controlY1 = vector.start.y + (vector.end.y - vector.start.y) * 0.16 - Math.sin(phase * 1.28) * (vector.bend * 1.08)
-    const controlX2 = vector.start.x + (vector.end.x - vector.start.x) * 0.74 - Math.sin(phase * 0.78) * (vector.bend * 1.18)
-    const controlY2 = vector.start.y + (vector.end.y - vector.start.y) * 0.82 + Math.cos(phase * 1.34) * (vector.bend * 0.92)
-    const endX = vector.end.x + driftX
-    const endY = vector.end.y + driftY
-    const angle = Math.atan2(endY - controlY2, endX - controlX2)
-    const arrowLength = 15 + laneIndex * 0.5
-    const arrowX1 = endX - Math.cos(angle - 0.5) * arrowLength
-    const arrowY1 = endY - Math.sin(angle - 0.5) * arrowLength
-    const arrowX2 = endX - Math.cos(angle + 0.5) * arrowLength
-    const arrowY2 = endY - Math.sin(angle + 0.5) * arrowLength
-
+  return lanes.map((startY, laneIndex) => {
+    const phase = seed * 0.027 + laneIndex * 0.61
+    const startX = -90
+    const controlX1 = 210 + Math.sin(phase) * 36
+    const controlY1 = startY + Math.cos(phase * 1.2) * 28
+    const controlX2 = 560 + Math.sin(phase * 0.8 + 0.4) * 44
+    const controlY2 = startY + Math.sin(phase * 1.4) * 34
+    const endX = 1120
+    const endY = startY + Math.cos(phase * 0.92) * 30
+    const arrowLength = 16 + laneIndex * 0.4
+    const arrowX1 = endX - Math.cos(baseAngle - 0.46) * arrowLength
+    const arrowY1 = endY - Math.sin(baseAngle - 0.46) * arrowLength
+    const arrowX2 = endX - Math.cos(baseAngle + 0.46) * arrowLength
+    const arrowY2 = endY - Math.sin(baseAngle + 0.46) * arrowLength
     return [
-      `M ${vector.start.x.toFixed(2)} ${vector.start.y.toFixed(2)}`,
+      `M ${startX.toFixed(2)} ${startY.toFixed(2)}`,
       `C ${controlX1.toFixed(2)} ${controlY1.toFixed(2)} ${controlX2.toFixed(2)} ${controlY2.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)}`,
       `M ${arrowX1.toFixed(2)} ${arrowY1.toFixed(2)} L ${endX.toFixed(2)} ${endY.toFixed(2)} L ${arrowX2.toFixed(2)} ${arrowY2.toFixed(2)}`,
     ].join(' ')
-  }).join(' ')
-})
-const globalWindSecondaryFlowPath = computed(() => {
-  if (visibleOverlayMode.value !== 'wind') {
-    return ''
-  }
-
-  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const vectors = [
-    { start: { x: -60, y: 164 }, through: { x: 286, y: 124 }, end: { x: 846, y: 422 } },
-    { start: { x: 1088, y: 178 }, through: { x: 738, y: 142 }, end: { x: 286, y: 518 } },
-    { start: { x: -44, y: 702 }, through: { x: 336, y: 642 }, end: { x: 914, y: 462 } },
-    { start: { x: 1044, y: 764 }, through: { x: 714, y: 708 }, end: { x: 188, y: 418 } },
-    { start: { x: 228, y: -54 }, through: { x: 292, y: 238 }, end: { x: 472, y: 916 } },
-    { start: { x: 782, y: -42 }, through: { x: 744, y: 242 }, end: { x: 564, y: 958 } },
-    { start: { x: 118, y: 930 }, through: { x: 352, y: 802 }, end: { x: 872, y: 604 } },
-    { start: { x: 922, y: 942 }, through: { x: 742, y: 772 }, end: { x: 142, y: 692 } },
-  ] as const
-
-  return vectors.map((vector, laneIndex) => {
-    const phase = seed * 0.017 + laneIndex * 0.53
-    const controlX1 = vector.start.x + Math.cos(phase * 0.88) * 68
-    const controlY1 = vector.start.y + Math.sin(phase * 1.36) * 52
-    const controlX2 = vector.through.x + Math.sin(phase * 0.94) * 86
-    const controlY2 = vector.through.y + Math.cos(phase * 1.28) * 56
-    const endX = vector.end.x + Math.sin(phase * 1.08) * 42
-    const endY = vector.end.y + Math.cos(phase * 0.86) * 38
-
-    return `M ${vector.start.x.toFixed(2)} ${vector.start.y.toFixed(2)} C ${controlX1.toFixed(2)} ${controlY1.toFixed(2)} ${controlX2.toFixed(2)} ${controlY2.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)}`
-  }).join(' ')
-})
-const globalWindTertiaryFlowPath = computed(() => {
-  if (visibleOverlayMode.value !== 'wind') {
-    return ''
-  }
-
-  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const vectors = [
-    { start: { x: -24, y: 82 }, end: { x: 428, y: 286 } },
-    { start: { x: 1026, y: 108 }, end: { x: 612, y: 322 } },
-    { start: { x: -28, y: 324 }, end: { x: 512, y: 468 } },
-    { start: { x: 1022, y: 362 }, end: { x: 372, y: 548 } },
-    { start: { x: 64, y: 1028 }, end: { x: 426, y: 742 } },
-    { start: { x: 938, y: 1014 }, end: { x: 598, y: 712 } },
-    { start: { x: 502, y: -28 }, end: { x: 542, y: 372 } },
-    { start: { x: 186, y: -18 }, end: { x: 682, y: 448 } },
-    { start: { x: 842, y: -22 }, end: { x: 282, y: 438 } },
-    { start: { x: 1048, y: 628 }, end: { x: 552, y: 868 } },
-    { start: { x: -42, y: 644 }, end: { x: 456, y: 902 } },
-  ] as const
-
-  return vectors.map((vector, laneIndex) => {
-    const phase = seed * 0.013 + laneIndex * 0.41
-    const controlX1 = vector.start.x + (vector.end.x - vector.start.x) * 0.28 + Math.sin(phase * 0.92) * 38
-    const controlY1 = vector.start.y + (vector.end.y - vector.start.y) * 0.2 + Math.cos(phase * 1.48) * 30
-    const controlX2 = vector.start.x + (vector.end.x - vector.start.x) * 0.78 + Math.cos(phase * 0.84) * 34
-    const controlY2 = vector.start.y + (vector.end.y - vector.start.y) * 0.84 + Math.sin(phase * 1.22) * 26
-
-    return `M ${vector.start.x.toFixed(2)} ${vector.start.y.toFixed(2)} C ${controlX1.toFixed(2)} ${controlY1.toFixed(2)} ${controlX2.toFixed(2)} ${controlY2.toFixed(2)} ${vector.end.x.toFixed(2)} ${vector.end.y.toFixed(2)}`
   }).join(' ')
 })
 const invalidateOverlayProjection = () => {
@@ -543,30 +474,30 @@ const overlayRegions = computed<OverlayRegion[]>(() => {
 })
 const note = computed(() => {
   if (!hasCoordinates.value) {
-    return `${props.cityName}当前缺少可用地理坐标，地图页仍保留战术地图舱外观，待坐标恢复后会自动进入实时地图模式。`
+    return `${props.cityName}当前缺少可用地理坐标，地图页仍保留地图舱外观，待坐标恢复后会自动进入实时地图模式。`
   }
 
   if (lockedTargetPoint.value) {
     if (lockedTargetStatus.value === 'success' && lockedTargetPlaceName.value) {
-      return `战术锁定已就位，当前目标位于 ${lockedTargetPlaceName.value}，继续点击地图可立即重置唯一准星。`
+      return `锁定已就位，当前目标位于 ${lockedTargetPlaceName.value}，继续点击地图可立即重置唯一准星。`
     }
 
     if (lockedTargetStatus.value === 'loading') {
-      return '战术锁定已就位，正在解析目标地理名称，坐标锚点已经同步到地图视野中心。'
+      return '锁定已就位，正在解析目标地理名称，坐标锚点已经同步到地图视野中心。'
     }
 
     if (lockedTargetStatus.value === 'error') {
       return `当前位置名称解析失败，系统已回退显示坐标 ${lockedTargetPoint.value.lng.toFixed(4)}E · ${lockedTargetPoint.value.lat.toFixed(4)}N。`
     }
 
-    return `战术锁定已就位，点击地图任意区域即可重新校准准星，当前锁定坐标为 ${lockedTargetPoint.value.lng.toFixed(4)}E · ${lockedTargetPoint.value.lat.toFixed(4)}N。`
+    return `锁定已就位，点击地图任意区域即可重新校准准星，当前锁定坐标为 ${lockedTargetPoint.value.lng.toFixed(4)}E · ${lockedTargetPoint.value.lat.toFixed(4)}N。`
   }
 
   return `${props.cityName}地图已接入在线底图与实时缩放控制，可拖动缩放条或使用两侧按键快速调整比例。`
 })
 const lockedTargetCoordinateLabel = computed(() => {
   if (!lockedTargetPoint.value) {
-    return '点击地图任意位置，立即建立战术锁定。'
+    return '点击地图任意位置，立即建立锁定。'
   }
 
   return `${lockedTargetPoint.value.lng.toFixed(4)}E · ${lockedTargetPoint.value.lat.toFixed(4)}N`
@@ -855,7 +786,7 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <div class="map-shell" :class="{ 'map-shell--wind': visibleOverlayMode === 'wind' }">
+    <div class="map-shell">
       <div ref="mapContainerRef" class="map" data-testid="weather-map-explorer-canvas" />
 
       <div class="map-hud" aria-hidden="true">
@@ -877,18 +808,9 @@ onBeforeUnmount(() => {
         preserveAspectRatio="none"
         data-testid="weather-global-wind-field"
       >
-        <path class="weather-global-wind-field__atmosphere" :d="globalWindFlowPath" />
-        <path
-          v-if="globalWindSecondaryFlowPath"
-          class="weather-global-wind-field__secondary"
-          :d="globalWindSecondaryFlowPath"
-        />
-        <path
-          v-if="globalWindTertiaryFlowPath"
-          class="weather-global-wind-field__tertiary"
-          :d="globalWindTertiaryFlowPath"
-        />
+        <path class="weather-global-wind-field__glow" :d="globalWindFlowPath" />
         <path class="weather-global-wind-field__stream" :d="globalWindFlowPath" />
+        <path class="weather-global-wind-field__highlight" :d="globalWindFlowPath" />
       </svg>
 
       <div class="map-overlay">
@@ -1062,7 +984,7 @@ onBeforeUnmount(() => {
 
       <div v-if="!hasCoordinates || mapError" class="map-fallback">
         <p class="map-fallback__title">{{ mapError || '城市坐标暂不可用' }}</p>
-        <p class="map-fallback__text">当前地图页仍可保留完整赛博战术面板，待坐标恢复后会自动载入真实底图与比例尺。</p>
+        <p class="map-fallback__text">当前地图页仍可保留完整赛博面板，待坐标恢复后会自动载入真实底图与比例尺。</p>
       </div>
 
       <div
@@ -1192,13 +1114,6 @@ h2 {
     var(--cyber-glow-md);
 }
 
-.map-shell--wind {
-  background:
-    radial-gradient(circle at 22% 18%, rgba(244, 252, 255, 0.72), transparent 30%),
-    radial-gradient(circle at 78% 14%, rgba(214, 241, 255, 0.48), transparent 32%),
-    linear-gradient(135deg, #9ed9f7 0%, #77bee8 42%, #5aa4d8 100%);
-}
-
 .map {
   width: 100%;
   min-height: 540px;
@@ -1323,63 +1238,47 @@ h2 {
   overflow: hidden;
 }
 
-.weather-global-wind-field__atmosphere {
+.weather-global-wind-field__glow {
   fill: none;
-  stroke: rgba(235, 249, 255, 0.09);
+  stroke: rgba(120, 228, 255, 0.28);
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 6.5;
-  filter: blur(8px);
+  stroke-width: 24;
+  filter: blur(18px);
   mix-blend-mode: screen;
-  animation: weather-wind-field-shift 14s linear infinite;
-}
-
-.weather-global-wind-field__secondary {
-  fill: none;
-  stroke: rgba(241, 251, 255, 0.34);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.9;
-  stroke-dasharray: 16 14;
-  filter:
-    drop-shadow(0 0 4px rgba(231, 248, 255, 0.12))
-    drop-shadow(0 0 10px rgba(117, 241, 255, 0.08));
-  mix-blend-mode: screen;
-  animation:
-    weather-wind-field-shift 8.8s linear infinite reverse,
-    weather-wind-field-dash 2s linear infinite;
-}
-
-.weather-global-wind-field__tertiary {
-  fill: none;
-  stroke: rgba(248, 253, 255, 0.42);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.2;
-  stroke-dasharray: 10 16;
-  filter:
-    drop-shadow(0 0 3px rgba(255, 255, 255, 0.12))
-    drop-shadow(0 0 8px rgba(186, 234, 255, 0.08));
-  mix-blend-mode: screen;
-  animation:
-    weather-wind-field-shift 7.6s linear infinite,
-    weather-wind-field-dash 1.6s linear infinite reverse;
+  animation: weather-wind-field-shift 9.2s linear infinite;
 }
 
 .weather-global-wind-field__stream {
   fill: none;
-  stroke: rgba(252, 254, 255, 0.72);
+  stroke: rgba(214, 247, 255, 0.4);
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2.4;
-  stroke-dasharray: 14 12;
+  stroke-width: 6;
+  stroke-dasharray: 30 18;
   filter:
-    drop-shadow(0 0 5px rgba(241, 250, 255, 0.2))
-    drop-shadow(0 0 12px rgba(117, 241, 255, 0.09));
+    drop-shadow(0 0 12px rgba(117, 241, 255, 0.26))
+    drop-shadow(0 0 24px rgba(117, 241, 255, 0.18));
   mix-blend-mode: screen;
   animation:
-    weather-wind-field-shift 6.8s linear infinite,
-    weather-wind-field-dash 1.4s linear infinite;
+    weather-wind-field-shift 7.2s linear infinite,
+    weather-wind-field-dash 2.8s linear infinite;
+}
+
+.weather-global-wind-field__highlight {
+  fill: none;
+  stroke: rgba(245, 253, 255, 0.62);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  stroke-dasharray: 10 20;
+  filter:
+    drop-shadow(0 0 10px rgba(210, 245, 255, 0.34))
+    drop-shadow(0 0 22px rgba(117, 241, 255, 0.22));
+  mix-blend-mode: screen;
+  animation:
+    weather-wind-field-shift 6.4s linear infinite reverse,
+    weather-wind-field-dash 1.9s linear infinite;
 }
 
 .weather-layer-console {
