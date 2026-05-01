@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import HourlyForecastPanel from '@/components/weather/overview/HourlyForecastPanel.vue'
 
@@ -46,7 +46,7 @@ describe('HourlyForecastPanel', () => {
       ],
     })
 
-  it('highlights the current route tab and navigates to temperature trend', async () => {
+  it('switches to temperature trend locally without changing the route', async () => {
     const router = createTestRouter()
     await router.push('/weather/武汉市')
     await router.isReady()
@@ -68,31 +68,18 @@ describe('HourlyForecastPanel', () => {
     expect(wrapper.find('[data-testid="hourly-forecast-cards"]').exists()).toBe(true)
 
     await buttons[1]!.trigger('click')
-    await flushPromises()
 
-    expect(router.currentRoute.value.name).toBe('city-temperature-trend')
-    expect(wrapper.find('[data-testid="temperature-trend-chart"]').exists()).toBe(true)
-  })
-
-  it('reflects active state when mounted on the temperature trend child route', async () => {
-    const router = createTestRouter()
-    await router.push('/weather/武汉市/temperature-trend')
-    await router.isReady()
-
-    const wrapper = mount(HourlyForecastPanel, {
-      props: {
-        cityName: '武汉市',
-        temperature: '26°C',
-        weatherText: '晴',
-      },
-      global: {
-        plugins: [router],
-      },
-    })
-
-    const buttons = wrapper.findAll('button')
+    expect(router.currentRoute.value.name).toBe('city-detail')
     expect(buttons[1]?.classes()).toContain('active')
-    expect(wrapper.find('[data-testid="hourly-forecast-cards"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="temperature-trend-chart"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="temperature-trend-interval-select"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="hourly-forecast-cards"]').exists()).toBe(false)
+
+    await buttons[0]!.trigger('click')
+
+    expect(router.currentRoute.value.name).toBe('city-detail')
+    expect(buttons[0]?.classes()).toContain('active')
+    expect(wrapper.find('[data-testid="hourly-forecast-cards"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="temperature-trend-chart"]').exists()).toBe(false)
   })
 })

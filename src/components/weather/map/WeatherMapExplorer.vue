@@ -4,12 +4,50 @@ import 'mars2d/mars2d.css'
 
 import * as mars2d from 'mars2d'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import cloudIcon from '@/assets/icons/map/云图.svg'
+import windIcon from '@/assets/icons/map/风向图.svg'
+import precipitationIcon from '@/assets/icons/map/降水.svg'
 import { createEcoBasemapLayer } from '@/components/weather/map/mapTheme'
 import { getReverseGeocode } from '@/service/weather'
 
 const MIN_ZOOM = 4
 const MAX_ZOOM = 16
 const DEFAULT_ZOOM = 9
+
+type WeatherOverlayMode = 'none' | 'precipitation' | 'cloud' | 'wind'
+type WeatherLegendItem = {
+  label: string
+  color: string
+  glowColor?: string
+}
+type OverlayRegionSeed = {
+  id: string
+  anchorLatOffset: number
+  anchorLngOffset: number
+  radiusLat: number
+  radiusLng: number
+  wobble: number
+}
+type OverlayRegion = {
+  id: string
+  color: string
+  accentColor: string
+  hazeColor: string
+  streakColor: string
+  intensity: string
+  legendGradient: string
+  path: string
+  innerPath: string
+  haloPath: string
+  glowPath: string
+  texturePath: string
+  labelX: number
+  labelY: number
+  windDirection: string | null
+  windLevel: string | null
+  windFlowPath: string | null
+  isTyphoon: boolean
+}
 
 const props = withDefaults(
   defineProps<{
@@ -34,6 +72,9 @@ const mapContainerRef = ref<HTMLElement | null>(null)
 const mapReady = ref(false)
 const mapError = ref('')
 const currentZoom = ref(DEFAULT_ZOOM)
+const overlayMode = ref<WeatherOverlayMode>('none')
+const hoverPreviewMode = ref<Exclude<WeatherOverlayMode, 'none'> | null>(null)
+const overlayProjectionTick = ref(0)
 const lockedTargetPoint = ref<{ lat: number; lng: number } | null>(null)
 const lockedTargetScreenPosition = ref<{ x: number; y: number } | null>(null)
 const lockedTargetStatus = ref<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -61,6 +102,444 @@ const coordinateLabel = computed(() => {
 const zoomPercent = computed(() => {
   const progress = ((currentZoom.value - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)) * 100
   return Math.round(Math.min(100, Math.max(0, progress)))
+})
+const weatherOverlayOptions: ReadonlyArray<{
+  key: Exclude<WeatherOverlayMode, 'none'>
+  label: string
+  iconSrc: string
+}> = [
+  { key: 'precipitation', label: '降水图', iconSrc: precipitationIcon },
+  { key: 'cloud', label: '云图', iconSrc: cloudIcon },
+  { key: 'wind', label: '风向图', iconSrc: windIcon },
+]
+const precipitationLegend = computed<WeatherLegendItem[]>(() => [
+  { label: '0-2mm', color: '#59d7ff', glowColor: '#8be8ff' },
+  { label: '2-8mm', color: '#22a6ff', glowColor: '#59c3ff' },
+  { label: '8-16mm', color: '#7b7dff', glowColor: '#9b9eff' },
+  { label: '16-30mm', color: '#d365ff', glowColor: '#ed97ff' },
+  { label: '30mm+', color: '#ff6b8f', glowColor: '#ff98af' },
+])
+const cloudLegend = computed<WeatherLegendItem[]>(() => [
+  { label: '0-20%', color: '#8ce6ff', glowColor: '#b1eeff' },
+  { label: '20-40%', color: '#5ebdf7', glowColor: '#8fd5ff' },
+  { label: '40-60%', color: '#5f85ff', glowColor: '#8ca6ff' },
+  { label: '60-80%', color: '#8d79ff', glowColor: '#b39eff' },
+  { label: '80-100%', color: '#d7dbff', glowColor: '#eef1ff' },
+])
+const windLegend = computed<WeatherLegendItem[]>(() => [
+  { label: '0-2级', color: '#6ef0ff', glowColor: '#a2f7ff' },
+  { label: '3-4级', color: '#39c8ff', glowColor: '#79dcff' },
+  { label: '5-6级', color: '#5d8fff', glowColor: '#8eb0ff' },
+  { label: '7-8级', color: '#b06cff', glowColor: '#cd99ff' },
+  { label: '9级+', color: '#ff6e8a', glowColor: '#ffa3b4' },
+])
+const activeLegend = computed(() => {
+  if (overlayMode.value === 'precipitation') {
+    return precipitationLegend.value
+  }
+
+  if (overlayMode.value === 'cloud') {
+    return cloudLegend.value
+  }
+
+  if (overlayMode.value === 'wind') {
+    return windLegend.value
+  }
+
+  return hoverPreviewMode.value === 'precipitation'
+    ? precipitationLegend.value
+    : hoverPreviewMode.value === 'cloud'
+      ? cloudLegend.value
+      : hoverPreviewMode.value === 'wind'
+        ? windLegend.value
+      : []
+})
+const previewTitle = computed(() => {
+  if (overlayMode.value === 'precipitation' || hoverPreviewMode.value === 'precipitation') {
+    return 'PRECIPITATION SCAN'
+  }
+
+  if (overlayMode.value === 'cloud' || hoverPreviewMode.value === 'cloud') {
+    return 'CLOUD DENSITY SCAN'
+  }
+
+  if (overlayMode.value === 'wind' || hoverPreviewMode.value === 'wind') {
+    return 'WIND FIELD SCAN'
+  }
+
+  return ''
+})
+const activeLegendGradient = computed(() => {
+  if (!activeLegend.value.length) {
+    return ''
+  }
+
+  const stops = activeLegend.value.map((item, index) => {
+    const position = activeLegend.value.length === 1 ? 100 : (index / (activeLegend.value.length - 1)) * 100
+    return `${item.color} ${position.toFixed(2)}%`
+  })
+  return `linear-gradient(90deg, ${stops.join(', ')})`
+})
+const visibleOverlayMode = computed<WeatherOverlayMode>(() => {
+  if (overlayMode.value !== 'none') {
+    return overlayMode.value
+  }
+
+  return hoverPreviewMode.value ?? 'none'
+})
+const activeWindDirection = computed(() => {
+  if (visibleOverlayMode.value !== 'wind' || !hasCoordinates.value) {
+    return ''
+  }
+
+  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const directions = [
+    '北风 / North Drift',
+    '东北风 / Northeast Flow',
+    '东风 / East Sweep',
+    '东南风 / Southeast Stream',
+    '南风 / South Pulse',
+    '西南风 / Southwest Flow',
+    '西风 / West Current',
+    '西北风 / Northwest Shear',
+  ] as const
+  return directions[seed % directions.length] ?? directions[0]
+})
+const globalWindFlowPath = computed(() => {
+  if (visibleOverlayMode.value !== 'wind') {
+    return ''
+  }
+
+  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const vectors = [
+    { start: { x: -120, y: 118 }, end: { x: 1020, y: 312 }, bend: 64 },
+    { start: { x: 1040, y: 86 }, end: { x: 132, y: 352 }, bend: 58 },
+    { start: { x: -88, y: 492 }, end: { x: 962, y: 188 }, bend: 72 },
+    { start: { x: 1038, y: 512 }, end: { x: 208, y: 146 }, bend: 60 },
+    { start: { x: 102, y: 1030 }, end: { x: 712, y: 248 }, bend: 84 },
+    { start: { x: 922, y: 1018 }, end: { x: 344, y: 392 }, bend: 68 },
+    { start: { x: 506, y: -90 }, end: { x: 612, y: 1018 }, bend: 52 },
+  ] as const
+
+  return vectors.map((vector, laneIndex) => {
+    const phase = seed * 0.021 + laneIndex * 0.67
+    const driftX = Math.sin(phase * 1.12) * 46
+    const driftY = Math.cos(phase * 1.26) * 40
+    const controlX1 = vector.start.x + (vector.end.x - vector.start.x) * 0.22 + Math.cos(phase * 0.92) * (vector.bend * 1.22)
+    const controlY1 = vector.start.y + (vector.end.y - vector.start.y) * 0.16 - Math.sin(phase * 1.28) * (vector.bend * 1.08)
+    const controlX2 = vector.start.x + (vector.end.x - vector.start.x) * 0.74 - Math.sin(phase * 0.78) * (vector.bend * 1.18)
+    const controlY2 = vector.start.y + (vector.end.y - vector.start.y) * 0.82 + Math.cos(phase * 1.34) * (vector.bend * 0.92)
+    const endX = vector.end.x + driftX
+    const endY = vector.end.y + driftY
+    const angle = Math.atan2(endY - controlY2, endX - controlX2)
+    const arrowLength = 15 + laneIndex * 0.5
+    const arrowX1 = endX - Math.cos(angle - 0.5) * arrowLength
+    const arrowY1 = endY - Math.sin(angle - 0.5) * arrowLength
+    const arrowX2 = endX - Math.cos(angle + 0.5) * arrowLength
+    const arrowY2 = endY - Math.sin(angle + 0.5) * arrowLength
+
+    return [
+      `M ${vector.start.x.toFixed(2)} ${vector.start.y.toFixed(2)}`,
+      `C ${controlX1.toFixed(2)} ${controlY1.toFixed(2)} ${controlX2.toFixed(2)} ${controlY2.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)}`,
+      `M ${arrowX1.toFixed(2)} ${arrowY1.toFixed(2)} L ${endX.toFixed(2)} ${endY.toFixed(2)} L ${arrowX2.toFixed(2)} ${arrowY2.toFixed(2)}`,
+    ].join(' ')
+  }).join(' ')
+})
+const globalWindSecondaryFlowPath = computed(() => {
+  if (visibleOverlayMode.value !== 'wind') {
+    return ''
+  }
+
+  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const vectors = [
+    { start: { x: -60, y: 164 }, through: { x: 286, y: 124 }, end: { x: 846, y: 422 } },
+    { start: { x: 1088, y: 178 }, through: { x: 738, y: 142 }, end: { x: 286, y: 518 } },
+    { start: { x: -44, y: 702 }, through: { x: 336, y: 642 }, end: { x: 914, y: 462 } },
+    { start: { x: 1044, y: 764 }, through: { x: 714, y: 708 }, end: { x: 188, y: 418 } },
+    { start: { x: 228, y: -54 }, through: { x: 292, y: 238 }, end: { x: 472, y: 916 } },
+    { start: { x: 782, y: -42 }, through: { x: 744, y: 242 }, end: { x: 564, y: 958 } },
+    { start: { x: 118, y: 930 }, through: { x: 352, y: 802 }, end: { x: 872, y: 604 } },
+    { start: { x: 922, y: 942 }, through: { x: 742, y: 772 }, end: { x: 142, y: 692 } },
+  ] as const
+
+  return vectors.map((vector, laneIndex) => {
+    const phase = seed * 0.017 + laneIndex * 0.53
+    const controlX1 = vector.start.x + Math.cos(phase * 0.88) * 68
+    const controlY1 = vector.start.y + Math.sin(phase * 1.36) * 52
+    const controlX2 = vector.through.x + Math.sin(phase * 0.94) * 86
+    const controlY2 = vector.through.y + Math.cos(phase * 1.28) * 56
+    const endX = vector.end.x + Math.sin(phase * 1.08) * 42
+    const endY = vector.end.y + Math.cos(phase * 0.86) * 38
+
+    return `M ${vector.start.x.toFixed(2)} ${vector.start.y.toFixed(2)} C ${controlX1.toFixed(2)} ${controlY1.toFixed(2)} ${controlX2.toFixed(2)} ${controlY2.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)}`
+  }).join(' ')
+})
+const globalWindTertiaryFlowPath = computed(() => {
+  if (visibleOverlayMode.value !== 'wind') {
+    return ''
+  }
+
+  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const vectors = [
+    { start: { x: -24, y: 82 }, end: { x: 428, y: 286 } },
+    { start: { x: 1026, y: 108 }, end: { x: 612, y: 322 } },
+    { start: { x: -28, y: 324 }, end: { x: 512, y: 468 } },
+    { start: { x: 1022, y: 362 }, end: { x: 372, y: 548 } },
+    { start: { x: 64, y: 1028 }, end: { x: 426, y: 742 } },
+    { start: { x: 938, y: 1014 }, end: { x: 598, y: 712 } },
+    { start: { x: 502, y: -28 }, end: { x: 542, y: 372 } },
+    { start: { x: 186, y: -18 }, end: { x: 682, y: 448 } },
+    { start: { x: 842, y: -22 }, end: { x: 282, y: 438 } },
+    { start: { x: 1048, y: 628 }, end: { x: 552, y: 868 } },
+    { start: { x: -42, y: 644 }, end: { x: 456, y: 902 } },
+  ] as const
+
+  return vectors.map((vector, laneIndex) => {
+    const phase = seed * 0.013 + laneIndex * 0.41
+    const controlX1 = vector.start.x + (vector.end.x - vector.start.x) * 0.28 + Math.sin(phase * 0.92) * 38
+    const controlY1 = vector.start.y + (vector.end.y - vector.start.y) * 0.2 + Math.cos(phase * 1.48) * 30
+    const controlX2 = vector.start.x + (vector.end.x - vector.start.x) * 0.78 + Math.cos(phase * 0.84) * 34
+    const controlY2 = vector.start.y + (vector.end.y - vector.start.y) * 0.84 + Math.sin(phase * 1.22) * 26
+
+    return `M ${vector.start.x.toFixed(2)} ${vector.start.y.toFixed(2)} C ${controlX1.toFixed(2)} ${controlY1.toFixed(2)} ${controlX2.toFixed(2)} ${controlY2.toFixed(2)} ${vector.end.x.toFixed(2)} ${vector.end.y.toFixed(2)}`
+  }).join(' ')
+})
+const invalidateOverlayProjection = () => {
+  overlayProjectionTick.value += 1
+}
+const mixHexColor = (baseColor: string, targetColor: string, ratio: number) => {
+  const normalizedBase = baseColor.replace('#', '')
+  const normalizedTarget = targetColor.replace('#', '')
+  const base = normalizedBase.length === 3
+    ? normalizedBase.split('').map((char) => `${char}${char}`).join('')
+    : normalizedBase
+  const target = normalizedTarget.length === 3
+    ? normalizedTarget.split('').map((char) => `${char}${char}`).join('')
+    : normalizedTarget
+
+  const clampRatio = Math.min(1, Math.max(0, ratio))
+  const readChannel = (value: string, start: number) => Number.parseInt(value.slice(start, start + 2), 16)
+  const blendChannel = (start: number) => {
+    const source = readChannel(base, start)
+    const targetValue = readChannel(target, start)
+    return Math.round(source + (targetValue - source) * clampRatio)
+      .toString(16)
+      .padStart(2, '0')
+  }
+
+  return `#${blendChannel(0)}${blendChannel(2)}${blendChannel(4)}`
+}
+const overlayRegions = computed<OverlayRegion[]>(() => {
+  overlayProjectionTick.value
+  const mode = visibleOverlayMode.value
+  if (mode === 'none' || !mapInstance || !hasCoordinates.value) {
+    return []
+  }
+
+  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const palette = mode === 'precipitation'
+    ? precipitationLegend.value
+    : mode === 'cloud'
+      ? cloudLegend.value
+      : windLegend.value
+  const regionSeeds: OverlayRegionSeed[] = [
+    { id: 'northwest', anchorLatOffset: 0.26, anchorLngOffset: -0.34, radiusLat: 0.18, radiusLng: 0.26, wobble: 0.18 },
+    { id: 'east', anchorLatOffset: 0.08, anchorLngOffset: 0.42, radiusLat: 0.2, radiusLng: 0.28, wobble: 0.14 },
+    { id: 'southwest', anchorLatOffset: -0.22, anchorLngOffset: -0.24, radiusLat: 0.16, radiusLng: 0.22, wobble: 0.22 },
+    { id: 'southeast', anchorLatOffset: -0.3, anchorLngOffset: 0.3, radiusLat: 0.18, radiusLng: 0.26, wobble: 0.16 },
+  ]
+
+  const toPoint = (lat: number, lng: number) => {
+    const point = mapInstance?.latLngToContainerPoint?.({ lat, lng } as never)
+    if (!point) {
+      return null
+    }
+
+    return {
+      x: Number(point.x),
+      y: Number(point.y),
+    }
+  }
+
+  const centerLat = Number(props.latitude)
+  const centerLng = Number(props.longitude)
+
+  return regionSeeds.flatMap((baseSeed, index) => {
+    const legendItem = palette[(seed + index * (mode === 'precipitation' ? 3 : 5)) % palette.length] ?? palette[0]!
+    const anchorLat = centerLat + baseSeed.anchorLatOffset
+    const anchorLng = centerLng + baseSeed.anchorLngOffset
+
+    const contourPoints = Array.from({ length: 7 }, (_, pointIndex) => {
+      const angle = (Math.PI * 2 * pointIndex) / 7
+      const wobbleFactor = 1 + Math.sin(seed * 0.07 + pointIndex * 1.37) * baseSeed.wobble
+      const pointLat = anchorLat + Math.sin(angle) * baseSeed.radiusLat * wobbleFactor
+      const pointLng = anchorLng + Math.cos(angle) * baseSeed.radiusLng * wobbleFactor
+      return toPoint(pointLat, pointLng)
+    })
+
+    if (contourPoints.some((point) => !point)) {
+      return []
+    }
+
+    const points = contourPoints as Array<{ x: number; y: number }>
+    const centroid = points.reduce((acc, point) => ({
+      x: acc.x + point.x / points.length,
+      y: acc.y + point.y / points.length,
+    }), { x: 0, y: 0 })
+    const createClosedPath = (
+      scale: number,
+      variant = 0,
+      lateralDrift = 0,
+      axialDrift = 0,
+      lobeBias = 0,
+    ) => {
+      const pivot = points[0]!
+      const scaledPoints = points.map((point, pointIndex) => {
+        const relativeX = point.x - pivot.x
+        const relativeY = point.y - pivot.y
+        const angle = Math.atan2(relativeY, relativeX)
+        const driftSeed = seed * 0.013 + index * 0.77 + variant * 1.31 + pointIndex * 0.93
+        const driftWave = Math.sin(driftSeed) * lateralDrift
+        const driftLift = Math.cos(driftSeed * 1.18) * axialDrift
+        const lobeWave = 1 + Math.sin(angle * 2 + driftSeed * 0.72) * lobeBias
+        const edgeBias = mode === 'precipitation'
+          ? 1 + Math.cos(angle * 3.2 + variant * 0.5) * 0.06
+          : 1 + Math.sin(angle * 1.8 + variant * 0.64) * 0.04
+
+        return {
+          x: pivot.x + relativeX * scale * lobeWave * edgeBias + Math.cos(angle) * driftWave,
+          y: pivot.y + relativeY * scale * lobeWave * edgeBias + Math.sin(angle) * driftLift,
+        }
+      })
+
+      let path = `M ${scaledPoints[0]!.x.toFixed(2)} ${scaledPoints[0]!.y.toFixed(2)}`
+      for (let pointIndex = 1; pointIndex < scaledPoints.length; pointIndex += 1) {
+        const current = scaledPoints[pointIndex]!
+        const previous = scaledPoints[pointIndex - 1]!
+        const controlX = ((previous.x + current.x) / 2).toFixed(2)
+        const controlY = ((previous.y + current.y) / 2).toFixed(2)
+        path += ` Q ${previous.x.toFixed(2)} ${previous.y.toFixed(2)} ${controlX} ${controlY}`
+      }
+
+      const last = scaledPoints[scaledPoints.length - 1]!
+      const first = scaledPoints[0]!
+      const closingControlX = ((last.x + first.x) / 2).toFixed(2)
+      const closingControlY = ((last.y + first.y) / 2).toFixed(2)
+      return `${path} Q ${last.x.toFixed(2)} ${last.y.toFixed(2)} ${closingControlX} ${closingControlY} Z`
+    }
+
+    const createTexturePath = () => {
+      const streakIndices = mode === 'precipitation'
+        ? [1, 3, 5]
+        : [0, 2, 4]
+      const streakAnchors = streakIndices.map((pointIndex, streakIndex) => {
+        const point = points[pointIndex]!
+        const drift = Math.sin(seed * 0.019 + index * 0.81 + pointIndex * 0.67) * (mode === 'precipitation' ? 18 : 12)
+        const settle = Math.cos(seed * 0.015 + streakIndex * 1.12) * (mode === 'precipitation' ? 10 : 16)
+        return {
+          x: point.x * (mode === 'precipitation' ? 0.84 : 0.82) + points[0]!.x * (mode === 'precipitation' ? 0.16 : 0.18) + drift,
+          y: point.y * (mode === 'precipitation' ? 0.82 : 0.8) + points[0]!.y * (mode === 'precipitation' ? 0.18 : 0.2) + settle,
+        }
+      })
+
+      const first = streakAnchors[0]!
+      let path = `M ${first.x.toFixed(2)} ${first.y.toFixed(2)}`
+      for (let streakIndex = 1; streakIndex < streakAnchors.length; streakIndex += 1) {
+        const previous = streakAnchors[streakIndex - 1]!
+        const current = streakAnchors[streakIndex]!
+        const controlX = ((previous.x + current.x) / 2 + Math.sin(seed * 0.021 + streakIndex) * 12).toFixed(2)
+        const controlY = ((previous.y + current.y) / 2 + Math.cos(seed * 0.017 + streakIndex) * 10).toFixed(2)
+        path += ` Q ${previous.x.toFixed(2)} ${previous.y.toFixed(2)} ${controlX} ${controlY}`
+      }
+
+      return path
+    }
+
+    const createWindFlowPath = () => {
+      const angle = ((seed + index * 19) % 360) * (Math.PI / 180)
+      const segmentLength = 34 + index * 6
+      const offsets = [-18, 0, 18]
+      return offsets.map((offset, streakIndex) => {
+        const startX = centroid.x - Math.cos(angle) * segmentLength + Math.sin(angle) * offset
+        const startY = centroid.y - Math.sin(angle) * segmentLength - Math.cos(angle) * offset
+        const midX = centroid.x + Math.sin(angle) * (offset * 0.55) + Math.cos(angle) * (segmentLength * 0.28)
+        const midY = centroid.y - Math.cos(angle) * (offset * 0.55) + Math.sin(angle) * (segmentLength * 0.28)
+        const endX = centroid.x + Math.cos(angle) * segmentLength + Math.sin(angle) * offset * 0.5
+        const endY = centroid.y + Math.sin(angle) * segmentLength - Math.cos(angle) * offset * 0.5
+        const arrowX = endX - Math.cos(angle - 0.42) * 14
+        const arrowY = endY - Math.sin(angle - 0.42) * 14
+        const arrowX2 = endX - Math.cos(angle + 0.42) * 14
+        const arrowY2 = endY - Math.sin(angle + 0.42) * 14
+
+        return [
+          `M ${startX.toFixed(2)} ${startY.toFixed(2)}`,
+          `Q ${midX.toFixed(2)} ${midY.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)}`,
+          `M ${arrowX.toFixed(2)} ${arrowY.toFixed(2)} L ${endX.toFixed(2)} ${endY.toFixed(2)} L ${arrowX2.toFixed(2)} ${arrowY2.toFixed(2)}`,
+        ].join(' ')
+      }).join(' ')
+    }
+
+    const windLevels = ['2级', '4级', '6级', '8级', '10级阵风'] as const
+    const windDirections = ['北偏东', '东北', '东南', '西南', '西偏北'] as const
+    const isTyphoon = mode === 'wind' && ((seed + index * 7) % 9 === 0)
+
+    return [{
+      id: `${mode}-${baseSeed.id}`,
+      color: legendItem.color,
+      accentColor: mixHexColor(
+        legendItem.color,
+        mode === 'precipitation' ? '#f4fbff' : '#ffffff',
+        mode === 'precipitation' ? 0.34 : 0.4,
+      ),
+      hazeColor: mixHexColor(
+        legendItem.color,
+        mode === 'precipitation' ? '#061426' : '#091a31',
+        mode === 'precipitation' ? 0.26 : 0.22,
+      ),
+      streakColor: mixHexColor(
+        legendItem.color,
+        mode === 'precipitation' ? '#f8fbff' : mode === 'cloud' ? '#eef6ff' : '#effbff',
+        mode === 'precipitation' ? 0.48 : mode === 'cloud' ? 0.38 : 0.46,
+      ),
+      intensity: legendItem.label,
+      legendGradient: `linear-gradient(135deg, ${legendItem.color}, ${legendItem.glowColor ?? mixHexColor(legendItem.color, '#ffffff', 0.32)})`,
+      path: createClosedPath(
+        mode === 'precipitation' ? 1 : mode === 'cloud' ? 1.08 : 1.03,
+        1,
+        mode === 'wind' ? 12 : 8,
+        mode === 'wind' ? 14 : 6,
+        mode === 'precipitation' ? 0.12 : mode === 'cloud' ? 0.08 : 0.14,
+      ),
+      innerPath: createClosedPath(
+        mode === 'precipitation' ? 0.68 : mode === 'cloud' ? 0.74 : 0.66,
+        2,
+        mode === 'wind' ? 18 : 14,
+        mode === 'wind' ? 16 : 10,
+        mode === 'precipitation' ? 0.22 : mode === 'cloud' ? 0.16 : 0.2,
+      ),
+      haloPath: createClosedPath(
+        mode === 'precipitation' ? 0.9 : mode === 'cloud' ? 0.98 : 0.92,
+        3,
+        mode === 'wind' ? 22 : 18,
+        mode === 'wind' ? 20 : 14,
+        mode === 'precipitation' ? 0.18 : mode === 'cloud' ? 0.12 : 0.18,
+      ),
+      glowPath: createClosedPath(
+        mode === 'precipitation' ? 1.2 : mode === 'cloud' ? 1.32 : 1.24,
+        4,
+        mode === 'wind' ? 28 : 22,
+        mode === 'wind' ? 22 : 20,
+        mode === 'precipitation' ? 0.1 : mode === 'cloud' ? 0.14 : 0.18,
+      ),
+      texturePath: createTexturePath(),
+      labelX: centroid.x,
+      labelY: points.reduce((maxY, point) => Math.max(maxY, point.y), points[0]!.y) + 18,
+      windDirection: mode === 'wind' ? windDirections[(seed + index) % windDirections.length] ?? windDirections[0] : null,
+      windLevel: mode === 'wind' ? (isTyphoon ? '12级台风' : windLevels[(seed + index * 2) % windLevels.length] ?? windLevels[0]) : null,
+      windFlowPath: mode === 'wind' ? createWindFlowPath() : null,
+      isTyphoon,
+    }]
+  })
 })
 const note = computed(() => {
   if (!hasCoordinates.value) {
@@ -199,9 +678,18 @@ const clearLockedTarget = () => {
   lockedTargetStatus.value = 'idle'
 }
 
+const handleOverlayHover = (mode: Exclude<WeatherOverlayMode, 'none'> | null) => {
+  hoverPreviewMode.value = mode
+}
+
+const handleOverlaySelect = (mode: Exclude<WeatherOverlayMode, 'none'>) => {
+  overlayMode.value = overlayMode.value === mode ? 'none' : mode
+}
+
 const handleZoomEnd = () => {
   syncZoomState()
   syncLockedTargetScreenPosition()
+  invalidateOverlayProjection()
 }
 
 const handleBaseLayerTileError = (error: unknown) => {
@@ -211,6 +699,7 @@ const handleBaseLayerTileError = (error: unknown) => {
 
 const handleMapMoveEnd = () => {
   syncLockedTargetScreenPosition()
+  invalidateOverlayProjection()
 }
 
 const handleMapClick = (event: { latlng?: { lat?: number; lng?: number } } | undefined) => {
@@ -223,6 +712,7 @@ const handleMapClick = (event: { latlng?: { lat?: number; lng?: number } } | und
   lockedTargetPoint.value = { lat, lng }
   syncLockedTargetScreenPosition()
   mapInstance?.setView({ lat, lng }, currentZoom.value, { animate: true })
+  invalidateOverlayProjection()
   void resolveLockedTargetPlaceName(lat, lng)
 }
 
@@ -239,6 +729,7 @@ const destroyMap = () => {
   mapInstance = null
   mapReady.value = false
   lockedTargetScreenPosition.value = null
+  invalidateOverlayProjection()
 }
 
 const setMapZoom = (nextZoom: number) => {
@@ -320,6 +811,7 @@ const ensureMap = async () => {
     syncMarker()
     syncLockedTargetScreenPosition()
     syncZoomState()
+    invalidateOverlayProjection()
     mapReady.value = true
   } catch (error) {
     console.error('[WeatherMapExplorer] failed to initialize map', error)
@@ -363,7 +855,7 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <div class="map-shell">
+    <div class="map-shell" :class="{ 'map-shell--wind': visibleOverlayMode === 'wind' }">
       <div ref="mapContainerRef" class="map" data-testid="weather-map-explorer-canvas" />
 
       <div class="map-hud" aria-hidden="true">
@@ -378,7 +870,49 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <svg
+        v-if="globalWindFlowPath"
+        class="weather-global-wind-field"
+        viewBox="0 0 1000 1000"
+        preserveAspectRatio="none"
+        data-testid="weather-global-wind-field"
+      >
+        <path class="weather-global-wind-field__atmosphere" :d="globalWindFlowPath" />
+        <path
+          v-if="globalWindSecondaryFlowPath"
+          class="weather-global-wind-field__secondary"
+          :d="globalWindSecondaryFlowPath"
+        />
+        <path
+          v-if="globalWindTertiaryFlowPath"
+          class="weather-global-wind-field__tertiary"
+          :d="globalWindTertiaryFlowPath"
+        />
+        <path class="weather-global-wind-field__stream" :d="globalWindFlowPath" />
+      </svg>
+
       <div class="map-overlay">
+        <div class="weather-layer-console">
+          <button
+            v-for="item in weatherOverlayOptions"
+            :key="item.key"
+            type="button"
+            class="weather-layer-btn"
+            :class="{
+              'is-active': overlayMode === item.key,
+              'is-previewing': overlayMode === 'none' && hoverPreviewMode === item.key,
+            }"
+            :aria-label="item.label"
+            @mouseenter="handleOverlayHover(item.key)"
+            @mouseleave="handleOverlayHover(null)"
+            @focus="handleOverlayHover(item.key)"
+            @blur="handleOverlayHover(null)"
+            @click="handleOverlaySelect(item.key)"
+          >
+            <img class="weather-layer-btn__icon" :src="item.iconSrc" :alt="item.label" />
+          </button>
+        </div>
+
         <div class="location-card">
           <span class="location-card__label">LOCKED TARGET</span>
           <strong class="location-card__value">{{ lockedTargetPoint ? 'TARGET LOCKED' : props.cityName }}</strong>
@@ -388,24 +922,143 @@ onBeforeUnmount(() => {
           </span>
         </div>
 
-        <div class="zoom-console">
-          <span class="zoom-console__label">ZOOM DRIVE</span>
-          <div class="zoom-console__controls">
-            <button type="button" class="zoom-btn" aria-label="缩小地图" @click="zoomOut">-</button>
-            <input
-              class="zoom-slider"
-              type="range"
-              :min="MIN_ZOOM"
-              :max="MAX_ZOOM"
-              :value="currentZoom"
-              data-testid="map-zoom-slider"
-              @input="handleZoomSliderInput"
-            />
-            <button type="button" class="zoom-btn" aria-label="放大地图" @click="zoomIn">+</button>
-            <span class="zoom-percent" data-testid="map-zoom-percent">{{ zoomPercent }}%</span>
+        <div class="map-console-stack" data-testid="map-console-stack">
+          <div
+            v-if="activeLegend.length"
+            class="weather-legend"
+            data-testid="weather-overlay-legend"
+          >
+            <span class="weather-legend__label">{{ previewTitle }}</span>
+            <div class="weather-legend__bar" :style="{ backgroundImage: activeLegendGradient }">
+              <span
+                v-for="item in activeLegend"
+                :key="item.label"
+                class="weather-legend__segment"
+                :style="{ '--legend-segment-glow': item.glowColor ?? item.color }"
+              />
+            </div>
+            <div class="weather-legend__ticks">
+              <span
+                v-for="item in activeLegend"
+                :key="item.label"
+                class="weather-legend__tick"
+              >
+                {{ item.label }}
+              </span>
+            </div>
+            <div
+              v-if="visibleOverlayMode === 'wind'"
+              class="weather-legend__wind-direction"
+              data-testid="weather-wind-direction"
+            >
+              <span class="weather-legend__wind-direction-label">GLOBAL FLOW</span>
+              <strong>{{ activeWindDirection }}</strong>
+            </div>
+          </div>
+
+          <div class="zoom-console">
+            <span class="zoom-console__label">ZOOM DRIVE</span>
+            <div class="zoom-console__controls">
+              <button type="button" class="zoom-btn" aria-label="缩小地图" @click="zoomOut">-</button>
+              <input
+                class="zoom-slider"
+                type="range"
+                :min="MIN_ZOOM"
+                :max="MAX_ZOOM"
+                :value="currentZoom"
+                data-testid="map-zoom-slider"
+                @input="handleZoomSliderInput"
+              />
+              <button type="button" class="zoom-btn" aria-label="放大地图" @click="zoomIn">+</button>
+              <span class="zoom-percent" data-testid="map-zoom-percent">{{ zoomPercent }}%</span>
+            </div>
           </div>
         </div>
       </div>
+
+      <svg
+        v-if="overlayRegions.length"
+        class="weather-overlay-field"
+        viewBox="0 0 1000 1000"
+        preserveAspectRatio="none"
+        :data-overlay-mode="visibleOverlayMode"
+        :data-testid="`weather-overlay-${visibleOverlayMode}`"
+      >
+        <g
+          v-for="region in overlayRegions"
+          :key="region.id"
+          class="weather-overlay-region"
+        >
+          <path
+            class="weather-overlay-region__glow"
+            :d="region.glowPath"
+            :fill="region.hazeColor"
+          />
+          <path
+            class="weather-overlay-region__halo"
+            :d="region.haloPath"
+            :fill="region.color"
+          />
+          <path
+            class="weather-overlay-region__core"
+            :d="region.path"
+            :fill="region.color"
+          />
+          <path
+            class="weather-overlay-region__texture"
+            :d="region.texturePath"
+            :stroke="region.streakColor"
+          />
+          <path
+            v-if="region.windFlowPath"
+            class="weather-overlay-region__wind-flow"
+            :d="region.windFlowPath"
+            :stroke="region.streakColor"
+          />
+          <path
+            class="weather-overlay-region__accent"
+            :d="region.innerPath"
+            :fill="region.accentColor"
+          />
+          <g
+            v-if="region.windLevel"
+            class="weather-overlay-region__marker"
+            :class="{ 'is-typhoon': region.isTyphoon }"
+          >
+            <rect
+              class="weather-overlay-region__label-box"
+              :x="(region.labelX - (region.isTyphoon ? 64 : 42)).toFixed(2)"
+              :y="(region.labelY - 13).toFixed(2)"
+              :width="(region.isTyphoon ? 128 : 84).toFixed(2)"
+              height="26"
+              rx="13"
+            />
+            <text
+              class="weather-overlay-region__label"
+              :x="region.labelX.toFixed(2)"
+              :y="region.labelY.toFixed(2)"
+            >
+              {{ region.windLevel }}
+            </text>
+            <text
+              v-if="region.windDirection"
+              class="weather-overlay-region__sub-label"
+              :x="region.labelX.toFixed(2)"
+              :y="(region.labelY + 16).toFixed(2)"
+            >
+              {{ region.windDirection }}
+            </text>
+            <text
+              v-if="region.isTyphoon"
+              class="weather-overlay-region__typhoon-label"
+              :x="region.labelX.toFixed(2)"
+              :y="(region.labelY - 18).toFixed(2)"
+            >
+              TYPHOON CORE
+            </text>
+          </g>
+        </g>
+      </svg>
 
       <div v-if="!hasCoordinates || mapError" class="map-fallback">
         <p class="map-fallback__title">{{ mapError || '城市坐标暂不可用' }}</p>
@@ -539,6 +1192,13 @@ h2 {
     var(--cyber-glow-md);
 }
 
+.map-shell--wind {
+  background:
+    radial-gradient(circle at 22% 18%, rgba(244, 252, 255, 0.72), transparent 30%),
+    radial-gradient(circle at 78% 14%, rgba(214, 241, 255, 0.48), transparent 32%),
+    linear-gradient(135deg, #9ed9f7 0%, #77bee8 42%, #5aa4d8 100%);
+}
+
 .map {
   width: 100%;
   min-height: 540px;
@@ -653,6 +1313,133 @@ h2 {
   padding: 18px;
   pointer-events: none;
   z-index: 3;
+}
+
+.weather-global-wind-field {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.weather-global-wind-field__atmosphere {
+  fill: none;
+  stroke: rgba(235, 249, 255, 0.09);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 6.5;
+  filter: blur(8px);
+  mix-blend-mode: screen;
+  animation: weather-wind-field-shift 14s linear infinite;
+}
+
+.weather-global-wind-field__secondary {
+  fill: none;
+  stroke: rgba(241, 251, 255, 0.34);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+  stroke-dasharray: 16 14;
+  filter:
+    drop-shadow(0 0 4px rgba(231, 248, 255, 0.12))
+    drop-shadow(0 0 10px rgba(117, 241, 255, 0.08));
+  mix-blend-mode: screen;
+  animation:
+    weather-wind-field-shift 8.8s linear infinite reverse,
+    weather-wind-field-dash 2s linear infinite;
+}
+
+.weather-global-wind-field__tertiary {
+  fill: none;
+  stroke: rgba(248, 253, 255, 0.42);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+  stroke-dasharray: 10 16;
+  filter:
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.12))
+    drop-shadow(0 0 8px rgba(186, 234, 255, 0.08));
+  mix-blend-mode: screen;
+  animation:
+    weather-wind-field-shift 7.6s linear infinite,
+    weather-wind-field-dash 1.6s linear infinite reverse;
+}
+
+.weather-global-wind-field__stream {
+  fill: none;
+  stroke: rgba(252, 254, 255, 0.72);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+  stroke-dasharray: 14 12;
+  filter:
+    drop-shadow(0 0 5px rgba(241, 250, 255, 0.2))
+    drop-shadow(0 0 12px rgba(117, 241, 255, 0.09));
+  mix-blend-mode: screen;
+  animation:
+    weather-wind-field-shift 6.8s linear infinite,
+    weather-wind-field-dash 1.4s linear infinite;
+}
+
+.weather-layer-console {
+  display: inline-flex;
+  gap: 10px;
+  align-self: flex-start;
+  pointer-events: auto;
+}
+
+.weather-layer-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(117, 241, 255, 0.22);
+  background:
+    linear-gradient(135deg, rgba(6, 24, 54, 0.88), rgba(3, 12, 28, 0.96)),
+    rgba(4, 12, 28, 0.92);
+  color: rgba(231, 249, 255, 0.92);
+  box-shadow:
+    inset 0 0 16px rgba(117, 241, 255, 0.08),
+    0 0 20px rgba(117, 241, 255, 0.08);
+  transition:
+    border-color var(--cyber-ease),
+    box-shadow var(--cyber-ease),
+    transform var(--cyber-ease),
+    background var(--cyber-ease);
+}
+
+.weather-layer-btn:hover,
+.weather-layer-btn.is-previewing,
+.weather-layer-btn.is-active {
+  border-color: rgba(148, 245, 255, 0.62);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.16),
+    0 0 18px rgba(117, 241, 255, 0.18);
+}
+
+.weather-layer-btn.is-active {
+  background:
+    linear-gradient(135deg, rgba(88, 225, 255, 0.24), rgba(125, 84, 255, 0.18)),
+    rgba(6, 26, 58, 0.94);
+}
+
+.weather-layer-btn__icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter:
+    brightness(0)
+    saturate(100%)
+    invert(88%)
+    sepia(29%)
+    saturate(1427%)
+    hue-rotate(152deg)
+    brightness(121%)
+    contrast(116%)
+    drop-shadow(0 0 10px rgba(117, 241, 255, 0.34))
+    drop-shadow(0 0 18px rgba(140, 112, 255, 0.18));
+  opacity: 0.96;
 }
 
 .target-lock {
@@ -792,10 +1579,234 @@ h2 {
   color: rgba(168, 220, 248, 0.62);
 }
 
+.map-console-stack {
+  pointer-events: none;
+  align-self: flex-end;
+  display: grid;
+  gap: 12px;
+  justify-items: stretch;
+  width: min(360px, calc(100% - 12px));
+}
+
 .zoom-console {
   pointer-events: auto;
-  align-self: flex-end;
+  width: 100%;
   padding: 14px 16px;
+}
+
+.weather-legend {
+  pointer-events: none;
+  width: 100%;
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 241, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(7, 17, 39, 0.94) 0%, rgba(3, 10, 26, 0.9) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(183, 245, 255, 0.08),
+    inset 0 0 22px rgba(117, 241, 255, 0.08),
+    0 18px 36px rgba(0, 0, 0, 0.34),
+    0 0 24px rgba(55, 187, 255, 0.12);
+  backdrop-filter: blur(14px);
+}
+
+.weather-legend::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(96, 216, 255, 0.09), transparent 40%),
+    radial-gradient(circle at top right, rgba(92, 154, 255, 0.16), transparent 58%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.weather-legend::after {
+  content: '';
+  position: absolute;
+  inset: auto 14px 10px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(117, 241, 255, 0.32), transparent);
+  pointer-events: none;
+}
+
+.weather-legend__label {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: rgba(201, 246, 255, 0.88);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-shadow: 0 0 10px rgba(70, 197, 255, 0.32);
+}
+
+.weather-legend__bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+  min-height: 16px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(133, 234, 255, 0.18);
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.08),
+    0 0 16px rgba(65, 178, 255, 0.14);
+}
+
+.weather-legend__segment {
+  flex: 1 1 0;
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 12px var(--legend-segment-glow, rgba(117, 241, 255, 0.2));
+}
+
+.weather-legend__ticks {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.weather-legend__tick {
+  color: rgba(232, 247, 255, 0.84);
+  font-size: 10px;
+  text-align: center;
+  text-shadow: 0 0 8px rgba(14, 59, 94, 0.56);
+}
+
+.weather-legend__wind-direction {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(117, 241, 255, 0.12);
+  color: rgba(224, 247, 255, 0.88);
+}
+
+.weather-legend__wind-direction-label {
+  color: rgba(117, 241, 255, 0.58);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
+.weather-overlay-field {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.weather-overlay-region__glow {
+  opacity: 0.2;
+  filter: blur(24px) saturate(120%);
+  animation: weather-overlay-drift 7.4s ease-in-out infinite;
+}
+
+.weather-overlay-region__halo {
+  opacity: 0.18;
+  filter: blur(8px) saturate(118%);
+  mix-blend-mode: screen;
+  animation: weather-overlay-drift 6.9s ease-in-out infinite reverse;
+}
+
+.weather-overlay-region__core {
+  opacity: 0.34;
+  stroke: rgba(232, 249, 255, 0.22);
+  stroke-width: 1.5;
+  filter:
+    drop-shadow(0 0 10px rgba(117, 241, 255, 0.14))
+    drop-shadow(0 0 22px rgba(117, 241, 255, 0.16));
+  animation: weather-overlay-drift 6.4s ease-in-out infinite;
+}
+
+.weather-overlay-region__texture {
+  fill: none;
+  opacity: 0.32;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 8;
+  filter:
+    blur(1px)
+    drop-shadow(0 0 10px rgba(234, 247, 255, 0.16));
+  mix-blend-mode: screen;
+  animation: weather-overlay-drift 5.6s ease-in-out infinite reverse;
+}
+
+.weather-overlay-region__wind-flow {
+  fill: none;
+  opacity: 0.42;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 5;
+  filter:
+    blur(0.3px)
+    drop-shadow(0 0 8px rgba(211, 245, 255, 0.22));
+  mix-blend-mode: screen;
+  animation: weather-overlay-drift 4.8s ease-in-out infinite;
+}
+
+.weather-overlay-region__accent {
+  opacity: 0.22;
+  filter:
+    blur(3px)
+    drop-shadow(0 0 12px rgba(236, 249, 255, 0.2));
+  mix-blend-mode: screen;
+  animation: weather-overlay-drift 5.8s ease-in-out infinite;
+}
+
+.weather-overlay-region__label-box {
+  fill: rgba(4, 17, 39, 0.76);
+  stroke: rgba(117, 241, 255, 0.24);
+  stroke-width: 1;
+  filter:
+    drop-shadow(0 0 10px rgba(32, 126, 183, 0.2))
+    drop-shadow(0 0 18px rgba(117, 241, 255, 0.12));
+}
+
+.weather-overlay-region__label {
+  fill: rgba(239, 250, 255, 0.96);
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  letter-spacing: 0.08em;
+}
+
+.weather-overlay-region__sub-label {
+  fill: rgba(179, 233, 255, 0.86);
+  font-size: 10px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.weather-overlay-region__typhoon-label {
+  fill: rgba(255, 170, 187, 0.96);
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+  letter-spacing: 0.18em;
+  text-shadow: 0 0 12px rgba(255, 107, 143, 0.4);
+}
+
+.weather-overlay-region__marker.is-typhoon .weather-overlay-region__label-box {
+  fill: rgba(36, 7, 24, 0.84);
+  stroke: rgba(255, 110, 138, 0.4);
+  filter:
+    drop-shadow(0 0 12px rgba(255, 110, 138, 0.24))
+    drop-shadow(0 0 26px rgba(255, 110, 138, 0.18));
 }
 
 .zoom-console__controls {
@@ -914,6 +1925,41 @@ h2 {
   }
 }
 
+@keyframes weather-overlay-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(0, -4px, 0) scale(1.02);
+  }
+}
+
+@keyframes weather-wind-field-shift {
+  0% {
+    transform: translate3d(-2%, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(1.5%, -0.8%, 0);
+  }
+
+  100% {
+    transform: translate3d(4%, 0.6%, 0);
+  }
+}
+
+@keyframes weather-wind-field-dash {
+  from {
+    stroke-dashoffset: 0;
+  }
+
+  to {
+    stroke-dashoffset: -96;
+  }
+}
+
 @keyframes target-lock-pulse {
   0%,
   100% {
@@ -956,6 +2002,10 @@ h2 {
 
   .map-overlay {
     padding: 14px;
+  }
+
+  .weather-legend {
+    width: 100%;
   }
 
   .zoom-console {

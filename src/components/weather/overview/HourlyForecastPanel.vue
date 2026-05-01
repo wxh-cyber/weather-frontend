@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
 import { getWeatherIcon, type WeatherIconKey } from '@/utils/weather/weatherIconMap'
 import TemperatureTrendPanel from '@/components/weather/overview/TemperatureTrendPanel.vue'
 
@@ -17,8 +16,7 @@ const props = withDefaults(
   },
 )
 
-const route = useRoute()
-const router = useRouter()
+type PanelMode = 'overview' | 'trend'
 
 const citySeed = computed(() => Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0))
 const baseTemp = computed(() => {
@@ -26,8 +24,9 @@ const baseTemp = computed(() => {
   return Number.isNaN(value) ? 11 : value
 })
 
-const isOverviewActive = computed(() => route.name === 'city-detail')
-const isTrendActive = computed(() => route.name === 'city-temperature-trend')
+const activeMode = ref<PanelMode>('overview')
+const isOverviewActive = computed(() => activeMode.value === 'overview')
+const isTrendActive = computed(() => activeMode.value === 'trend')
 
 const resolveIconKey = (offset: number): WeatherIconKey => {
   const text = props.weatherText
@@ -54,25 +53,11 @@ const forecasts = computed(() => {
 })
 
 const navigateToOverview = () => {
-  if (isOverviewActive.value) {
-    return
-  }
-
-  void router.push({
-    name: 'city-detail',
-    params: { cityName: props.cityName },
-  })
+  activeMode.value = 'overview'
 }
 
 const navigateToTrend = () => {
-  if (isTrendActive.value) {
-    return
-  }
-
-  void router.push({
-    name: 'city-temperature-trend',
-    params: { cityName: props.cityName },
-  })
+  activeMode.value = 'trend'
 }
 </script>
 
@@ -127,6 +112,7 @@ const navigateToTrend = () => {
       :city-name="props.cityName"
       :temperature="props.temperature"
       compact
+      show-interval-selector
     />
   </section>
 </template>

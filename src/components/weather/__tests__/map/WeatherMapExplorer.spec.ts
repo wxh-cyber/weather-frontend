@@ -118,6 +118,137 @@ describe('WeatherMapExplorer', () => {
     expect(setViewMock).toHaveBeenCalled()
     expect(wrapper.find('[data-testid="map-center-pin"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('武汉市 城市地图')
+    expect(wrapper.findAll('.weather-layer-btn')).toHaveLength(3)
+    expect(wrapper.findAll('.weather-layer-btn__icon')).toHaveLength(3)
+  })
+
+  it('shows overlay preview on hover and toggles precipitation and cloud layers on click', async () => {
+    const wrapper = mount(WeatherMapExplorer, {
+      props: {
+        cityName: '武汉市',
+        latitude: 30.5928,
+        longitude: 114.3055,
+      },
+    })
+
+    await flushPromises()
+
+    const buttons = wrapper.findAll('.weather-layer-btn')
+    await buttons[0]!.trigger('mouseenter')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-overlay-legend"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="map-console-stack"]').exists()).toBe(true)
+    expect(wrapper.findAll('.weather-overlay-region__core').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-overlay-region__accent').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-overlay-region__texture').length).toBeGreaterThan(0)
+    expect(wrapper.text()).toContain('PRECIPITATION SCAN')
+
+    await buttons[0]!.trigger('click')
+    await flushPromises()
+    expect(buttons[0]!.classes()).toContain('is-active')
+
+    await buttons[0]!.trigger('mouseleave')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').exists()).toBe(true)
+
+    await buttons[1]!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="weather-overlay-cloud"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('CLOUD DENSITY SCAN')
+    expect(buttons[1]!.classes()).toContain('is-active')
+  })
+
+  it('shows wind overlay, flow legend and regional wind markers when wind layer is activated', async () => {
+    const wrapper = mount(WeatherMapExplorer, {
+      props: {
+        cityName: '武汉市',
+        latitude: 30.5928,
+        longitude: 114.3055,
+      },
+    })
+
+    await flushPromises()
+
+    const buttons = wrapper.findAll('.weather-layer-btn')
+    await buttons[2]!.trigger('mouseenter')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="weather-overlay-wind"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-wind-direction"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-global-wind-field"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('WIND FIELD SCAN')
+    expect(wrapper.findAll('.weather-global-wind-field__secondary').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-global-wind-field__tertiary').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-overlay-region__wind-flow').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-overlay-region__marker').length).toBeGreaterThan(0)
+  })
+
+  it('keeps overlay rendering after zoom changes so weather regions stay synchronized', async () => {
+    const wrapper = mount(WeatherMapExplorer, {
+      props: {
+        cityName: '武汉市',
+        latitude: 30.5928,
+        longitude: 114.3055,
+      },
+    })
+
+    await flushPromises()
+
+    const buttons = wrapper.findAll('.weather-layer-btn')
+    await buttons[0]!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="map-zoom-slider"]').setValue('12')
+    await flushPromises()
+
+    expect(setZoomMock).toHaveBeenLastCalledWith(12, { animate: true })
+    expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').exists()).toBe(true)
+    expect(wrapper.findAll('.weather-overlay-region__core').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-overlay-region__halo').length).toBeGreaterThan(0)
+  })
+
+  it('reprojects overlay regions after map movement so weather layers stay aligned', async () => {
+    latLngToContainerPointMock
+      .mockReturnValueOnce({ x: 180, y: 120 })
+      .mockReturnValueOnce({ x: 220, y: 132 })
+      .mockReturnValueOnce({ x: 164, y: 178 })
+      .mockReturnValueOnce({ x: 236, y: 204 })
+      .mockReturnValue({ x: 260, y: 216 })
+
+    const wrapper = mount(WeatherMapExplorer, {
+      props: {
+        cityName: '武汉市',
+        latitude: 30.5928,
+        longitude: 114.3055,
+      },
+    })
+
+    await flushPromises()
+
+    const buttons = wrapper.findAll('.weather-layer-btn')
+    await buttons[0]!.trigger('click')
+    await flushPromises()
+
+    const beforeMovePath = wrapper.find('.weather-overlay-region__core').attributes('d')
+    expect(beforeMovePath).toBeTruthy()
+
+    latLngToContainerPointMock.mockImplementation(({ lat, lng }: { lat: number; lng: number }) => ({
+      x: Number((lng * 4.4).toFixed(2)),
+      y: Number((lat * 5.2).toFixed(2)),
+    }))
+
+    mapEventHandlers.get('moveend')?.()
+    await flushPromises()
+
+    const afterMovePath = wrapper.find('.weather-overlay-region__core').attributes('d')
+    expect(afterMovePath).toBeTruthy()
+    expect(afterMovePath).not.toBe(beforeMovePath)
+    expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').exists()).toBe(true)
   })
 
   it('locks onto the clicked map point and refocuses the view', async () => {

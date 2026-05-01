@@ -1,0 +1,13 @@
+{
+  "entryPoints": [
+    "src/layout/docs/AppLayout.docs.ts",
+    "src/layout/docs/AppTopNav.docs.ts",
+    "src/layout/docs/CyberCursorOverlay.docs.ts"
+  ],
+  "out": "docs/api",
+  "tsconfig": "tsconfig.app.json",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "sort": ["source-order"]
+}

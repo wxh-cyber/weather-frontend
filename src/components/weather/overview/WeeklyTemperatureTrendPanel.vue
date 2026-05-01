@@ -1,80 +1,62 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
+import ForecastRangePanel from '@/components/weather/overview/ForecastRangePanel.vue'
 
 type ChartMode = 'both' | 'line' | 'bar'
-type IntervalOption = '30m' | '1h' | '2h'
 
 const props = withDefaults(
   defineProps<{
     cityName?: string
     temperature?: string
-    compact?: boolean
-    showIntervalSelector?: boolean
   }>(),
   {
     cityName: '默认城市',
     temperature: '18°C',
-    compact: false,
-    showIntervalSelector: false,
   },
 )
 
 const chartMode = ref<ChartMode>('both')
-const interval = ref<IntervalOption>('1h')
 const chartRef = ref<HTMLDivElement | null>(null)
 
 let chartInstance: echarts.ECharts | null = null
-
-const intervalOptions: ReadonlyArray<{
-  value: IntervalOption
-  label: string
-}> = [
-  { value: '30m', label: '30分钟' },
-  { value: '1h', label: '1小时' },
-  { value: '2h', label: '2小时' },
-]
 
 const baseTemp = computed(() => {
   const value = Number.parseInt(props.temperature, 10)
   return Number.isNaN(value) ? 18 : value
 })
 
-const trendHours = computed(() => {
-  const hourStep = interval.value === '30m' ? 0.5 : interval.value === '1h' ? 1 : 2
-  const points: string[] = []
+const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
-  for (let hour = 0; hour < 24; hour += hourStep) {
-    const wholeHour = Math.floor(hour)
-    const minutes = hour % 1 === 0 ? '00' : '30'
-    points.push(`${String(wholeHour).padStart(2, '0')}:${minutes}`)
-  }
-
-  return points
-})
-
-const trendValues = computed(() => {
+const weeklySeries = computed(() => {
   const citySeed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
 
-  return trendHours.value.map((_, index) => {
-    const progress = index / Math.max(trendHours.value.length - 1, 1)
-    const wave = Math.sin(progress * Math.PI * 2) * 3.2
-    const pulse = Math.cos(progress * Math.PI * 4 + citySeed * 0.03) * 1.15
-    const offset = ((citySeed + index * 7) % 5) - 2
-    return Number((baseTemp.value + wave + pulse + offset * 0.35).toFixed(1))
+  return weekDays.map((day, index) => {
+    const wave = Math.sin((index / weekDays.length) * Math.PI * 2) * 2.8
+    const offset = ((citySeed + index * 11) % 5) - 2
+    const average = Number((baseTemp.value + wave + offset * 0.4).toFixed(1))
+    const high = Number((average + 4 + ((citySeed + index * 3) % 2) * 0.7).toFixed(1))
+    const low = Number((average - 5 - ((citySeed + index * 5) % 2) * 0.6).toFixed(1))
+
+    return {
+      day,
+      high,
+      low,
+      average,
+    }
   })
 })
 
 const activeSeries = computed(() => {
   if (chartMode.value === 'line') {
-    return ['line']
+    return ['high', 'low']
   }
 
   if (chartMode.value === 'bar') {
-    return ['bar']
+    return ['average']
   }
 
-  return ['bar', 'line']
+  return ['average', 'high', 'low']
 })
 
 const syncChart = () => {
@@ -82,24 +64,19 @@ const syncChart = () => {
     return
   }
 
-  const showBar = activeSeries.value.includes('bar')
-  const showLine = activeSeries.value.includes('line')
-  const hasCompactControls = props.compact && props.showIntervalSelector
-  const topPadding = props.compact
-    ? hasCompactControls
-      ? 92
-      : 32
-    : 72
+  const showAverage = activeSeries.value.includes('average')
+  const showHigh = activeSeries.value.includes('high')
+  const showLow = activeSeries.value.includes('low')
 
   chartInstance.setOption({
     backgroundColor: 'transparent',
-    animationDuration: 640,
+    animationDuration: 720,
     animationEasing: 'cubicOut',
     grid: {
-      left: 42,
-      right: 22,
-      top: topPadding,
-      bottom: 36,
+      left: 44,
+      right: 28,
+      top: 80,
+      bottom: 40,
       containLabel: true,
     },
     tooltip: {
@@ -110,6 +87,11 @@ const syncChart = () => {
       textStyle: {
         color: '#ecfbff',
       },
+      formatter: (params: Array<{ axisValue: string; seriesName: string; data: number }>) => {
+        const title = params[0]?.axisValue ?? ''
+        const rows = params.map((item) => `${item.seriesName}：${item.data}°C`).join('<br/>')
+        return `${title}<br/>${rows}`
+      },
       axisPointer: {
         type: 'shadow',
         shadowStyle: {
@@ -117,28 +99,28 @@ const syncChart = () => {
         },
       },
     },
-    legend: props.compact
-      ? undefined
-      : {
-          top: 20,
-          right: 20,
-          itemWidth: 12,
-          itemHeight: 12,
-          textStyle: {
-            color: 'rgba(214, 244, 255, 0.78)',
-          },
-          data: [
-            { name: '温度柱状', icon: 'roundRect' },
-            { name: '温度折线', icon: 'circle' },
-          ],
-          selected: {
-            温度柱状: showBar,
-            温度折线: showLine,
-          },
-        },
+    legend: {
+      top: 20,
+      right: 20,
+      itemWidth: 12,
+      itemHeight: 12,
+      textStyle: {
+        color: 'rgba(214, 244, 255, 0.78)',
+      },
+      data: [
+        { name: '平均气温', icon: 'roundRect' },
+        { name: '最高气温', icon: 'circle' },
+        { name: '最低气温', icon: 'circle' },
+      ],
+      selected: {
+        平均气温: showAverage,
+        最高气温: showHigh,
+        最低气温: showLow,
+      },
+    },
     xAxis: {
       type: 'category',
-      data: trendHours.value,
+      data: weeklySeries.value.map((item) => item.day),
       boundaryGap: true,
       axisLine: {
         lineStyle: {
@@ -176,10 +158,10 @@ const syncChart = () => {
     },
     series: [
       {
-        name: '温度柱状',
+        name: '平均气温',
         type: 'bar',
-        barMaxWidth: 26,
-        data: trendValues.value,
+        barMaxWidth: 30,
+        data: weeklySeries.value.map((item) => item.average),
         itemStyle: {
           borderRadius: [10, 10, 4, 4],
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -190,39 +172,47 @@ const syncChart = () => {
           shadowBlur: 18,
           shadowColor: 'rgba(40, 191, 255, 0.3)',
         },
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 24,
-            shadowColor: 'rgba(117, 241, 255, 0.44)',
-          },
-        },
       },
       {
-        name: '温度折线',
+        name: '最高气温',
         type: 'line',
         smooth: true,
         symbol: 'circle',
         symbolSize: 10,
-        data: trendValues.value,
+        data: weeklySeries.value.map((item) => item.high),
         lineStyle: {
           width: 3,
-          color: '#f2fbff',
+          color: '#ffb76a',
           shadowBlur: 16,
-          shadowColor: 'rgba(117, 241, 255, 0.42)',
+          shadowColor: 'rgba(255, 183, 106, 0.32)',
         },
         itemStyle: {
-          color: '#f7fdff',
-          borderColor: '#4edfff',
+          color: '#ffd1a3',
+          borderColor: '#ff9f43',
           borderWidth: 2,
           shadowBlur: 10,
-          shadowColor: 'rgba(117, 241, 255, 0.46)',
+          shadowColor: 'rgba(255, 183, 106, 0.36)',
         },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(198, 246, 255, 0.26)' },
-            { offset: 0.5, color: 'rgba(66, 176, 255, 0.16)' },
-            { offset: 1, color: 'rgba(117, 77, 255, 0.02)' },
-          ]),
+      },
+      {
+        name: '最低气温',
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 10,
+        data: weeklySeries.value.map((item) => item.low),
+        lineStyle: {
+          width: 3,
+          color: '#9de9ff',
+          shadowBlur: 16,
+          shadowColor: 'rgba(117, 241, 255, 0.32)',
+        },
+        itemStyle: {
+          color: '#eefcff',
+          borderColor: '#43c9ff',
+          borderWidth: 2,
+          shadowBlur: 10,
+          shadowColor: 'rgba(117, 241, 255, 0.42)',
         },
       },
     ],
@@ -255,51 +245,21 @@ onBeforeUnmount(() => {
   chartInstance = null
 })
 
-watch([
-  () => props.cityName,
-  () => props.temperature,
-  trendValues,
-  chartMode,
-  interval,
-  () => props.compact,
-  () => props.showIntervalSelector,
-], () => {
+watch([() => props.cityName, () => props.temperature, weeklySeries, chartMode], () => {
   syncChart()
 })
 </script>
 
 <template>
-  <section class="trend-shell" :class="{ 'trend-shell--compact': props.compact }">
-    <header v-if="!props.compact" class="trend-head">
+  <section class="trend-shell">
+    <header class="trend-head">
       <div>
-        <p class="trend-kicker">THERMAL VECTOR FIELD</p>
-        <h2>{{ props.cityName }} 温度轨迹</h2>
-        <p class="trend-note">基于当前城市实时温度生成的日内波动趋势，支持柱状与折线叠加观察。</p>
+        <p class="trend-kicker">SEVEN-DAY CLIMATE ARC</p>
+        <h2>{{ props.cityName }} 周温度趋势</h2>
+        <p class="trend-note">将未来一周的高温、低温与平均气温整合到同一战术图层中，便于横向观察整体气温波动。</p>
       </div>
 
       <div class="trend-actions">
-        <label
-          v-if="props.showIntervalSelector"
-          class="interval-select-shell"
-          data-testid="temperature-trend-interval-shell"
-        >
-          <span class="interval-label">采样间隔</span>
-          <select
-            v-model="interval"
-            class="interval-select"
-            aria-label="温度轨迹时间间隔"
-            data-testid="temperature-trend-interval-select"
-          >
-            <option
-              v-for="item in intervalOptions"
-              :key="item.value"
-              :value="item.value"
-            >
-              {{ item.label }}
-            </option>
-          </select>
-        </label>
-
         <div class="mode-switch" role="tablist" aria-label="图表模式">
           <button
             type="button"
@@ -329,34 +289,15 @@ watch([
       </div>
     </header>
 
-    <section class="chart-card" :class="{ 'chart-card--compact': props.compact }">
-      <div
-        v-if="props.compact && props.showIntervalSelector"
-        class="compact-toolbar"
-        data-testid="temperature-trend-interval-shell"
-      >
-        <label class="interval-select-shell interval-select-shell--compact">
-          <span class="interval-label">采样间隔</span>
-          <select
-            v-model="interval"
-            class="interval-select"
-            aria-label="温度轨迹时间间隔"
-            data-testid="temperature-trend-interval-select"
-          >
-            <option
-              v-for="item in intervalOptions"
-              :key="item.value"
-              :value="item.value"
-            >
-              {{ item.label }}
-            </option>
-          </select>
-        </label>
-      </div>
-
+    <section class="chart-card">
       <div class="chart-grid" aria-hidden="true" />
-      <div ref="chartRef" class="chart-surface" data-testid="temperature-trend-chart" />
+      <div ref="chartRef" class="chart-surface" data-testid="weekly-temperature-trend-chart" />
     </section>
+
+    <ForecastRangePanel
+      :city-name="props.cityName"
+      :temperature="props.temperature"
+    />
   </section>
 </template>
 
@@ -365,11 +306,6 @@ watch([
   display: grid;
   gap: 18px;
   margin-top: 10px;
-}
-
-.trend-shell--compact {
-  margin-top: 0;
-  gap: 0;
 }
 
 .trend-head {
@@ -399,7 +335,7 @@ watch([
 .trend-note {
   margin: 10px 0 0;
   color: rgba(210, 241, 255, 0.72);
-  max-width: 540px;
+  max-width: 560px;
   line-height: 1.7;
 }
 
@@ -407,65 +343,6 @@ watch([
   display: grid;
   gap: 12px;
   justify-items: end;
-}
-
-.interval-select-shell {
-  display: inline-grid;
-  gap: 8px;
-  justify-items: start;
-}
-
-.interval-select-shell--compact {
-  width: min(220px, 100%);
-}
-
-.interval-label {
-  color: rgba(160, 231, 255, 0.76);
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-.interval-select {
-  min-width: 156px;
-  padding: 10px 38px 10px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(117, 241, 255, 0.28);
-  background:
-    linear-gradient(135deg, rgba(10, 30, 68, 0.94), rgba(4, 14, 34, 0.96)),
-    rgba(3, 13, 32, 0.92);
-  color: #effcff;
-  box-shadow:
-    inset 0 0 16px rgba(117, 241, 255, 0.08),
-    0 0 20px rgba(117, 241, 255, 0.08);
-  outline: none;
-  appearance: none;
-  background-image:
-    linear-gradient(135deg, rgba(10, 30, 68, 0.94), rgba(4, 14, 34, 0.96)),
-    linear-gradient(45deg, transparent 50%, rgba(117, 241, 255, 0.92) 50%),
-    linear-gradient(135deg, rgba(117, 241, 255, 0.92) 50%, transparent 50%);
-  background-repeat: no-repeat;
-  background-size:
-    100% 100%,
-    8px 8px,
-    8px 8px;
-  background-position:
-    0 0,
-    calc(100% - 22px) calc(50% - 2px),
-    calc(100% - 16px) calc(50% - 2px);
-  transition:
-    border-color var(--cyber-ease),
-    box-shadow var(--cyber-ease),
-    transform var(--cyber-ease);
-}
-
-.interval-select:hover,
-.interval-select:focus {
-  border-color: rgba(148, 245, 255, 0.62);
-  box-shadow:
-    inset 0 0 18px rgba(117, 241, 255, 0.14),
-    0 0 18px rgba(117, 241, 255, 0.18);
-  transform: translateY(-1px);
 }
 
 .mode-btn {
@@ -536,26 +413,6 @@ watch([
     0 20px 48px rgba(0, 0, 0, 0.24);
 }
 
-.chart-card--compact {
-  min-height: 360px;
-  border-radius: 20px;
-}
-
-.compact-toolbar {
-  position: absolute;
-  top: 18px;
-  left: 20px;
-  right: 20px;
-  z-index: 2;
-  display: flex;
-  justify-content: flex-end;
-  pointer-events: none;
-}
-
-.compact-toolbar > * {
-  pointer-events: auto;
-}
-
 .chart-grid,
 .chart-surface {
   position: absolute;
@@ -574,21 +431,9 @@ watch([
   min-height: 460px;
 }
 
-.chart-card--compact .chart-surface {
-  min-height: 360px;
-}
-
 @media (max-width: 860px) {
   .trend-actions {
     justify-items: stretch;
-    width: 100%;
-  }
-
-  .interval-select-shell {
-    width: 100%;
-  }
-
-  .interval-select {
     width: 100%;
   }
 
@@ -598,12 +443,6 @@ watch([
 
   .mode-btn {
     min-width: 0;
-  }
-
-  .compact-toolbar {
-    left: 16px;
-    right: 16px;
-    justify-content: stretch;
   }
 }
 </style>

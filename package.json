@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
-    "format": "oxfmt src/"
+    "format": "oxfmt src/",
+    "docs:api": "typedoc"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
@@ -37,6 +38,7 @@
     "jsdom": "^28.1.0",
     "npm-run-all2": "^8.0.4",
     "oxfmt": "^0.35.0",
+    "typedoc": "^0.28.19",
     "typescript": "~5.9.3",
     "vite": "beta",
     "vite-plugin-vue-devtools": "^8.0.6",
