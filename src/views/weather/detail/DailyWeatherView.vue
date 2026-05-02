@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
-import WeatherMapExplorer from '@/components/weather/map/WeatherMapExplorer.vue'
+import DailyWeatherPanel from '@/components/weather/overview/DailyWeatherPanel.vue'
 import WeatherDetailHeader from '@/components/weather/shell/WeatherDetailHeader.vue'
+import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
 import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
 import { useCityStore } from '@/store/city'
 
@@ -62,12 +62,12 @@ onMounted(async () => {
 })
 
 const handleCitySelect = (cityName: string) => {
-  if (routeCityName.value === cityName && route.name === 'city-weather-map') {
+  if (routeCityName.value === cityName && route.name === 'city-daily-weather') {
     return
   }
 
   void router.push({
-    name: 'city-weather-map',
+    name: 'city-daily-weather',
     params: { cityName },
   })
 }
@@ -93,9 +93,9 @@ const handleNavSelect = (navKey: string) => {
     return
   }
 
-  if (navKey === 'daily-weather') {
+  if (navKey === 'weather-map') {
     void router.push({
-      name: 'city-daily-weather',
+      name: 'city-weather-map',
       params: { cityName: routeCityName.value },
     })
   }
@@ -103,10 +103,10 @@ const handleNavSelect = (navKey: string) => {
 </script>
 
 <template>
-  <section v-if="selectedCity" class="map-view">
+  <section v-if="selectedCity" class="daily-weather-view">
     <WeatherDetailHeader
       :nav-items="navItems"
-      active-nav-key="weather-map"
+      active-nav-key="daily-weather"
       :initial-search-keyword="searchKeyword"
       @nav-select="handleNavSelect"
       @search-submit="submitSearch"
@@ -119,19 +119,12 @@ const handleNavSelect = (navKey: string) => {
       @select="handleCitySelect"
     />
 
-    <WeatherMapExplorer
-      :city-name="selectedCity.cityName"
-      :weather-text="selectedCity.weatherText"
-      :province="selectedCity.province"
-      :country="selectedCity.country"
-      :latitude="selectedCity.latitude"
-      :longitude="selectedCity.longitude"
-    />
+    <DailyWeatherPanel :city="selectedCity" />
   </section>
 </template>
 
 <style scoped>
-.map-view {
+.daily-weather-view {
   display: grid;
   gap: 14px;
   min-width: 0;

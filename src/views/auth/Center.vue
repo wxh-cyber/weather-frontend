@@ -5,68 +5,145 @@
       <aside class="left-panel">
         <h2>用户中心</h2>
         <nav class="center-nav" aria-label="用户中心目录">
-          <p class="center-nav-item">用户信息</p>
-          <p class="center-nav-item">联系方式</p>
-          <p class="center-nav-item">城市管理</p>
+          <button
+            v-for="section in centerSections"
+            :key="section.id"
+            type="button"
+            class="center-nav-item"
+            :class="{
+              'is-active': activeSectionId === section.id,
+              'is-danger': section.tone === 'danger',
+            }"
+            :data-testid="`center-nav-${section.id}`"
+            @click="handleNavClick(section.id)"
+          >
+            <span class="center-nav-item__eyebrow">{{ section.eyebrow }}</span>
+            <span class="center-nav-item__label">{{ section.label }}</span>
+          </button>
         </nav>
       </aside>
 
       <section class="right-panel">
-        <h3 class="section-title">用户信息</h3>
-        <div class="profile-row">
-          <span class="label">用户头像</span>
-          <button type="button" class="avatar-trigger" @click="openAvatarDialog">
-            <el-avatar class="avatar" :size="66" :src="avatarImageUrl || undefined">
-              {{ avatarText }}
-            </el-avatar>
-            <span class="avatar-tip">点我上传头像</span>
-          </button>
-        </div>
-        <div class="profile-row">
-          <span class="label">注册邮箱</span>
-          <el-input v-model="form.email" disabled />
-        </div>
-        <div class="profile-row">
-          <span class="label">用户昵称</span>
-          <el-input v-model="form.nickname" :disabled="!isEditing" />
-        </div>
+        <section
+          :id="SectionId.UserInfo"
+          :ref="(el) => setSectionRef(SectionId.UserInfo, el)"
+          class="center-section"
+          data-testid="center-section-user-info"
+        >
+          <header class="center-section__header">
+            <p class="center-section__eyebrow">PROFILE CORE</p>
+            <h3 class="section-title">用户信息</h3>
+          </header>
+          <div class="profile-row">
+            <span class="label">用户头像</span>
+            <button type="button" class="avatar-trigger" @click="openAvatarDialog">
+              <el-avatar class="avatar" :size="66" :src="avatarImageUrl || undefined">
+                {{ avatarText }}
+              </el-avatar>
+              <span class="avatar-tip">点我上传头像</span>
+            </button>
+          </div>
+          <div class="profile-row">
+            <span class="label">注册邮箱</span>
+            <el-input v-model="form.email" disabled />
+          </div>
+          <div class="profile-row">
+            <span class="label">用户昵称</span>
+            <el-input v-model="form.nickname" :disabled="!isEditing" />
+          </div>
+        </section>
 
-        <h3 class="section-title contact-title">联系方式</h3>
-        <div class="profile-row">
-          <span class="label">手机号码</span>
-          <el-input v-model="form.phone" :disabled="!isEditing" />
-        </div>
-        <div class="profile-row">
-          <span class="label">QQ账号</span>
-          <el-input v-model="form.qq" :disabled="!isEditing" />
-        </div>
-        <div class="profile-row">
-          <span class="label">微信账号</span>
-          <el-input v-model="form.wechat" :disabled="!isEditing" />
-        </div>
+        <section
+          :id="SectionId.Contact"
+          :ref="(el) => setSectionRef(SectionId.Contact, el)"
+          class="center-section"
+          data-testid="center-section-contact"
+        >
+          <header class="center-section__header">
+            <p class="center-section__eyebrow">CONTACT LINKS</p>
+            <h3 class="section-title">联系方式</h3>
+          </header>
+          <div class="profile-row">
+            <span class="label">手机号码</span>
+            <el-input v-model="form.phone" :disabled="!isEditing" />
+          </div>
+          <div class="profile-row">
+            <span class="label">QQ账号</span>
+            <el-input v-model="form.qq" :disabled="!isEditing" />
+          </div>
+          <div class="profile-row">
+            <span class="label">微信账号</span>
+            <el-input v-model="form.wechat" :disabled="!isEditing" />
+          </div>
+        </section>
 
-        <h3 class="section-title city-title">城市管理</h3>
-        <div class="profile-row">
-          <span class="label">当前默认城市</span>
-          <el-input
-            v-model="defaultCityName"
-            placeholder="请输入城市名称"
-            :disabled="isUpdatingDefaultCity"
-            @change="commitDefaultCity"
-            @blur="commitDefaultCity"
-          />
-        </div>
-        <section class="saved-city-panel">
-          <div v-if="savedCities.length === 0" class="saved-city-empty">暂无已保存城市</div>
-          <div v-else class="saved-city-list">
-            <CityListItem
-              v-for="(city, index) in savedCities"
-              :key="city.cityName"
-              :city-name="city.cityName"
-              :weather-text="city.weatherText"
-              :temperature="city.temperature"
-              :is-default="index === 0"
+        <section
+          :id="SectionId.City"
+          :ref="(el) => setSectionRef(SectionId.City, el)"
+          class="center-section"
+          data-testid="center-section-city"
+        >
+          <header class="center-section__header">
+            <p class="center-section__eyebrow">CITY ANCHOR GRID</p>
+            <h3 class="section-title">城市管理</h3>
+          </header>
+          <div class="profile-row">
+            <span class="label">当前默认城市</span>
+            <el-input
+              v-model="defaultCityName"
+              placeholder="请输入城市名称"
+              :disabled="isUpdatingDefaultCity"
+              @change="commitDefaultCity"
+              @blur="commitDefaultCity"
             />
+          </div>
+          <section class="saved-city-panel">
+            <div v-if="savedCities.length === 0" class="saved-city-empty">暂无已保存城市</div>
+            <div v-else class="saved-city-list">
+              <CityListItem
+                v-for="(city, index) in savedCities"
+                :key="city.cityName"
+                :city-name="city.cityName"
+                :weather-text="city.weatherText"
+                :temperature="city.temperature"
+                :is-default="index === 0"
+              />
+            </div>
+          </section>
+        </section>
+
+        <section
+          :id="SectionId.Danger"
+          :ref="(el) => setSectionRef(SectionId.Danger, el)"
+          class="center-section center-section--danger"
+          data-testid="center-section-danger"
+        >
+          <header class="center-section__header">
+            <p class="center-section__eyebrow center-section__eyebrow--danger">DANGER ACCESS</p>
+            <h3 class="section-title section-title--danger">危险操作</h3>
+            <p class="danger-note">高风险指令区将影响账号安全与数据归档，请谨慎执行。</p>
+          </header>
+          <div class="danger-grid">
+            <article class="danger-card" data-testid="center-danger-change-password">
+              <div class="danger-card__copy">
+                <p class="danger-card__eyebrow">AUTH REKEY</p>
+                <h4>修改密码</h4>
+                <p>验证当前密码后，重新写入新的访问密钥，提升账号防护等级。</p>
+              </div>
+              <button type="button" class="danger-btn" @click="openPasswordDialog">
+                修改密码
+              </button>
+            </article>
+            <article class="danger-card danger-card--critical" data-testid="center-danger-destroy-account">
+              <div class="danger-card__copy">
+                <p class="danger-card__eyebrow">ACCOUNT PURGE</p>
+                <h4>注销账号</h4>
+                <p>销毁账号后，所有关联用户数据将永久清除，且无法恢复。</p>
+              </div>
+              <button type="button" class="danger-btn danger-btn--critical" @click="openDestroyDialog">
+                注销账号
+              </button>
+            </article>
           </div>
         </section>
 
@@ -77,6 +154,102 @@
         </div>
       </section>
     </div>
+
+    <el-dialog
+      v-model="passwordDialogVisible"
+      title="修改密码"
+      width="460px"
+      class="avatar-cyber-dialog account-cyber-dialog"
+      :autofocus="false"
+      :close-on-click-modal="false"
+      @closed="handlePasswordDialogClosed"
+    >
+      <div class="account-dialog-panel">
+        <div class="account-dialog-copy">
+          <p class="avatar-dialog-text">请先输入当前密码，再输入新的访问密钥。</p>
+          <p class="avatar-dialog-subtext">新密码右侧将实时反馈强度评级，帮助你完成更稳妥的安全升级。</p>
+        </div>
+        <div class="account-form-grid">
+            <label class="account-field">
+              <span class="account-field__label">当前密码</span>
+              <el-input
+                class="account-password-input"
+                v-model="passwordForm.currentPassword"
+                type="password"
+                show-password
+                placeholder="请输入当前密码"
+              />
+          </label>
+            <label class="account-field">
+              <span class="account-field__label">新密码</span>
+              <div class="password-strength-row">
+                <el-input
+                  class="account-password-input"
+                  v-model="passwordForm.newPassword"
+                  type="password"
+                  show-password
+                  placeholder="请输入新密码"
+                />
+                <div
+                  class="password-strength-meter"
+                  :class="`is-${passwordStrength.level}`"
+                  data-testid="password-strength-indicator"
+                >
+                  <div class="password-strength-meter__bars" aria-hidden="true">
+                    <span class="password-strength-meter__bar" />
+                    <span class="password-strength-meter__bar" />
+                    <span class="password-strength-meter__bar" />
+                  </div>
+                  <span class="password-strength-meter__label">{{ passwordStrength.label }}</span>
+                </div>
+              </div>
+            </label>
+        </div>
+        <div class="account-dialog-actions">
+          <el-button
+            class="avatar-dialog-btn avatar-dialog-primary account-dialog-confirm"
+            :loading="isChangingPassword"
+            @click="submitChangePassword"
+          >
+            <span class="avatar-dialog-btn__frame" aria-hidden="true" />
+            <span class="avatar-dialog-btn__scanline" aria-hidden="true" />
+            <span class="avatar-dialog-btn__label">确认修改</span>
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
+
+    <el-dialog
+      v-model="destroyDialogVisible"
+      title="注销账号"
+      width="460px"
+      class="avatar-cyber-dialog account-cyber-dialog account-cyber-dialog--danger"
+      :autofocus="false"
+      :close-on-click-modal="false"
+      @closed="handleDestroyDialogClosed"
+    >
+      <div class="account-dialog-panel account-dialog-panel--danger">
+        <div class="account-dialog-copy">
+          <p class="destroy-warning-text">销毁账号后，所有数据均将销毁，且无法恢复！是否确认进行？</p>
+        </div>
+        <div class="account-dialog-actions account-dialog-actions--split">
+          <el-button
+            class="avatar-dialog-btn avatar-dialog-primary account-dialog-critical"
+            :loading="isDestroyingAccount"
+            @click="submitDestroyAccount"
+          >
+            <span class="avatar-dialog-btn__frame" aria-hidden="true" />
+            <span class="avatar-dialog-btn__scanline" aria-hidden="true" />
+            <span class="avatar-dialog-btn__label">确认销毁</span>
+          </el-button>
+          <el-button class="avatar-dialog-btn avatar-dialog-secondary" @click="destroyDialogVisible = false">
+            <span class="avatar-dialog-btn__frame" aria-hidden="true" />
+            <span class="avatar-dialog-btn__scanline" aria-hidden="true" />
+            <span class="avatar-dialog-btn__label">取消</span>
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
 
     <el-dialog
       v-model="avatarDialogVisible"
@@ -241,10 +414,11 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import CityListItem from '@/components/city-list/CityListItem.vue'
-import { getProfile, updateProfile, uploadAvatar } from '@/service/auth'
+import { changePassword, destroyAccount, getProfile, updateProfile, uploadAvatar } from '@/service/auth'
 import { getCityList } from '@/service/city'
 import { useAuthStore } from '@/store/auth'
 import { useCityStore } from '@/store/city'
@@ -258,6 +432,15 @@ type ProfileForm = {
   avatarUrl: string
 }
 
+enum SectionId {
+  UserInfo = 'user-info',
+  Contact = 'contact-info',
+  City = 'city-management',
+  Danger = 'danger-zone',
+}
+
+type PasswordStrengthLevel = 'empty' | 'low' | 'medium' | 'high'
+
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const CROP_VIEWPORT_SIZE = 260
@@ -270,12 +453,24 @@ const CROP_PREVIEW_SIZE = 112
 const router = useRouter()
 const authStore = useAuthStore()
 const cityStore = useCityStore()
+const centerSections = [
+  { id: SectionId.UserInfo, label: '用户信息', eyebrow: '01', tone: 'default' },
+  { id: SectionId.Contact, label: '联系方式', eyebrow: '02', tone: 'default' },
+  { id: SectionId.City, label: '城市管理', eyebrow: '03', tone: 'default' },
+  { id: SectionId.Danger, label: '危险操作', eyebrow: '04', tone: 'danger' },
+] as const
 const isEditing = ref(false)
 const isSubmitting = ref(false)
+const passwordDialogVisible = ref(false)
+const destroyDialogVisible = ref(false)
+const isChangingPassword = ref(false)
+const isDestroyingAccount = ref(false)
 const avatarDialogVisible = ref(false)
 const cropDialogVisible = ref(false)
 const isUploadingAvatar = ref(false)
 const isUpdatingDefaultCity = ref(false)
+const activeSectionId = ref<SectionId>(SectionId.UserInfo)
+const sectionRefs = new Map<SectionId, HTMLElement>()
 const selectedAvatarFile = ref<File | null>(null)
 const avatarPreviewUrl = ref('')
 const defaultCityName = ref('')
@@ -294,6 +489,10 @@ const cropDragState = reactive({
   startY: 0,
   originX: 0,
   originY: 0,
+})
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
 })
 const form = reactive<ProfileForm>({
   email: '',
@@ -344,6 +543,29 @@ const hasChanges = computed(
 )
 const actionText = computed(() => (hasChanges.value ? '保存信息' : '修改信息'))
 const savedCities = computed(() => cityStore.cities)
+const passwordStrength = computed<{ level: PasswordStrengthLevel; label: '低' | '中' | '高' | '--' }>(() => {
+  const value = passwordForm.newPassword.trim()
+  if (!value) {
+    return { level: 'empty', label: '--' }
+  }
+
+  const kinds = [
+    /[a-z]/.test(value),
+    /[A-Z]/.test(value),
+    /\d/.test(value),
+    /[^A-Za-z0-9]/.test(value),
+  ].filter(Boolean).length
+
+  if (value.length >= 10 && kinds >= 3) {
+    return { level: 'high', label: '高' }
+  }
+
+  if (value.length >= 8 && kinds >= 2) {
+    return { level: 'medium', label: '中' }
+  }
+
+  return { level: 'low', label: '低' }
+})
 const cropImageStyle = computed(() => {
   const { width, height, offsetX, offsetY } = getCropViewportMetrics(cropScale.value)
   return {
@@ -370,6 +592,77 @@ const focusAvatarDialogAction = () => {
         : null
     buttonElement?.focus?.()
   })
+}
+
+let sectionObserver: IntersectionObserver | null = null
+
+const setSectionRef = (
+  id: SectionId,
+  element: Element | ComponentPublicInstance | null,
+) => {
+  if (element instanceof HTMLElement) {
+    sectionRefs.set(id, element)
+    return
+  }
+  sectionRefs.delete(id)
+}
+
+const handleNavClick = (id: SectionId) => {
+  activeSectionId.value = id
+  sectionRefs.get(id)?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
+}
+
+const setupSectionObserver = () => {
+  if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') {
+    return
+  }
+
+  sectionObserver?.disconnect()
+  sectionObserver = new IntersectionObserver(
+    (entries) => {
+      const activeEntry = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0]
+
+      const nextId = activeEntry?.target.getAttribute('id') as SectionId | null
+      if (nextId) {
+        activeSectionId.value = nextId
+      }
+    },
+    {
+      threshold: [0.2, 0.45, 0.7],
+      rootMargin: '-18% 0px -42% 0px',
+    },
+  )
+
+  for (const element of sectionRefs.values()) {
+    sectionObserver.observe(element)
+  }
+}
+
+const resetPasswordDialog = () => {
+  passwordForm.currentPassword = ''
+  passwordForm.newPassword = ''
+}
+
+const openPasswordDialog = () => {
+  resetPasswordDialog()
+  passwordDialogVisible.value = true
+}
+
+const handlePasswordDialogClosed = () => {
+  resetPasswordDialog()
+}
+
+const openDestroyDialog = () => {
+  destroyDialogVisible.value = true
+}
+
+const handleDestroyDialogClosed = () => {
+  destroyDialogVisible.value = false
 }
 
 const releaseBlobPreviewIfNeeded = () => {
@@ -704,7 +997,74 @@ const handleAvatarUpload = async () => {
   }
 }
 
+const submitChangePassword = async () => {
+  const currentPassword = passwordForm.currentPassword.trim()
+  const newPassword = passwordForm.newPassword.trim()
+
+  if (!currentPassword || !newPassword) {
+    ElMessage.warning('请完整输入当前密码和新密码')
+    return
+  }
+
+  if (currentPassword === newPassword) {
+    ElMessage.warning('新密码不能与当前密码相同')
+    return
+  }
+
+  if (isChangingPassword.value) {
+    return
+  }
+
+  try {
+    isChangingPassword.value = true
+    const res = await changePassword({
+      currentPassword,
+      newPassword,
+    })
+    passwordDialogVisible.value = false
+    resetPasswordDialog()
+    ElMessage.success(res.message || '密码修改成功')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '密码修改失败，请稍后重试'
+    ElMessage.error(message)
+  } finally {
+    isChangingPassword.value = false
+  }
+}
+
+const submitDestroyAccount = async () => {
+  if (isDestroyingAccount.value) {
+    return
+  }
+
+  const currentUserId = authStore.user?.userId || ''
+
+  try {
+    isDestroyingAccount.value = true
+    const res = await destroyAccount()
+    if (currentUserId) {
+      cityStore.clearPersistedCitiesForUser(currentUserId)
+    }
+    cityStore.clearCities()
+    authStore.clearAuth()
+    destroyDialogVisible.value = false
+    ElMessage.success(res.message || '账号已注销')
+    await router.push('/login')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '注销账号失败，请稍后重试'
+    ElMessage.error(message)
+  } finally {
+    isDestroyingAccount.value = false
+  }
+}
+
 defineExpose({
+  __testGetActiveSectionId() {
+    return activeSectionId.value
+  },
+  __testSetActiveSectionId(id: SectionId) {
+    activeSectionId.value = id
+  },
   __testSetAvatarFile(file: File) {
     selectedAvatarFile.value = file
     releaseBlobPreviewIfNeeded()
@@ -891,6 +1251,9 @@ onMounted(() => {
   }
   syncDefaultCityName()
   loadProfile()
+  nextTick(() => {
+    setupSectionObserver()
+  })
 })
 
 watch(
@@ -911,6 +1274,7 @@ watch(avatarDialogVisible, (visible) => {
 
 onUnmounted(() => {
   stopCropDrag()
+  sectionObserver?.disconnect()
   releaseCropImageIfNeeded()
   releaseBlobPreviewIfNeeded()
 })
@@ -968,6 +1332,7 @@ onUnmounted(() => {
 
 .center-nav-item {
   margin: 0;
+  width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid rgba(117, 241, 255, 0.2);
@@ -975,10 +1340,105 @@ onUnmounted(() => {
   letter-spacing: 0.08em;
   background: linear-gradient(135deg, rgba(4, 18, 40, 0.65), rgba(4, 12, 30, 0.55));
   box-shadow: inset 0 0 12px rgba(117, 241, 255, 0.08);
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--cyber-ease),
+    transform var(--cyber-ease),
+    box-shadow var(--cyber-ease),
+    color var(--cyber-ease),
+    background var(--cyber-ease);
+}
+
+.center-nav-item:hover,
+.center-nav-item:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(117, 241, 255, 0.44);
+  color: #effcff;
+  box-shadow:
+    inset 0 0 14px rgba(117, 241, 255, 0.12),
+    0 0 16px rgba(117, 241, 255, 0.16);
+  outline: none;
+}
+
+.center-nav-item.is-active {
+  border-color: rgba(117, 241, 255, 0.72);
+  color: #f4feff;
+  background:
+    linear-gradient(135deg, rgba(88, 225, 255, 0.18), rgba(125, 84, 255, 0.12)),
+    linear-gradient(135deg, rgba(4, 18, 40, 0.78), rgba(4, 12, 30, 0.68));
+  box-shadow:
+    inset 0 0 16px rgba(117, 241, 255, 0.16),
+    0 0 18px rgba(117, 241, 255, 0.18);
+}
+
+.center-nav-item.is-danger {
+  border-color: rgba(255, 95, 147, 0.28);
+  box-shadow: inset 0 0 12px rgba(255, 95, 147, 0.08);
+}
+
+.center-nav-item.is-danger.is-active {
+  border-color: rgba(255, 125, 172, 0.7);
+  background:
+    linear-gradient(135deg, rgba(255, 82, 205, 0.18), rgba(255, 118, 118, 0.12)),
+    linear-gradient(135deg, rgba(28, 11, 28, 0.8), rgba(18, 8, 22, 0.72));
+  box-shadow:
+    inset 0 0 16px rgba(255, 82, 205, 0.16),
+    0 0 18px rgba(255, 82, 205, 0.18);
+}
+
+.center-nav-item__eyebrow {
+  font-size: 10px;
+  color: rgba(143, 217, 241, 0.62);
+  letter-spacing: 0.24em;
+}
+
+.center-nav-item__label {
+  font-size: 14px;
 }
 
 .right-panel {
   padding: 22px 22px 18px;
+}
+
+.center-section + .center-section {
+  margin-top: 26px;
+}
+
+.center-section {
+  position: relative;
+  scroll-margin-top: 96px;
+  padding: 18px 18px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 241, 255, 0.12);
+  background:
+    linear-gradient(135deg, rgba(5, 18, 54, 0.18), rgba(4, 12, 30, 0.08)),
+    rgba(3, 12, 28, 0.22);
+}
+
+.center-section--danger {
+  border-color: rgba(255, 82, 205, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(255, 82, 205, 0.12), transparent 36%),
+    linear-gradient(135deg, rgba(34, 8, 24, 0.3), rgba(14, 6, 18, 0.22));
+}
+
+.center-section__header {
+  display: grid;
+  gap: 8px;
+}
+
+.center-section__eyebrow {
+  margin: 0;
+  color: rgba(117, 241, 255, 0.72);
+  letter-spacing: 0.28em;
+  font-size: 11px;
+}
+
+.center-section__eyebrow--danger {
+  color: rgba(255, 149, 205, 0.78);
 }
 
 .section-title {
@@ -988,12 +1448,15 @@ onUnmounted(() => {
   text-shadow: 0 0 8px rgba(117, 241, 255, 0.45);
 }
 
-.contact-title {
-  margin-top: 20px;
+.section-title--danger {
+  color: #ff9fcb;
+  text-shadow: 0 0 8px rgba(255, 82, 205, 0.36);
 }
 
-.city-title {
-  margin-top: 20px;
+.danger-note {
+  margin: 0;
+  color: rgba(235, 208, 228, 0.72);
+  line-height: 1.7;
 }
 
 .profile-row {
@@ -1068,6 +1531,98 @@ onUnmounted(() => {
   margin-top: 14px;
 }
 
+.danger-grid {
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.danger-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 220px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 241, 255, 0.2);
+  background:
+    radial-gradient(circle at top, rgba(117, 241, 255, 0.12), transparent 38%),
+    linear-gradient(155deg, rgba(5, 18, 42, 0.94), rgba(3, 10, 24, 0.96));
+  display: grid;
+  align-content: space-between;
+  gap: 18px;
+}
+
+.danger-card--critical {
+  border-color: rgba(255, 110, 162, 0.26);
+  background:
+    radial-gradient(circle at top right, rgba(255, 82, 205, 0.14), transparent 34%),
+    linear-gradient(155deg, rgba(34, 8, 24, 0.96), rgba(12, 5, 16, 0.98));
+}
+
+.danger-card__copy {
+  display: grid;
+  gap: 10px;
+}
+
+.danger-card__eyebrow {
+  margin: 0;
+  color: rgba(255, 163, 211, 0.74);
+  letter-spacing: 0.24em;
+  font-size: 11px;
+}
+
+.danger-card h4 {
+  margin: 0;
+  font-size: 22px;
+  color: #f4feff;
+}
+
+.danger-card p {
+  margin: 0;
+  color: rgba(223, 239, 255, 0.72);
+  line-height: 1.7;
+}
+
+.danger-btn {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(117, 241, 255, 0.38);
+  background:
+    linear-gradient(135deg, rgba(0, 214, 255, 0.14), rgba(125, 84, 255, 0.12)),
+    rgba(4, 18, 42, 0.82);
+  color: #dcf9ff;
+  box-shadow:
+    inset 0 0 14px rgba(117, 241, 255, 0.1),
+    0 0 14px rgba(117, 241, 255, 0.08);
+  cursor: pointer;
+  transition:
+    transform var(--cyber-ease),
+    border-color var(--cyber-ease),
+    box-shadow var(--cyber-ease),
+    filter var(--cyber-ease);
+}
+
+.danger-btn:hover,
+.danger-btn:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(117, 241, 255, 0.62);
+  box-shadow:
+    inset 0 0 16px rgba(117, 241, 255, 0.16),
+    0 0 16px rgba(117, 241, 255, 0.14);
+  outline: none;
+}
+
+.danger-btn--critical {
+  border-color: rgba(255, 119, 165, 0.54);
+  background:
+    linear-gradient(135deg, rgba(255, 82, 205, 0.2), rgba(255, 110, 110, 0.14)),
+    rgba(30, 7, 18, 0.88);
+  box-shadow:
+    inset 0 0 16px rgba(255, 82, 205, 0.12),
+    0 0 16px rgba(255, 82, 205, 0.12);
+}
+
 .saved-city-list {
   display: grid;
   gap: 12px;
@@ -1107,6 +1662,291 @@ onUnmounted(() => {
   box-shadow:
     inset 0 0 14px rgba(117, 241, 255, 0.46),
     0 0 12px rgba(117, 241, 255, 0.28);
+}
+
+.account-dialog-panel {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(8, 21, 46, 0.92), rgba(3, 10, 26, 0.96)),
+    linear-gradient(135deg, rgba(0, 145, 255, 0.12), rgba(255, 82, 205, 0.08));
+}
+
+.account-dialog-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(117, 241, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(117, 241, 255, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.account-dialog-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.account-dialog-panel--danger {
+  background:
+    linear-gradient(180deg, rgba(28, 8, 24, 0.96), rgba(10, 4, 14, 0.98)),
+    linear-gradient(135deg, rgba(255, 82, 205, 0.12), rgba(255, 96, 96, 0.08));
+}
+
+.account-dialog-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.account-form-grid {
+  margin-top: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.account-field {
+  display: grid;
+  gap: 8px;
+}
+
+.account-field__label {
+  color: rgba(183, 216, 255, 0.78);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__wrapper) {
+  min-height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(117, 241, 255, 0.24);
+  background:
+    linear-gradient(135deg, rgba(2, 12, 30, 0.98), rgba(5, 14, 34, 0.96)),
+    linear-gradient(135deg, rgba(0, 145, 255, 0.12), rgba(255, 82, 205, 0.08)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(117, 241, 255, 0.2),
+    inset 0 0 18px rgba(117, 241, 255, 0.06),
+    0 0 0 1px rgba(8, 29, 62, 0.58),
+    0 0 18px rgba(0, 145, 255, 0.08) !important;
+  clip-path: polygon(0 12px, 12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px));
+  transition:
+    box-shadow var(--cyber-ease),
+    border-color var(--cyber-ease),
+    filter var(--cyber-ease),
+    transform var(--cyber-ease);
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__wrapper:hover) {
+  border-color: rgba(117, 241, 255, 0.38);
+  box-shadow:
+    inset 0 0 0 1px rgba(117, 241, 255, 0.3),
+    inset 0 0 20px rgba(117, 241, 255, 0.08),
+    0 0 16px rgba(0, 145, 255, 0.12),
+    0 0 24px rgba(117, 241, 255, 0.08) !important;
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__wrapper.is-focus) {
+  border-color: rgba(117, 241, 255, 0.6);
+  box-shadow:
+    inset 0 0 0 1px rgba(117, 241, 255, 0.58),
+    inset 0 0 24px rgba(117, 241, 255, 0.1),
+    0 0 0 3px rgba(117, 241, 255, 0.12),
+    0 0 22px rgba(0, 145, 255, 0.18);
+  filter: brightness(1.04);
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__inner) {
+  color: #dcf9ff;
+  text-shadow:
+    0 0 10px rgba(117, 241, 255, 0.18),
+    0 0 18px rgba(74, 232, 255, 0.08);
+  letter-spacing: 0.03em;
+  font-weight: 500;
+  caret-color: #75f1ff;
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__inner::placeholder) {
+  color: rgba(170, 205, 255, 0.56);
+  text-shadow: none;
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__prefix),
+:deep(.account-cyber-dialog .account-password-input .el-input__suffix-inner) {
+  color: rgba(117, 241, 255, 0.74);
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__password) {
+  color: rgba(117, 241, 255, 0.74);
+  transition:
+    color var(--cyber-ease),
+    filter var(--cyber-ease),
+    text-shadow var(--cyber-ease);
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__password:hover) {
+  color: #dcf9ff;
+  filter: brightness(1.08);
+  text-shadow: 0 0 10px rgba(117, 241, 255, 0.32);
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__password:focus-visible) {
+  color: #dcf9ff;
+  outline: none;
+  text-shadow:
+    0 0 10px rgba(117, 241, 255, 0.32),
+    0 0 14px rgba(255, 82, 205, 0.12);
+}
+
+:deep(.account-cyber-dialog .account-password-input .el-input__icon) {
+  color: rgba(117, 241, 255, 0.84);
+  filter: drop-shadow(0 0 8px rgba(117, 241, 255, 0.22));
+}
+
+.password-strength-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 156px);
+  gap: 12px;
+  align-items: center;
+}
+
+.password-strength-meter {
+  min-width: 140px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(117, 241, 255, 0.18);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  background:
+    linear-gradient(135deg, rgba(4, 18, 46, 0.82), rgba(4, 10, 24, 0.9)),
+    linear-gradient(135deg, rgba(0, 145, 255, 0.08), rgba(255, 82, 205, 0.05));
+  box-shadow:
+    inset 0 0 16px rgba(117, 241, 255, 0.05),
+    0 0 0 1px rgba(5, 20, 46, 0.42);
+  transition:
+    border-color var(--cyber-ease),
+    box-shadow var(--cyber-ease),
+    filter var(--cyber-ease);
+}
+
+.password-strength-meter__bars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.password-strength-meter__bar {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(22, 39, 78, 0.9), rgba(8, 18, 42, 0.96));
+  box-shadow:
+    inset 0 0 0 1px rgba(117, 241, 255, 0.08),
+    inset 0 0 8px rgba(117, 241, 255, 0.04);
+  transition:
+    background var(--cyber-ease),
+    box-shadow var(--cyber-ease),
+    filter var(--cyber-ease),
+    opacity var(--cyber-ease);
+  opacity: 0.58;
+}
+
+.password-strength-meter__label {
+  min-width: 24px;
+  text-align: right;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: rgba(223, 239, 255, 0.72);
+  text-shadow: 0 0 10px rgba(117, 241, 255, 0.1);
+}
+
+.password-strength-meter.is-low {
+  border-color: rgba(255, 132, 160, 0.28);
+  box-shadow:
+    inset 0 0 16px rgba(255, 132, 160, 0.06),
+    0 0 14px rgba(255, 82, 205, 0.08);
+}
+
+.password-strength-meter.is-low .password-strength-meter__bar:nth-child(-n + 1) {
+  background: linear-gradient(135deg, rgba(255, 95, 154, 0.96), rgba(255, 148, 187, 0.82));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 209, 226, 0.28),
+    0 0 12px rgba(255, 95, 154, 0.32);
+  opacity: 1;
+}
+
+.password-strength-meter.is-low .password-strength-meter__label {
+  color: #ffbdd0;
+  text-shadow: 0 0 12px rgba(255, 95, 154, 0.2);
+}
+
+.password-strength-meter.is-medium {
+  border-color: rgba(255, 211, 120, 0.34);
+  box-shadow:
+    inset 0 0 16px rgba(255, 211, 120, 0.06),
+    0 0 14px rgba(255, 191, 84, 0.1);
+}
+
+.password-strength-meter.is-medium .password-strength-meter__bar:nth-child(-n + 2) {
+  background: linear-gradient(135deg, rgba(255, 189, 84, 0.98), rgba(255, 224, 139, 0.84));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 239, 194, 0.28),
+    0 0 12px rgba(255, 191, 84, 0.28);
+  opacity: 1;
+}
+
+.password-strength-meter.is-medium .password-strength-meter__label {
+  color: #ffe1a9;
+  text-shadow: 0 0 12px rgba(255, 191, 84, 0.18);
+}
+
+.password-strength-meter.is-high {
+  border-color: rgba(117, 241, 255, 0.4);
+  box-shadow:
+    inset 0 0 16px rgba(117, 241, 255, 0.08),
+    0 0 18px rgba(0, 145, 255, 0.12);
+}
+
+.password-strength-meter.is-high .password-strength-meter__bar:nth-child(-n + 3) {
+  background: linear-gradient(135deg, rgba(74, 232, 255, 0.98), rgba(164, 255, 255, 0.86));
+  box-shadow:
+    inset 0 0 0 1px rgba(225, 255, 255, 0.28),
+    0 0 14px rgba(74, 232, 255, 0.28);
+  opacity: 1;
+}
+
+.password-strength-meter.is-high .password-strength-meter__label {
+  color: #dcf9ff;
+  text-shadow: 0 0 12px rgba(74, 232, 255, 0.2);
+}
+
+.account-dialog-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.account-dialog-confirm {
+  min-width: 132px;
+}
+
+.destroy-warning-text {
+  margin: 0;
+  color: #ffd6e7;
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+.account-dialog-critical {
+  border-color: rgba(255, 119, 165, 0.58);
+  background:
+    linear-gradient(135deg, rgba(255, 82, 205, 0.24), rgba(255, 110, 110, 0.16)),
+    linear-gradient(135deg, rgba(3, 17, 42, 0.94), rgba(5, 11, 28, 0.9)) !important;
+  color: #ffd7e6 !important;
 }
 
 .avatar-dialog-text {
@@ -1688,6 +2528,10 @@ onUnmounted(() => {
   .saved-city-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .danger-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1735,6 +2579,18 @@ onUnmounted(() => {
   }
 
   .avatar-dialog-actions {
+    flex-direction: column;
+  }
+
+  .password-strength-row {
+    grid-template-columns: 1fr;
+  }
+
+  .password-strength-meter {
+    min-width: 100%;
+  }
+
+  .account-dialog-actions {
     flex-direction: column;
   }
 }

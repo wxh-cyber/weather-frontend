@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { weatherSearchSubmitKey } from '@/layout/helpers/weatherSearch'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/store/auth'
 import TemperatureTrendView from '@/views/weather/detail/TemperatureTrendView.vue'
 import { useCityStore } from '@/store/city'
 
@@ -31,6 +33,46 @@ vi.mock('echarts', () => ({
 }))
 
 describe('TemperatureTrendView', () => {
+  const WeatherDetailHeaderStub = defineComponent({
+    props: {
+      navItems: {
+        type: Array,
+        required: true,
+      },
+      activeNavKey: {
+        type: String,
+        required: true,
+      },
+    },
+    emits: ['nav-select', 'search-submit'],
+    setup(_, { emit }) {
+      const keyword = ref('')
+      return {
+        keyword,
+        emit,
+      }
+    },
+    template: `
+      <header class="weather-detail-header-stub">
+        <span class="shared-active-nav">{{ activeNavKey }}</span>
+        <button
+          v-for="item in navItems"
+          :key="item.key"
+          class="menu-button"
+          @click="emit('nav-select', item.key)"
+        >
+          {{ item.label }}
+        </button>
+        <input
+          v-model="keyword"
+          class="shared-search-input"
+          placeholder="搜索城市"
+          @keydown.enter="emit('search-submit', keyword)"
+        />
+      </header>
+    `,
+  })
+
   beforeEach(() => {
     echartsInstanceMock.setOption.mockReset()
     echartsInstanceMock.resize.mockReset()
@@ -38,15 +80,42 @@ describe('TemperatureTrendView', () => {
     echartsInitMock.mockReset()
     echartsInitMock.mockReturnValue(echartsInstanceMock)
     localStorage.clear()
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation(() => ({
+        matches: false,
+        media: '',
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
+    Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
+      writable: true,
+      value: vi.fn(),
+    })
   })
 
   const mountTrendView = async () => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'test-token')
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({
+        userId: 'test-user',
+        email: 'tester@example.com',
+      }),
+    )
+
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/weather/:cityName', name: 'city-detail', component: { template: '<div />' } },
         { path: '/weather/:cityName/temperature-trend', name: 'city-temperature-trend', component: TemperatureTrendView },
         { path: '/weather/:cityName/map', name: 'city-weather-map', component: { template: '<div />' } },
+        { path: '/weather/:cityName/daily-weather', name: 'city-daily-weather', component: { template: '<div />' } },
       ],
     })
 
@@ -72,6 +141,7 @@ describe('TemperatureTrendView', () => {
           'el-icon': {
             template: '<span><slot /></span>',
           },
+          WeatherDetailHeader: WeatherDetailHeaderStub,
         },
       },
     })
@@ -82,9 +152,9 @@ describe('TemperatureTrendView', () => {
 
   const getLatestOption = () =>
     echartsInstanceMock.setOption.mock.calls[echartsInstanceMock.setOption.mock.calls.length - 1]?.[0] as {
-      legend: { selected: Record<string, boolean> }
+      legend: { show: boolean }
       xAxis: { data: string[] }
-      series: Array<{ type: string }>
+      series: Array<{ name: string; type: string }>
     }
 
   it('renders the shared top navigation, search, tabs and chart', async () => {
@@ -93,9 +163,13 @@ describe('TemperatureTrendView', () => {
     expect(wrapper.text()).toContain('城市概览')
     expect(wrapper.text()).toContain('温度趋势')
     expect(wrapper.text()).toContain('天气地图')
-    expect(wrapper.find('input[placeholder="搜索城市"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('单日天气')
+    expect(wrapper.find('.weather-detail-header-stub').exists()).toBe(true)
+    expect(wrapper.find('.shared-active-nav').text()).toBe('temperature-trend')
+    expect(wrapper.find('.shared-search-input').exists()).toBe(true)
     expect(wrapper.text()).toContain('北京市')
     expect(wrapper.find('[data-testid="weekly-temperature-trend-chart"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="forecast-range-select"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('武汉市 周温度趋势')
     expect(wrapper.text()).toContain('柱状图')
@@ -105,6 +179,7 @@ describe('TemperatureTrendView', () => {
     expect(echartsInstanceMock.setOption).toHaveBeenCalled()
 
     const option = getLatestOption()
+    expect(option.legend.show).toBe(false)
     expect(option.xAxis.data).toHaveLength(7)
     expect(option.series).toHaveLength(3)
   })
@@ -127,7 +202,14 @@ describe('TemperatureTrendView', () => {
     await router.push('/weather/武汉市/temperature-trend')
     await flushPromises()
 
-    const searchInput = wrapper.get('input[placeholder="搜索城市"]')
+    await navButtons[3]!.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('city-daily-weather')
+
+    await router.push('/weather/武汉市/temperature-trend')
+    await flushPromises()
+
+    const searchInput = wrapper.get('.shared-search-input')
     await searchInput.setValue('上海市')
     await searchInput.trigger('keydown.enter')
     await flushPromises()
@@ -143,24 +225,27 @@ describe('TemperatureTrendView', () => {
     await flushPromises()
 
     let latestOption = getLatestOption()
-    expect(latestOption.legend.selected['平均气温']).toBe(true)
-    expect(latestOption.legend.selected['最高气温']).toBe(false)
-    expect(latestOption.legend.selected['最低气温']).toBe(false)
+    expect(latestOption.series.map((item) => item.name)).toEqual(['平均气温'])
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(false)
 
     await buttons[1]!.trigger('click')
     await flushPromises()
 
     latestOption = getLatestOption()
-    expect(latestOption.legend.selected['平均气温']).toBe(false)
-    expect(latestOption.legend.selected['最高气温']).toBe(true)
-    expect(latestOption.legend.selected['最低气温']).toBe(true)
+    expect(latestOption.series.map((item) => item.name)).toEqual(['最高气温', '最低气温'])
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
 
     await buttons[2]!.trigger('click')
     await flushPromises()
 
     latestOption = getLatestOption()
-    expect(latestOption.legend.selected['平均气温']).toBe(true)
-    expect(latestOption.legend.selected['最高气温']).toBe(true)
-    expect(latestOption.legend.selected['最低气温']).toBe(true)
+    expect(latestOption.series.map((item) => item.name)).toEqual(['平均气温', '最高气温', '最低气温'])
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
   })
 })

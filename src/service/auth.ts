@@ -72,6 +72,15 @@ export interface UpdateProfilePayload {
   avatarUrl?: string
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface DestroyAccountPayload {
+  refreshToken?: string
+}
+
 export interface AvatarUploadResponse {
   code: number
   message: string
@@ -98,6 +107,20 @@ export const getLoginRecords = () => {
 
 export const updateProfile = (payload: UpdateProfilePayload) => {
   return http.put<UpdateProfilePayload, ProfileResponse>('/auth/profile', payload)
+}
+
+export const changePassword = (payload: ChangePasswordPayload) => {
+  return http.put<ChangePasswordPayload, { code: number; message: string; data: null }>(
+    '/auth/password',
+    payload,
+  )
+}
+
+export const destroyAccount = (payload: DestroyAccountPayload = {}) => {
+  return http.post<DestroyAccountPayload, { code: number; message: string; data: null }>(
+    '/auth/destroy',
+    payload,
+  )
 }
 
 export const uploadAvatar = (file: File) => {

@@ -15,7 +15,7 @@ const navItems = [
   { key: 'overview', label: '城市概览' },
   { key: 'temperature-trend', label: '温度趋势' },
   { key: 'weather-map', label: '天气地图' },
-  { key: 'hourly-forecast', label: '每小时预报', disabled: true },
+  { key: 'daily-weather', label: '单日天气' },
 ] as const
 
 const routeCityName = computed(() => String(route.params.cityName ?? ''))
@@ -29,6 +29,8 @@ const activeNavKey = computed(() =>
     ? 'temperature-trend'
     : route.name === 'city-weather-map'
       ? 'weather-map'
+      : route.name === 'city-daily-weather'
+        ? 'daily-weather'
       : 'overview',
 )
 
@@ -99,6 +101,18 @@ const handleNavSelect = (navKey: string) => {
 
     void router.push({
       name: 'city-weather-map',
+      params: { cityName: routeCityName.value },
+    })
+    return
+  }
+
+  if (navKey === 'daily-weather') {
+    if (route.name === 'city-daily-weather') {
+      return
+    }
+
+    void router.push({
+      name: 'city-daily-weather',
       params: { cityName: routeCityName.value },
     })
   }

@@ -4,6 +4,14 @@ import * as echarts from 'echarts'
 import ForecastRangePanel from '@/components/weather/overview/ForecastRangePanel.vue'
 
 type ChartMode = 'both' | 'line' | 'bar'
+type SeriesKey = 'average' | 'high' | 'low'
+
+type LegendItem = {
+  key: SeriesKey
+  name: string
+  icon: 'bar' | 'line'
+  colorClass: string
+}
 
 const props = withDefaults(
   defineProps<{
@@ -28,6 +36,27 @@ const baseTemp = computed(() => {
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
+const legendItems: ReadonlyArray<LegendItem> = [
+  {
+    key: 'average',
+    name: '平均气温',
+    icon: 'bar',
+    colorClass: 'trend-legend__swatch--average',
+  },
+  {
+    key: 'high',
+    name: '最高气温',
+    icon: 'line',
+    colorClass: 'trend-legend__swatch--high',
+  },
+  {
+    key: 'low',
+    name: '最低气温',
+    icon: 'line',
+    colorClass: 'trend-legend__swatch--low',
+  },
+]
+
 const weeklySeries = computed(() => {
   const citySeed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
 
@@ -49,15 +78,19 @@ const weeklySeries = computed(() => {
 
 const activeSeries = computed(() => {
   if (chartMode.value === 'line') {
-    return ['high', 'low']
+    return ['high', 'low'] satisfies SeriesKey[]
   }
 
   if (chartMode.value === 'bar') {
-    return ['average']
+    return ['average'] satisfies SeriesKey[]
   }
 
-  return ['average', 'high', 'low']
+  return ['average', 'high', 'low'] satisfies SeriesKey[]
 })
+
+const activeLegendItems = computed(() =>
+  legendItems.filter((item) => activeSeries.value.includes(item.key)),
+)
 
 const syncChart = () => {
   if (!chartInstance) {
@@ -67,6 +100,72 @@ const syncChart = () => {
   const showAverage = activeSeries.value.includes('average')
   const showHigh = activeSeries.value.includes('high')
   const showLow = activeSeries.value.includes('low')
+  const series = [
+    showAverage
+      ? {
+          name: '平均气温',
+          type: 'bar',
+          barMaxWidth: 30,
+          data: weeklySeries.value.map((item) => item.average),
+          itemStyle: {
+            borderRadius: [10, 10, 4, 4],
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(90, 224, 255, 0.94)' },
+              { offset: 0.55, color: 'rgba(35, 157, 255, 0.68)' },
+              { offset: 1, color: 'rgba(141, 94, 255, 0.28)' },
+            ]),
+            shadowBlur: 18,
+            shadowColor: 'rgba(40, 191, 255, 0.3)',
+          },
+        }
+      : null,
+    showHigh
+      ? {
+          name: '最高气温',
+          type: 'line',
+          smooth: true,
+          symbol: 'circle',
+          symbolSize: 10,
+          data: weeklySeries.value.map((item) => item.high),
+          lineStyle: {
+            width: 3,
+            color: '#ffb76a',
+            shadowBlur: 16,
+            shadowColor: 'rgba(255, 183, 106, 0.32)',
+          },
+          itemStyle: {
+            color: '#ffd1a3',
+            borderColor: '#ff9f43',
+            borderWidth: 2,
+            shadowBlur: 10,
+            shadowColor: 'rgba(255, 183, 106, 0.36)',
+          },
+        }
+      : null,
+    showLow
+      ? {
+          name: '最低气温',
+          type: 'line',
+          smooth: true,
+          symbol: 'circle',
+          symbolSize: 10,
+          data: weeklySeries.value.map((item) => item.low),
+          lineStyle: {
+            width: 3,
+            color: '#9de9ff',
+            shadowBlur: 16,
+            shadowColor: 'rgba(117, 241, 255, 0.32)',
+          },
+          itemStyle: {
+            color: '#eefcff',
+            borderColor: '#43c9ff',
+            borderWidth: 2,
+            shadowBlur: 10,
+            shadowColor: 'rgba(117, 241, 255, 0.42)',
+          },
+        }
+      : null,
+  ].filter(Boolean)
 
   chartInstance.setOption({
     backgroundColor: 'transparent',
@@ -100,23 +199,7 @@ const syncChart = () => {
       },
     },
     legend: {
-      top: 20,
-      right: 20,
-      itemWidth: 12,
-      itemHeight: 12,
-      textStyle: {
-        color: 'rgba(214, 244, 255, 0.78)',
-      },
-      data: [
-        { name: '平均气温', icon: 'roundRect' },
-        { name: '最高气温', icon: 'circle' },
-        { name: '最低气温', icon: 'circle' },
-      ],
-      selected: {
-        平均气温: showAverage,
-        最高气温: showHigh,
-        最低气温: showLow,
-      },
+      show: false,
     },
     xAxis: {
       type: 'category',
@@ -156,66 +239,7 @@ const syncChart = () => {
         color: 'rgba(198, 235, 247, 0.7)',
       },
     },
-    series: [
-      {
-        name: '平均气温',
-        type: 'bar',
-        barMaxWidth: 30,
-        data: weeklySeries.value.map((item) => item.average),
-        itemStyle: {
-          borderRadius: [10, 10, 4, 4],
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(90, 224, 255, 0.94)' },
-            { offset: 0.55, color: 'rgba(35, 157, 255, 0.68)' },
-            { offset: 1, color: 'rgba(141, 94, 255, 0.28)' },
-          ]),
-          shadowBlur: 18,
-          shadowColor: 'rgba(40, 191, 255, 0.3)',
-        },
-      },
-      {
-        name: '最高气温',
-        type: 'line',
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 10,
-        data: weeklySeries.value.map((item) => item.high),
-        lineStyle: {
-          width: 3,
-          color: '#ffb76a',
-          shadowBlur: 16,
-          shadowColor: 'rgba(255, 183, 106, 0.32)',
-        },
-        itemStyle: {
-          color: '#ffd1a3',
-          borderColor: '#ff9f43',
-          borderWidth: 2,
-          shadowBlur: 10,
-          shadowColor: 'rgba(255, 183, 106, 0.36)',
-        },
-      },
-      {
-        name: '最低气温',
-        type: 'line',
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 10,
-        data: weeklySeries.value.map((item) => item.low),
-        lineStyle: {
-          width: 3,
-          color: '#9de9ff',
-          shadowBlur: 16,
-          shadowColor: 'rgba(117, 241, 255, 0.32)',
-        },
-        itemStyle: {
-          color: '#eefcff',
-          borderColor: '#43c9ff',
-          borderWidth: 2,
-          shadowBlur: 10,
-          shadowColor: 'rgba(117, 241, 255, 0.42)',
-        },
-      },
-    ],
+    series,
   })
 }
 
@@ -256,7 +280,7 @@ watch([() => props.cityName, () => props.temperature, weeklySeries, chartMode], 
       <div>
         <p class="trend-kicker">SEVEN-DAY CLIMATE ARC</p>
         <h2>{{ props.cityName }} 周温度趋势</h2>
-        <p class="trend-note">将未来一周的高温、低温与平均气温整合到同一战术图层中，便于横向观察整体气温波动。</p>
+        <p class="trend-note">将未来一周的高温、低温与平均气温整合到同一图层中，便于横向观察整体气温波动。</p>
       </div>
 
       <div class="trend-actions">
@@ -290,6 +314,20 @@ watch([() => props.cityName, () => props.temperature, weeklySeries, chartMode], 
     </header>
 
     <section class="chart-card">
+      <div class="trend-legend" data-testid="weekly-temperature-trend-legend">
+        <span class="trend-legend__title">图表案例</span>
+        <div class="trend-legend__items">
+          <div
+            v-for="item in activeLegendItems"
+            :key="item.key"
+            class="trend-legend__item"
+            :data-testid="`weekly-temperature-trend-legend-${item.key}`"
+          >
+            <span class="trend-legend__swatch" :class="[item.colorClass, `trend-legend__swatch--${item.icon}`]" />
+            <span class="trend-legend__text">{{ item.name }}</span>
+          </div>
+        </div>
+      </div>
       <div class="chart-grid" aria-hidden="true" />
       <div ref="chartRef" class="chart-surface" data-testid="weekly-temperature-trend-chart" />
     </section>
@@ -413,6 +451,110 @@ watch([() => props.cityName, () => props.temperature, weeklySeries, chartMode], 
     0 20px 48px rgba(0, 0, 0, 0.24);
 }
 
+.trend-legend {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  display: grid;
+  gap: 10px;
+  width: 188px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 241, 255, 0.22);
+  background:
+    linear-gradient(180deg, rgba(7, 17, 39, 0.94) 0%, rgba(3, 10, 26, 0.9) 100%);
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.08),
+    0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.trend-legend__title {
+  color: rgba(160, 231, 255, 0.76);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.trend-legend__items {
+  display: grid;
+  gap: 10px;
+  min-height: 70px;
+  align-content: start;
+}
+
+.trend-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 20px;
+}
+
+.trend-legend__swatch {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.trend-legend__swatch--bar {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.trend-legend__swatch--line {
+  width: 18px;
+  height: 12px;
+}
+
+.trend-legend__swatch--line::before,
+.trend-legend__swatch--line::after {
+  content: '';
+  position: absolute;
+}
+
+.trend-legend__swatch--line::before {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.trend-legend__swatch--line::after {
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #f7fdff;
+  border: 2px solid currentColor;
+  box-sizing: border-box;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.trend-legend__swatch--average {
+  background: linear-gradient(180deg, rgba(90, 224, 255, 0.94), rgba(35, 157, 255, 0.68));
+  box-shadow: 0 0 12px rgba(40, 191, 255, 0.28);
+}
+
+.trend-legend__swatch--high {
+  color: #ffb76a;
+}
+
+.trend-legend__swatch--low {
+  color: #9de9ff;
+}
+
+.trend-legend__text {
+  color: rgba(214, 244, 255, 0.78);
+  font-size: 13px;
+  line-height: 1;
+}
+
 .chart-grid,
 .chart-surface {
   position: absolute;
@@ -443,6 +585,13 @@ watch([() => props.cityName, () => props.temperature, weeklySeries, chartMode], 
 
   .mode-btn {
     min-width: 0;
+  }
+
+  .trend-legend {
+    left: 16px;
+    right: 16px;
+    top: 16px;
+    width: auto;
   }
 }
 </style>

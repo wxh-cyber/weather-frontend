@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { weatherSearchSubmitKey } from '@/layout/helpers/weatherSearch'
 import CityWeatherMapView from '@/views/weather/map/CityWeatherMapView.vue'
 import { useCityStore } from '@/store/city'
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/store/auth'
 
 describe('CityWeatherMapView', () => {
   beforeEach(() => {
@@ -12,12 +13,22 @@ describe('CityWeatherMapView', () => {
   })
 
   const mountMapView = async (initialPath = '/weather/武汉市/map') => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'test-token')
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({
+        userId: 'test-user',
+        email: 'tester@example.com',
+      }),
+    )
+
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/weather/:cityName', name: 'city-detail', component: { template: '<div />' } },
         { path: '/weather/:cityName/temperature-trend', name: 'city-temperature-trend', component: { template: '<div />' } },
         { path: '/weather/:cityName/map', name: 'city-weather-map', component: CityWeatherMapView },
+        { path: '/weather/:cityName/daily-weather', name: 'city-daily-weather', component: { template: '<div />' } },
       ],
     })
 
@@ -43,6 +54,23 @@ describe('CityWeatherMapView', () => {
           'el-icon': {
             template: '<i><slot /></i>',
           },
+          WeatherDetailHeader: {
+            props: ['navItems', 'activeNavKey'],
+            emits: ['nav-select', 'search-submit'],
+            template: `
+              <header class="weather-detail-header-stub">
+                <span class="shared-active-nav">{{ activeNavKey }}</span>
+                <button
+                  v-for="item in navItems"
+                  :key="item.key"
+                  class="menu-button"
+                  @click="$emit('nav-select', item.key)"
+                >
+                  {{ item.label }}
+                </button>
+              </header>
+            `,
+          },
           WeatherCityTabs: {
             template: '<div class="weather-city-tabs-stub" />',
           },
@@ -62,6 +90,8 @@ describe('CityWeatherMapView', () => {
     const { wrapper, router } = await mountMapView()
 
     expect(router.currentRoute.value.name).toBe('city-weather-map')
+    expect(wrapper.find('.weather-detail-header-stub').exists()).toBe(true)
+    expect(wrapper.find('.shared-active-nav').text()).toBe('weather-map')
     expect(wrapper.find('.weather-map-explorer-stub').exists()).toBe(true)
     expect(wrapper.find('.weather-map-explorer-stub').attributes('data-city-name')).toBe('武汉市')
   })
@@ -81,5 +111,15 @@ describe('CityWeatherMapView', () => {
     await refreshedButtons[1]!.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('city-temperature-trend')
+  })
+
+  it('switches to the daily weather route from local nav', async () => {
+    const { wrapper, router } = await mountMapView()
+
+    const buttons = wrapper.findAll('.menu-button')
+    await buttons[3]!.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('city-daily-weather')
   })
 })

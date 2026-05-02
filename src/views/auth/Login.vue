@@ -27,6 +27,11 @@
             show-password
           />
         </el-form-item>
+        
+        <!-- 记住我复选框 -->
+        <el-form-item class="remember-item">
+          <el-checkbox v-model="rememberMe">记住我</el-checkbox>
+        </el-form-item>
         <el-form-item class="submit-item">
           <el-button class="submit-btn" :loading="isSubmitting" @click="handleLoginSubmit">登录</el-button>
         </el-form-item>
@@ -56,8 +61,15 @@ const router = useRouter()
 const authStore = useAuthStore()
 const cityStore = useCityStore()
 const isSubmitting = ref(false)
+const rememberMe = ref(false)
+const rememberedCredentialsStorageKey = 'weather-login-remembered-credentials'
 
 interface LoginForm {
+  email: string
+  password: string
+}
+
+interface RememberedCredentials {
   email: string
   password: string
 }
@@ -74,6 +86,57 @@ const loginRules: FormRules<LoginForm> = {
     { type: 'email', message: '请输入有效的邮箱地址', trigger: ['blur', 'change'] },
   ],
   password: [{ required: true, message: '请输入密码', trigger: ['blur', 'change'] }],
+}
+
+const readRememberedCredentials = (): RememberedCredentials | null => {
+  try {
+    const rawValue = window.localStorage.getItem(rememberedCredentialsStorageKey)
+    if (!rawValue) {
+      return null
+    }
+    const parsed = JSON.parse(rawValue) as Partial<RememberedCredentials>
+    if (typeof parsed.email !== 'string' || typeof parsed.password !== 'string') {
+      return null
+    }
+    return {
+      email: parsed.email,
+      password: parsed.password,
+    }
+  } catch {
+    return null
+  }
+}
+
+const restoreRememberedCredentials = () => {
+  const rememberedCredentials = readRememberedCredentials()
+  if (!rememberedCredentials) {
+    return
+  }
+  loginForm.email = rememberedCredentials.email
+  loginForm.password = rememberedCredentials.password
+  rememberMe.value = true
+}
+
+const persistRememberedCredentials = () => {
+  try {
+    window.localStorage.setItem(
+      rememberedCredentialsStorageKey,
+      JSON.stringify({
+        email: loginForm.email,
+        password: loginForm.password,
+      }),
+    )
+  } catch {
+    // 本地存储不可用时不影响登录主流程
+  }
+}
+
+const clearRememberedCredentials = () => {
+  try {
+    window.localStorage.removeItem(rememberedCredentialsStorageKey)
+  } catch {
+    // 本地存储不可用时不影响登录主流程
+  }
 }
 
 const consumeRouteReason = async () => {
@@ -109,6 +172,11 @@ const handleLoginSubmit = async () => {
       password: loginForm.password,
     })
     if (res.code === 0) {
+      if (rememberMe.value) {
+        persistRememberedCredentials()
+      } else {
+        clearRememberedCredentials()
+      }
       authStore.setAuth(res.data.token, res.data.user)
       cityStore.syncFromStorage()
       try {
@@ -134,6 +202,7 @@ const handleLoginSubmit = async () => {
 }
 
 onMounted(async () => {
+  restoreRememberedCredentials()
   await consumeRouteReason()
 })
 </script>
@@ -150,5 +219,19 @@ onMounted(async () => {
   background-position: center;
   background-repeat: no-repeat;
   transform: scale(1.04);
+}
+
+.remember-item {
+  margin-top: -0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.remember-item :deep(.el-checkbox) {
+  color: rgba(235, 245, 255, 0.86);
+  font-size: 0.95rem;
+}
+
+.remember-item :deep(.el-checkbox__label) {
+  color: inherit;
 }
 </style>

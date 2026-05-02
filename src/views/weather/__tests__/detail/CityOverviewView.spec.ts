@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { weatherSearchSubmitKey } from '@/layout/helpers/weatherSearch'
 import CityOverviewView from '@/views/weather/detail/CityOverviewView.vue'
 import { useCityStore } from '@/store/city'
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/store/auth'
 
 describe('CityOverviewView', () => {
   beforeEach(() => {
@@ -12,12 +13,22 @@ describe('CityOverviewView', () => {
   })
 
   const mountOverviewView = async (initialPath: string) => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'test-token')
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({
+        userId: 'test-user',
+        email: 'tester@example.com',
+      }),
+    )
+
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/weather/:cityName', name: 'city-detail', component: CityOverviewView },
         { path: '/weather/:cityName/temperature-trend', name: 'city-temperature-trend', component: CityOverviewView },
         { path: '/weather/:cityName/map', name: 'city-weather-map', component: CityOverviewView },
+        { path: '/weather/:cityName/daily-weather', name: 'city-daily-weather', component: CityOverviewView },
       ],
     })
 
@@ -52,6 +63,7 @@ describe('CityOverviewView', () => {
                 <button class="to-overview" @click="$emit('nav-select', 'overview')" />
                 <button class="to-trend" @click="$emit('nav-select', 'temperature-trend')" />
                 <button class="to-map" @click="$emit('nav-select', 'weather-map')" />
+                <button class="to-daily-weather" @click="$emit('nav-select', 'daily-weather')" />
                 <button class="submit-search" @click="$emit('search-submit', '南京')" />
               </section>
             `,
@@ -59,6 +71,8 @@ describe('CityOverviewView', () => {
         },
       },
     })
+
+    await flushPromises()
 
     return { wrapper, router, searchSubmitMock }
   }
@@ -100,6 +114,16 @@ describe('CityOverviewView', () => {
 
     expect(router.currentRoute.value.name).toBe('city-weather-map')
     expect(router.currentRoute.value.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/map')
+  })
+
+  it('switches to the dedicated daily weather route from local nav actions', async () => {
+    const { wrapper, router } = await mountOverviewView('/weather/武汉市')
+
+    await wrapper.find('.to-daily-weather').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('city-daily-weather')
+    expect(router.currentRoute.value.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/daily-weather')
   })
 
   it('forwards local search submit to the shared weather search handler', async () => {

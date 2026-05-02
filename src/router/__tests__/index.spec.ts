@@ -121,4 +121,13 @@ describe('router auth guard', () => {
 
     expect(result.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/map')
   })
+
+  it('resolves the dedicated daily weather child route for the current city', () => {
+    const result = router.resolve({
+      name: 'city-daily-weather',
+      params: { cityName: '武汉市' },
+    })
+
+    expect(result.fullPath).toBe('/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/daily-weather')
+  })
 })

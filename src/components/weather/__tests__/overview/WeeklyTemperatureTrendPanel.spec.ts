@@ -49,22 +49,27 @@ describe('WeeklyTemperatureTrendPanel', () => {
 
   const getLatestOption = () =>
     echartsInstanceMock.setOption.mock.calls[echartsInstanceMock.setOption.mock.calls.length - 1]?.[0] as {
-      legend: { selected: Record<string, boolean> }
+      legend: { show: boolean }
       xAxis: { data: string[] }
-      series: Array<{ type: string; data: number[] }>
+      series: Array<{ name: string; type: string; data: number[] }>
     }
 
   it('renders weekly title and initializes a combined weekly chart', async () => {
     const wrapper = await mountPanel()
 
     expect(wrapper.find('[data-testid="weekly-temperature-trend-chart"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('武汉市 周温度趋势')
     expect(wrapper.text()).toContain('柱状图')
     expect(wrapper.text()).toContain('折线图')
     expect(wrapper.text()).toContain('同时显示')
     expect(wrapper.find('[data-testid="forecast-range-select"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
 
     const option = getLatestOption()
+    expect(option.legend.show).toBe(false)
     expect(option.xAxis.data).toHaveLength(7)
     expect(option.series).toHaveLength(3)
     expect(option.series[0]?.type).toBe('bar')
@@ -80,24 +85,27 @@ describe('WeeklyTemperatureTrendPanel', () => {
     await flushPromises()
 
     let option = getLatestOption()
-    expect(option.legend.selected['平均气温']).toBe(true)
-    expect(option.legend.selected['最高气温']).toBe(false)
-    expect(option.legend.selected['最低气温']).toBe(false)
+    expect(option.series.map((item) => item.name)).toEqual(['平均气温'])
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(false)
 
     await buttons[1]!.trigger('click')
     await flushPromises()
 
     option = getLatestOption()
-    expect(option.legend.selected['平均气温']).toBe(false)
-    expect(option.legend.selected['最高气温']).toBe(true)
-    expect(option.legend.selected['最低气温']).toBe(true)
+    expect(option.series.map((item) => item.name)).toEqual(['最高气温', '最低气温'])
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
 
     await buttons[2]!.trigger('click')
     await flushPromises()
 
     option = getLatestOption()
-    expect(option.legend.selected['平均气温']).toBe(true)
-    expect(option.legend.selected['最高气温']).toBe(true)
-    expect(option.legend.selected['最低气温']).toBe(true)
+    expect(option.series.map((item) => item.name)).toEqual(['平均气温', '最高气温', '最低气温'])
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
   })
 })

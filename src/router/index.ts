@@ -10,6 +10,7 @@ import CityDetail from '../views/weather/detail/CityDetail.vue'
 import CityOverviewView from '../views/weather/detail/CityOverviewView.vue'
 import TemperatureTrendView from '../views/weather/detail/TemperatureTrendView.vue'
 import CityWeatherMapView from '../views/weather/map/CityWeatherMapView.vue'
+import DailyWeatherView from '../views/weather/detail/DailyWeatherView.vue'
 import { getStoredAuthUserId } from '@/store/auth'
 import { buildCityListStorageKey, clearLegacyCityListStorage } from '@/store/city'
 
@@ -152,6 +153,11 @@ const router = createRouter({
           path: 'map',
           name: 'city-weather-map',
           component: CityWeatherMapView,
+        },
+        {
+          path: 'daily-weather',
+          name: 'city-daily-weather',
+          component: DailyWeatherView,
         },
       ],
       meta: { navVariant: 'home' },
