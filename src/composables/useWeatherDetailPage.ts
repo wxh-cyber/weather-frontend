@@ -2,6 +2,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCityStore } from '@/store/city'
 import type { WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
+import { isEquivalentCityName } from '@/utils/weather/cityNameDisplay'
 
 type WeatherDetailNavKey =
   | 'overview'
@@ -32,8 +33,8 @@ export const useWeatherDetailPage = (options: {
 
   const routeCityName = computed(() => String(route.params.cityName ?? ''))
   const selectedCity = computed(
-    () => cityStore.cities.find((city) => city.cityName === selectedCityName.value)
-      ?? cityStore.cities.find((city) => city.cityName === routeCityName.value)
+    () => cityStore.cities.find((city) => isEquivalentCityName(city.cityName, selectedCityName.value))
+      ?? cityStore.cities.find((city) => isEquivalentCityName(city.cityName, routeCityName.value))
       ?? null,
   )
 
@@ -44,7 +45,7 @@ export const useWeatherDetailPage = (options: {
 
   const syncSelectedCity = () => {
     const currentName = selectedCityName.value.trim()
-    const hasCurrentCity = cityStore.cities.some((city) => city.cityName === currentName)
+    const hasCurrentCity = cityStore.cities.some((city) => isEquivalentCityName(city.cityName, currentName))
     if (hasCurrentCity) {
       return
     }
@@ -62,7 +63,7 @@ export const useWeatherDetailPage = (options: {
   }
 
   const handleCitySelect = (cityName: string) => {
-    if (routeCityName.value === cityName && route.name === options.citySelectRouteName) {
+    if (isEquivalentCityName(routeCityName.value, cityName) && route.name === options.citySelectRouteName) {
       return
     }
 
