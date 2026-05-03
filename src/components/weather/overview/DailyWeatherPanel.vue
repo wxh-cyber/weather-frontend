@@ -490,7 +490,16 @@ function resolveWeatherIconKey(text: string, period: DayPeriod): WeatherIconKey 
 }
 
 .hero-card.is-night-mode {
-  border-color: rgba(117, 241, 255, 0.18);
+  border-color: rgba(126, 233, 255, 0.3);
+  background:
+    radial-gradient(circle at top right, rgba(102, 189, 255, 0.18), transparent 36%),
+    radial-gradient(circle at bottom left, rgba(92, 132, 255, 0.16), transparent 38%),
+    linear-gradient(160deg, rgba(9, 18, 42, 0.92), rgba(3, 10, 28, 0.96));
+  box-shadow:
+    inset 0 0 20px rgba(117, 241, 255, 0.1),
+    inset 0 0 34px rgba(72, 128, 255, 0.08),
+    0 18px 36px rgba(0, 0, 0, 0.24),
+    0 0 26px rgba(88, 153, 255, 0.12);
 }
 
 .hero-top {
@@ -645,18 +654,25 @@ function resolveWeatherIconKey(text: string, period: DayPeriod): WeatherIconKey 
 }
 
 .sun-icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
   filter:
-    drop-shadow(0 0 6px rgba(117, 241, 255, 0.18))
-    brightness(1.08);
+    drop-shadow(0 0 9px rgba(117, 241, 255, 0.22))
+    brightness(1.12);
 }
 
 .hero-card.is-day-mode .sun-icon {
   filter:
-    drop-shadow(0 0 7px rgba(255, 183, 77, 0.24))
-    brightness(1.12);
+    drop-shadow(0 0 10px rgba(255, 183, 77, 0.28))
+    brightness(1.16);
+}
+
+.hero-card.is-night-mode .sun-icon {
+  filter:
+    drop-shadow(0 0 10px rgba(117, 241, 255, 0.24))
+    drop-shadow(0 0 18px rgba(88, 153, 255, 0.1))
+    brightness(1.14);
 }
 
 .sun-divider {

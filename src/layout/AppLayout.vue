@@ -16,7 +16,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const cityStore = useCityStore()
 const { isLoggedIn, displayName, user } = storeToRefs(authStore)
-const weatherRouteNames = ['weather', 'city-detail', 'city-temperature-trend'] as const
+const weatherRouteNames = ['weather', 'city-detail', 'city-temperature-trend', 'city-daily-weather'] as const
 let profileHydrationPromise: Promise<void> | null = null
 
 const syncUserStatus = () => {
@@ -84,6 +84,7 @@ const centeredNavRoutes = [
   'city-detail',
   'city-temperature-trend',
   'city-weather-map',
+  'city-daily-weather',
 ] as const
 const showCenterButtons = computed(() =>
   route.name === 'center'
@@ -92,7 +93,8 @@ const showCenterButtons = computed(() =>
     || route.name === 'weather'
     || route.name === 'city-detail'
     || route.name === 'city-temperature-trend'
-    || route.name === 'city-weather-map',
+    || route.name === 'city-weather-map'
+    || route.name === 'city-daily-weather',
 )
 const showCenterSearch = computed(() => false)
 const showCityDetail = computed(() => showCenterButtons.value)
@@ -114,6 +116,7 @@ const activeCenterAction = computed(() =>
     : route.name === 'city-detail'
         || route.name === 'city-temperature-trend'
         || route.name === 'city-weather-map'
+        || route.name === 'city-daily-weather'
       ? 'city-detail'
     : route.name === 'center'
       ? 'profile-center'

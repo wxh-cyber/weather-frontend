@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import CityList from '@/components/city-list/CityList.vue'
 import { useCityStore } from '@/store/city'
+import { resolveCanonicalCityName, resolveDisplayCityName } from '@/utils/weather/cityNameDisplay'
 
 const cityStore = useCityStore()
 const cityItems = computed(() => cityStore.cities)
@@ -23,7 +24,7 @@ const allCitiesSelected = computed(
 
 const cityNameOptions = computed(() =>
   cityItems.value.map((item) => ({
-    label: item.cityName,
+    label: resolveDisplayCityName(item.cityName),
     value: item.cityName,
   })),
 )
@@ -37,18 +38,24 @@ const filteredDeleteCities = computed(() => {
 })
 
 const handleSearch = async () => {
-  await cityStore.fetchCities(keyword.value)
+  const canonicalKeyword = resolveCanonicalCityName(keyword.value)
+  keyword.value = canonicalKeyword
+  await cityStore.fetchCities(canonicalKeyword)
 }
 
 const handleCreate = async () => {
-  const success = await cityStore.createCityByName(newCityName.value)
+  const canonicalCityName = resolveCanonicalCityName(newCityName.value)
+  newCityName.value = canonicalCityName
+  const success = await cityStore.createCityByName(canonicalCityName)
   if (success) {
     newCityName.value = ''
   }
 }
 
 const handleRename = async () => {
-  const success = await cityStore.setDefaultCityByName(editingCityName.value)
+  const canonicalCityName = resolveCanonicalCityName(editingCityName.value)
+  editingCityName.value = canonicalCityName
+  const success = await cityStore.setDefaultCityByName(canonicalCityName)
   if (success) {
     editingCityName.value = ''
     batchDeleteSummary.value = '默认城市已更新'
@@ -250,7 +257,7 @@ onMounted(async () => {
                     class="delete-tag-chip"
                     @click="removeDeleteTag(cityName)"
                   >
-                    <span class="delete-tag-chip__name">{{ cityName }}</span>
+                    <span class="delete-tag-chip__name">{{ resolveDisplayCityName(cityName) }}</span>
                     <span class="delete-tag-chip__close">×</span>
                   </button>
                 </div>
@@ -281,7 +288,7 @@ onMounted(async () => {
                         :checked="selectedDeleteCities.includes(item.cityName)"
                         @change="onDeleteCheckboxChange(item.cityName, $event)"
                       />
-                      <span class="delete-city-name">{{ item.cityName }}</span>
+                      <span class="delete-city-name">{{ resolveDisplayCityName(item.cityName) }}</span>
                     </label>
                     <el-button
                       class="cyber-action-btn cyber-danger-btn cyber-row-delete"
@@ -356,7 +363,7 @@ onMounted(async () => {
               class="dcd-city-chip"
             >
               <span class="dcd-chip-marker" aria-hidden="true" />
-              {{ cityName }}
+              {{ resolveDisplayCityName(cityName) }}
             </span>
           </div>
           <p class="dcd-confirm-text">

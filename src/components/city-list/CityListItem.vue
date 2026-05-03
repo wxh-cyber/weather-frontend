@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { resolveDisplayCityName } from '@/utils/weather/cityNameDisplay'
 import { getWeatherIcon, type WeatherIconKey } from '@/utils/weather/weatherIconMap'
 
 const props = withDefaults(
@@ -16,6 +17,7 @@ const props = withDefaults(
 )
 
 const router = useRouter()
+const displayCityName = computed(() => resolveDisplayCityName(props.cityName))
 
 const resolveWeatherIconKey = (weatherText: string): WeatherIconKey => {
   const normalized = weatherText.trim()
@@ -34,7 +36,7 @@ const weatherIcon = computed(() => getWeatherIcon(resolveWeatherIconKey(props.we
 <template>
   <article class="city-item" :class="{ 'is-default': props.isDefault }" @click="router.push(`/weather/${props.cityName}`)">
     <span v-if="props.isDefault" class="default-chip">默认城市</span>
-    <p class="city-name">{{ props.cityName }}</p>
+    <p class="city-name">{{ displayCityName }}</p>
     <div class="weather-row">
       <img class="weather-icon" :src="weatherIcon.src" :alt="weatherIcon.alt" />
       <span class="weather-text">{{ props.weatherText }}</span>

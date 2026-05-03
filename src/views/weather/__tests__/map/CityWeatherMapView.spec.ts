@@ -60,14 +60,16 @@ describe('CityWeatherMapView', () => {
             template: `
               <header class="weather-detail-header-stub">
                 <span class="shared-active-nav">{{ activeNavKey }}</span>
-                <button
-                  v-for="item in navItems"
-                  :key="item.key"
-                  class="menu-button"
-                  @click="$emit('nav-select', item.key)"
-                >
-                  {{ item.label }}
-                </button>
+                <nav class="shared-nav-row" data-testid="weather-detail-header-nav">
+                  <button
+                    v-for="item in navItems"
+                    :key="item.key"
+                    class="menu-button"
+                    @click="$emit('nav-select', item.key)"
+                  >
+                    {{ item.label }}
+                  </button>
+                </nav>
               </header>
             `,
           },
@@ -91,6 +93,7 @@ describe('CityWeatherMapView', () => {
 
     expect(router.currentRoute.value.name).toBe('city-weather-map')
     expect(wrapper.find('.weather-detail-header-stub').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-detail-header-nav"]').exists()).toBe(true)
     expect(wrapper.find('.shared-active-nav').text()).toBe('weather-map')
     expect(wrapper.find('.weather-map-explorer-stub').exists()).toBe(true)
     expect(wrapper.find('.weather-map-explorer-stub').attributes('data-city-name')).toBe('武汉市')

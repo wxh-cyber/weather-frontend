@@ -725,6 +725,7 @@ onBeforeUnmount(() => {
 .nav-center {
   width: 100%;
   min-width: 0;
+  overflow: visible;
 }
 
 .nav-center-button {
@@ -733,6 +734,8 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: 12px;
   height: 100%;
+  padding-top: 4px;
+  overflow: visible;
 }
 
 .nav-center-button--centered {
@@ -741,7 +744,7 @@ onBeforeUnmount(() => {
 
 .my-cities-btn {
   position: relative;
-  height: calc(100% - 2px);
+  height: calc(100% - 6px);
   min-height: 0;
   width: fit-content;
   min-width: 90px;
@@ -766,7 +769,7 @@ onBeforeUnmount(() => {
     inset 0 0 18px rgba(117, 241, 255, 0.1),
     0 1px 10px rgba(0, 0, 0, 0.28);
   cursor: pointer;
-  overflow: hidden;
+  overflow: visible;
   transition:
     border-color var(--cyber-ease),
     transform var(--cyber-ease),

@@ -6,6 +6,7 @@ import * as mars2d from 'mars2d'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createEcoBasemapLayer } from '@/components/weather/map/mapTheme'
+import { resolveDisplayCityName } from '@/utils/weather/cityNameDisplay'
 
 const props = withDefaults(
   defineProps<{
@@ -37,6 +38,7 @@ let cityMarker: mars2d.graphic.Marker | null = null
 const hasCoordinates = computed(
   () => Number.isFinite(props.latitude) && Number.isFinite(props.longitude),
 )
+const displayCityName = computed(() => resolveDisplayCityName(props.cityName))
 const coordinateLabel = computed(() => {
   if (!hasCoordinates.value) {
     return 'COORDINATES UNAVAILABLE'
@@ -44,18 +46,18 @@ const coordinateLabel = computed(() => {
   return `${Number(props.longitude).toFixed(4)}E · ${Number(props.latitude).toFixed(4)}N`
 })
 const locationLabel = computed(() => {
-  const segments = [props.cityName, props.province, props.country].filter(Boolean)
+  const segments = [displayCityName.value, props.province, props.country].filter(Boolean)
   return segments.join(' / ') || '城市定位信息同步中'
 })
 const canNavigate = computed(() => Boolean(props.cityName?.trim()))
 const note = computed(() => {
   if (!hasCoordinates.value) {
-    return `${props.cityName}当前缺少可用地理坐标，地图面板暂时无法锁定城市位置。`
+    return `${displayCityName.value}当前缺少可用地理坐标，地图面板暂时无法锁定城市位置。`
   }
-  if (props.weatherText.includes('雨')) return `${props.cityName}未来 2 小时存在短时降水波动，请关注雷达回波与城区积水变化。`
-  if (props.weatherText.includes('雪')) return `${props.cityName}上空云层较厚，地图已锁定当前城区位置，可结合路况关注降雪增强。`
-  if (props.weatherText.includes('晴')) return `${props.cityName}当前云层较少，地图已锁定城区位置，至少 2 小时内无明显降水信号。`
-  return `${props.cityName}云层活动平稳，地图已锁定当前城市位置，可用于快速核对地理方位。`
+  if (props.weatherText.includes('雨')) return `${displayCityName.value}未来 2 小时存在短时降水波动，请关注雷达回波与城区积水变化。`
+  if (props.weatherText.includes('雪')) return `${displayCityName.value}上空云层较厚，地图已锁定当前城区位置，可结合路况关注降雪增强。`
+  if (props.weatherText.includes('晴')) return `${displayCityName.value}当前云层较少，地图已锁定城区位置，至少 2 小时内无明显降水信号。`
+  return `${displayCityName.value}云层活动平稳，地图已锁定当前城市位置，可用于快速核对地理方位。`
 })
 const resolveMapErrorMessage = (error: unknown) =>
   error instanceof Error && error.message.trim()
@@ -106,7 +108,7 @@ const syncMarker = () => {
   }
 
   cityMarker.setLatLng(latlng)
-  cityMarker.setTooltipContent?.(`${props.cityName} · 城市定位`)
+  cityMarker.setTooltipContent?.(`${displayCityName.value} · 城市定位`)
 }
 
 const ensureMap = async () => {
@@ -189,7 +191,7 @@ onBeforeUnmount(() => {
     <div class="panel-head">
       <div>
         <p class="eyebrow">CITY GEO-LOCK</p>
-        <h3>{{ props.cityName }}天气地图</h3>
+        <h3>{{ displayCityName }}天气地图</h3>
       </div>
       <div class="panel-actions">
         <div class="status-chip" :class="{ 'is-offline': !hasCoordinates || !!mapError }">

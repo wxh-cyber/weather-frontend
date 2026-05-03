@@ -51,11 +51,21 @@ describe('city store', () => {
     const store = useCityStore()
     await store.fetchCities('武汉')
 
-    expect(mockedGetCityList).toHaveBeenCalledWith('武汉')
+    expect(mockedGetCityList).toHaveBeenCalledWith('武汉市')
     expect(store.error).toBe('')
     expect(store.loading).toBe(false)
     expect(store.cities).toEqual(sampleResponse.data)
     expect(localStorage.getItem(buildCityListStorageKey('u-1'))).toBe(JSON.stringify(sampleResponse.data))
+  })
+
+  it('fetchCities should canonicalize broader administrative keywords before request', async () => {
+    loginAs()
+    mockedGetCityList.mockResolvedValue(sampleResponse)
+
+    const store = useCityStore()
+    await store.fetchCities('香港')
+
+    expect(mockedGetCityList).toHaveBeenCalledWith('香港特别行政区')
   })
 
   it('fetchCities should set error without throwing when request fails', async () => {
@@ -253,6 +263,21 @@ describe('city store', () => {
     expect(store.cities).toEqual(sampleResponse.data)
   })
 
+  it('createCityByName should canonicalize district-level names before request', async () => {
+    loginAs()
+    mockedCreateCity.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [{ cityName: '洪山区', weatherText: '晴', temperature: '26°C' }],
+    })
+    const store = useCityStore()
+
+    const result = await store.createCityByName('洪山')
+
+    expect(result).toBe(true)
+    expect(mockedCreateCity).toHaveBeenCalledWith('洪山区')
+  })
+
   it('createCityByName should keep the new city as default when list was empty', async () => {
     loginAs()
     mockedCreateCity.mockResolvedValue({
@@ -319,6 +344,22 @@ describe('city store', () => {
     expect(result).toBe(true)
     expect(mockedGetCityList).toHaveBeenCalledWith('')
     expect(mockedUpdateCity).toHaveBeenCalledWith('武汉市', '武昌区')
+  })
+
+  it('renameCity should canonicalize special aliases before update request', async () => {
+    loginAs()
+    mockedUpdateCity.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [{ cityName: '东莞市', weatherText: '多云', temperature: '29°C' }],
+    })
+    const store = useCityStore()
+    store.setCities([{ cityName: '广州市', weatherText: '晴', temperature: '30°C' }])
+
+    const result = await store.renameCity('广州市', '虎门')
+
+    expect(result).toBe(true)
+    expect(mockedUpdateCity).toHaveBeenCalledWith('广州市', '东莞市')
   })
 
   it('renameCity should fail when target duplicated', async () => {

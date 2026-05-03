@@ -6,6 +6,7 @@ import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
 import WeatherMapPanel from '@/components/weather/map/WeatherMapPanel.vue'
 import WeatherDetailHeader from '@/components/weather/shell/WeatherDetailHeader.vue'
 import type { CityItem } from '@/store/city'
+import { resolveDisplayCityName } from '@/utils/weather/cityNameDisplay'
 
 const props = defineProps<{
   navItems: ReadonlyArray<{
@@ -30,6 +31,7 @@ const emit = defineEmits<{
 const selectedCityMeta = computed(
   () => props.cities.find((city) => city.cityName === props.selectedCityName) ?? null,
 )
+const displaySelectedCityName = computed(() => resolveDisplayCityName(props.selectedCityName))
 </script>
 
 <template>
@@ -50,12 +52,12 @@ const selectedCityMeta = computed(
 
     <section class="overview-grid">
       <CurrentWeatherPanel
-        :city-name="props.selectedCityName"
+        :city-name="displaySelectedCityName"
         :temperature="props.temperature"
         :weather-text="props.weatherText"
       />
       <WeatherMapPanel
-        :city-name="props.selectedCityName"
+        :city-name="displaySelectedCityName"
         :weather-text="props.weatherText"
         :province="selectedCityMeta?.province"
         :country="selectedCityMeta?.country"
@@ -65,7 +67,7 @@ const selectedCityMeta = computed(
     </section>
 
     <HourlyForecastPanel
-      :city-name="props.selectedCityName"
+      :city-name="displaySelectedCityName"
       :temperature="props.temperature"
       :weather-text="props.weatherText"
     />

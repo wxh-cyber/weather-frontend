@@ -55,18 +55,21 @@ describe('TemperatureTrendView', () => {
     template: `
       <header class="weather-detail-header-stub">
         <span class="shared-active-nav">{{ activeNavKey }}</span>
-        <button
-          v-for="item in navItems"
-          :key="item.key"
-          class="menu-button"
-          @click="emit('nav-select', item.key)"
-        >
-          {{ item.label }}
-        </button>
+        <nav class="shared-nav-row" data-testid="weather-detail-header-nav">
+          <button
+            v-for="item in navItems"
+            :key="item.key"
+            class="menu-button"
+            @click="emit('nav-select', item.key)"
+          >
+            {{ item.label }}
+          </button>
+        </nav>
         <input
           v-model="keyword"
           class="shared-search-input"
           placeholder="搜索城市"
+          @input="keyword = $event.target.value"
           @keydown.enter="emit('search-submit', keyword)"
         />
       </header>
@@ -165,6 +168,7 @@ describe('TemperatureTrendView', () => {
     expect(wrapper.text()).toContain('天气地图')
     expect(wrapper.text()).toContain('单日天气')
     expect(wrapper.find('.weather-detail-header-stub').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-detail-header-nav"]').exists()).toBe(true)
     expect(wrapper.find('.shared-active-nav').text()).toBe('temperature-trend')
     expect(wrapper.find('.shared-search-input').exists()).toBe(true)
     expect(wrapper.text()).toContain('北京市')
@@ -210,11 +214,11 @@ describe('TemperatureTrendView', () => {
     await flushPromises()
 
     const searchInput = wrapper.get('.shared-search-input')
-    await searchInput.setValue('上海市')
+    await searchInput.setValue('北京')
     await searchInput.trigger('keydown.enter')
     await flushPromises()
 
-    expect(searchSubmitMock).toHaveBeenCalledWith('上海市')
+    expect(searchSubmitMock).toHaveBeenCalledWith('北京')
   })
 
   it('updates series visibility when switching chart modes', async () => {

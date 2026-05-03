@@ -36,6 +36,10 @@ const props = withDefaults(
   },
 )
 
+const emit = defineEmits<{
+  'range-change': [rangeMode: RangeOption]
+}>()
+
 const rangeMode = ref<RangeOption>('7d')
 const activeBucketId = ref('')
 const chartRef = ref<HTMLDivElement | null>(null)
@@ -326,15 +330,21 @@ const handleBucketSelect = (bucketId: string) => {
   activeBucketId.value = bucketId
 }
 
-watch(rangeMode, async (nextMode) => {
-  if (nextMode === '90d') {
-    syncActiveBucket()
-    await mountChart()
-    return
-  }
+watch(
+  rangeMode,
+  async (nextMode) => {
+    emit('range-change', nextMode)
 
-  disposeChart()
-})
+    if (nextMode === '90d') {
+      syncActiveBucket()
+      await mountChart()
+      return
+    }
+
+    disposeChart()
+  },
+  { immediate: true },
+)
 
 watch([tenDayBuckets, activeBucketId], () => {
   syncActiveBucket()

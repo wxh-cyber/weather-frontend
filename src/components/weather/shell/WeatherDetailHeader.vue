@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Search } from '@element-plus/icons-vue'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { resolveCanonicalCityName } from '@/utils/weather/cityNameDisplay'
 
 const props = withDefaults(defineProps<{
   navItems: ReadonlyArray<{
@@ -21,15 +22,30 @@ const emit = defineEmits<{
 
 const searchKeyword = ref(props.initialSearchKeyword)
 
+watch(
+  () => props.initialSearchKeyword,
+  (nextKeyword) => {
+    searchKeyword.value = nextKeyword
+  },
+)
+
 const submitSearch = () => {
-  emit('search-submit', searchKeyword.value.trim())
+  const canonicalKeyword = resolveCanonicalCityName(searchKeyword.value)
+  searchKeyword.value = canonicalKeyword
+  emit('search-submit', canonicalKeyword)
 }
 </script>
 
 <template>
   <header class="dashboard-head" data-testid="weather-detail-header">
     <div class="dashboard-head__inner">
-      <nav class="menu" aria-label="城市详情导航">
+      <div class="dashboard-head__spacer" aria-hidden="true" />
+
+      <nav
+        class="menu"
+        aria-label="城市详情导航"
+        data-testid="weather-detail-header-nav"
+      >
         <button
           v-for="item in props.navItems"
           :key="item.key"
@@ -71,7 +87,7 @@ const submitSearch = () => {
 
 <style scoped>
 .dashboard-head {
-  padding: 16px 18px;
+  padding: 18px 18px 16px;
   border-radius: 16px;
   border: 1px solid var(--cyber-glass-border);
   background: linear-gradient(140deg, rgba(7, 24, 56, 0.8), rgba(4, 16, 38, 0.72));
@@ -80,34 +96,53 @@ const submitSearch = () => {
     var(--cyber-glow-md);
   backdrop-filter: blur(6px);
   animation: cyber-breathe-subtle var(--cyber-breathe-subtle-duration) var(--cyber-breathe-ease) infinite;
+  overflow: visible;
 }
 
 .dashboard-head__inner {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
+  overflow: visible;
+}
+
+.dashboard-head__spacer {
+  display: none;
 }
 
 .menu {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 14px;
+  justify-content: flex-start;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  white-space: nowrap;
+  padding-top: 4px;
+  padding-bottom: 2px;
+}
+
+.menu::-webkit-scrollbar {
+  display: none;
 }
 
 .menu-button {
   position: relative;
-  min-width: 132px;
-  padding: 10px 18px;
+  flex: 0 0 auto;
+  min-width: 112px;
+  padding: 11px 18px;
   border: 1px solid rgba(117, 241, 255, 0.24);
   border-radius: 999px;
   background:
     linear-gradient(135deg, rgba(5, 26, 60, 0.88), rgba(3, 14, 36, 0.92)),
     rgba(4, 14, 34, 0.9);
   color: rgba(214, 242, 255, 0.82);
-  font-size: 13px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 0.06em;
   cursor: pointer;
   box-shadow:
     inset 0 0 14px rgba(117, 241, 255, 0.06),
@@ -161,8 +196,9 @@ const submitSearch = () => {
 }
 
 .dashboard-search {
-  justify-self: end;
-  width: min(320px, 100%);
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: min(280px, 100%);
 }
 
 .search-wrap {
@@ -236,7 +272,20 @@ const submitSearch = () => {
 
 @media (max-width: 940px) {
   .dashboard-head__inner {
+    display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .menu {
+    flex-wrap: wrap;
+    justify-content: center;
+    overflow: visible;
+    white-space: normal;
+    padding-top: 0;
+  }
+
+  .menu-button {
+    min-width: 118px;
   }
 
   .dashboard-search {

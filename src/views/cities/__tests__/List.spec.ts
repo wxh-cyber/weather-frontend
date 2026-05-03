@@ -3,8 +3,9 @@ import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import List from '@/views/cities/List.vue'
 import CityList from '@/components/city-list/CityList.vue'
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/store/auth'
 import { useCityStore } from '@/store/city'
-import { deleteCity, getCityList } from '@/service/city'
+import { createCity, deleteCity, getCityList } from '@/service/city'
 
 vi.mock('@/service/city', () => ({
   getCityList: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock('@/service/city', () => ({
 }))
 
 const mockedGetCityList = vi.mocked(getCityList)
+const mockedCreateCity = vi.mocked(createCity)
 const mockedDeleteCity = vi.mocked(deleteCity)
 
 const ElInputStub = {
@@ -65,6 +67,7 @@ describe('List view', () => {
     setActivePinia(createPinia())
     localStorage.clear()
     mockedGetCityList.mockReset()
+    mockedCreateCity.mockReset()
     mockedDeleteCity.mockReset()
     mockedGetCityList.mockResolvedValue({
       code: 0,
@@ -156,6 +159,39 @@ describe('List view', () => {
 
     expect(createSpy).toHaveBeenCalledWith('深圳市')
     expect(setDefaultSpy).toHaveBeenCalledWith('上海市')
+  })
+
+  it('canonicalizes search and create inputs before submitting store actions', async () => {
+    const wrapper = await mountList()
+    const cityStore = useCityStore()
+    const fetchSpy = vi.spyOn(cityStore, 'fetchCities').mockResolvedValue()
+    const createSpy = vi.spyOn(cityStore, 'createCityByName').mockResolvedValue(true)
+
+    const searchInput = wrapper.find('input[placeholder="输入城市名称，按回车搜索"]')
+    await searchInput.setValue('广州')
+    await wrapper.findAll('button').find((item) => item.text() === '搜索')?.trigger('click')
+
+    const createInput = wrapper.find('input[placeholder="输入要新增的城市名称"]')
+    await createInput.setValue('北京')
+    await wrapper.findAll('button').find((item) => item.text() === '新增')?.trigger('click')
+
+    expect(fetchSpy).toHaveBeenCalledWith('广州市')
+    expect(createSpy).toHaveBeenCalledWith('北京市')
+  })
+
+  it('shows canonical full city names in default city select and delete list copy', async () => {
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [
+        { cityName: '广州', weatherText: '晴', temperature: '29°C' },
+      ],
+    })
+
+    const wrapper = await mountList({ stubCityList: false })
+
+    expect(wrapper.find('option').text()).toBe('广州市')
+    expect(wrapper.find('.delete-city-name').text()).toBe('广州市')
   })
 
   it('syncs checkbox selection to tag chips and allows chip removal', async () => {
@@ -262,7 +298,18 @@ describe('List view', () => {
   })
 
   it('does not report failed items when sequential batch deletes all succeed after store refreshes', async () => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'test-token')
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({
+        userId: 'test-user',
+        email: 'tester@example.com',
+      }),
+    )
+
     const wrapper = await mountList()
+    const cityStore = useCityStore()
+    const deleteSpy = vi.spyOn(cityStore, 'deleteCityByName')
     mockedDeleteCity
       .mockResolvedValueOnce({
         code: 0,
@@ -285,8 +332,8 @@ describe('List view', () => {
     await confirmBtn?.trigger('click')
     await flushPromises()
 
-    expect(mockedDeleteCity).toHaveBeenNthCalledWith(1, '武汉市')
-    expect(mockedDeleteCity).toHaveBeenNthCalledWith(2, '上海市')
+    expect(deleteSpy).toHaveBeenNthCalledWith(1, '武汉市')
+    expect(deleteSpy).toHaveBeenNthCalledWith(2, '上海市')
     expect(wrapper.text()).toContain('批量删除完成，共删除 2 项')
     expect(wrapper.text()).not.toContain('失败项：')
   })

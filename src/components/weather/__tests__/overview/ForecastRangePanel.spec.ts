@@ -58,6 +58,7 @@ describe('ForecastRangePanel', () => {
     expect(wrapper.find('[data-testid="forecast-range-90d"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('今天')
     expect(wrapper.findAll('.forecast-icon img').length).toBeGreaterThan(0)
+    expect(wrapper.emitted('range-change')).toEqual([['7d']])
   })
 
   it('expands to a 15-day list when selecting 15 days', async () => {
@@ -70,6 +71,7 @@ describe('ForecastRangePanel', () => {
     const rows = wrapper.findAll('.forecast-row')
     expect(rows).toHaveLength(15)
     expect(wrapper.find('[data-testid="forecast-range-90d"]').exists()).toBe(false)
+    expect(wrapper.emitted('range-change')).toEqual([['7d'], ['15d']])
   })
 
   it('switches to 90-day segmented mode and syncs bucket selection with chart and list', async () => {
@@ -97,5 +99,6 @@ describe('ForecastRangePanel', () => {
 
     expect(echartsInitMock).toHaveBeenCalledTimes(1)
     expect(echartsInstanceMock.setOption).toHaveBeenCalled()
+    expect(wrapper.emitted('range-change')).toEqual([['7d'], ['90d']])
   })
 })

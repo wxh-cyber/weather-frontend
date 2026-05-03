@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { createCity, deleteCity, getCityList, updateCity } from '@/service/city'
 import { getStoredAuthUserId } from '@/store/auth'
+import { isEquivalentCityName, resolveCanonicalCityName } from '@/utils/weather/cityNameDisplay'
 
 export interface CityItem {
   cityId?: string
@@ -27,9 +28,9 @@ const legacyDefaultCities: CityItem[] = [
 
 const isBrowser = () => typeof window !== 'undefined'
 const getCurrentUserId = () => getStoredAuthUserId()
-const normalizeCityName = (cityName: string) => cityName.trim()
+const normalizeCityName = (cityName: string) => resolveCanonicalCityName(cityName)
 const equalsCityName = (left: string, right: string) =>
-  left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase()
+  isEquivalentCityName(left, right)
 const isLegacyDefaultCityList = (items: unknown): items is CityItem[] =>
   JSON.stringify(items) === JSON.stringify(legacyDefaultCities)
 const isStoredCityItem = (item: unknown): item is CityItem =>
@@ -101,10 +102,11 @@ export const useCityStore = defineStore('city', {
       clearPersistedCitiesForUserId(userId)
     },
     async fetchCities(keyword = '') {
+      const normalizedKeyword = normalizeCityName(keyword)
       this.loading = true
       this.setError('')
       try {
-        const response = await getCityList(keyword)
+        const response = await getCityList(normalizedKeyword)
         this.setCities(response.data)
       } catch (error) {
         const message = error instanceof Error ? error.message : '城市数据获取失败'

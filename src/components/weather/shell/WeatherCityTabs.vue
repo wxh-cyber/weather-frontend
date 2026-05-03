@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CityItem } from '@/store/city'
+import { mapCityItemToDisplay, resolveDisplayCityName } from '@/utils/weather/cityNameDisplay'
 
 const props = defineProps<{
   cities: CityItem[]
@@ -11,6 +12,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'select', cityName: string): void
 }>()
+
+const displayCities = computed(() => props.cities.map((city) => mapCityItemToDisplay(city)))
+const displayDefaultCityName = computed(() => resolveDisplayCityName(props.defaultCityName))
+const displaySelectedCityName = computed(() => resolveDisplayCityName(props.selectedCityName))
 
 const tabsRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLDivElement | null>(null)
@@ -173,18 +178,18 @@ onBeforeUnmount(() => {
     <section ref="tabsRef" class="tabs" @scroll="syncScrollbarFromScroll">
       <span class="tab-indicator" :style="indicatorStyle" aria-hidden="true" />
       <button
-        v-for="city in props.cities"
+        v-for="city in displayCities"
         :key="city.cityName"
         :ref="(el) => setTabRef(city.cityName, el as HTMLButtonElement | null)"
         type="button"
         class="tab"
         :class="{
-          'is-default': city.cityName === props.defaultCityName,
-          'is-active': city.cityName === props.selectedCityName,
+          'is-default': city.displayCityName === displayDefaultCityName,
+          'is-active': city.displayCityName === displaySelectedCityName,
         }"
         @click="emit('select', city.cityName)"
       >
-        <span class="tab-city">{{ city.cityName }}</span>
+        <span class="tab-city">{{ city.displayCityName }}</span>
         <span class="tab-meta">{{ city.weatherText }} · {{ city.temperature }}</span>
       </button>
     </section>

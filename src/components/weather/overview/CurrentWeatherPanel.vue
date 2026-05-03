@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { resolveDisplayCityName } from '@/utils/weather/cityNameDisplay'
 import { getWeatherIcon } from '@/utils/weather/weatherIconMap'
 
 const props = withDefaults(
@@ -15,7 +16,9 @@ const props = withDefaults(
   },
 )
 
-const citySeed = computed(() => Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0))
+const displayCityName = computed(() => resolveDisplayCityName(props.cityName))
+
+const citySeed = computed(() => Array.from(displayCityName.value).reduce((sum, char) => sum + char.charCodeAt(0), 0))
 
 const metrics = computed(() => {
   const seed = citySeed.value
@@ -44,14 +47,14 @@ const feelLike = computed(() => {
   if (Number.isNaN(temperature)) return '--'
   return `${temperature - 2}°`
 })
-const tipText = computed(() => `${props.cityName}今天以${props.weatherText}为主，夜间体感会更清凉。`)
+const tipText = computed(() => `${displayCityName.value}今天以${props.weatherText}为主，夜间体感会更清凉。`)
 </script>
 
 <template>
   <article class="panel">
     <div class="panel-head">
       <p class="subtitle">当前天气</p>
-      <p class="city-tag">{{ props.cityName }}</p>
+      <p class="city-tag">{{ displayCityName }}</p>
     </div>
     <div class="temp-row">
       <img class="icon weather-icon" :src="currentIcon.src" :alt="currentIcon.alt" />

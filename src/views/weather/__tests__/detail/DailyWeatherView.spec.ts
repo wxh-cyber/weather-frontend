@@ -30,19 +30,23 @@ describe('DailyWeatherView', () => {
     },
     template: `
       <header class="weather-detail-header-stub">
+        <span class="shared-header-signature">shared-weather-detail-header</span>
         <span class="shared-active-nav">{{ activeNavKey }}</span>
-        <button
-          v-for="item in navItems"
-          :key="item.key"
-          class="menu-button"
-          @click="emit('nav-select', item.key)"
-        >
-          {{ item.label }}
-        </button>
+        <nav class="shared-nav-row" data-testid="weather-detail-header-nav">
+          <button
+            v-for="item in navItems"
+            :key="item.key"
+            class="menu-button"
+            @click="emit('nav-select', item.key)"
+          >
+            {{ item.label }}
+          </button>
+        </nav>
         <input
           v-model="keyword"
           class="shared-search-input"
           placeholder="搜索城市"
+          @input="keyword = $event.target.value"
           @keydown.enter="emit('search-submit', keyword)"
         />
       </header>
@@ -118,6 +122,8 @@ describe('DailyWeatherView', () => {
     expect(router.currentRoute.value.name).toBe('city-daily-weather')
     expect(wrapper.text()).toContain('单日天气')
     expect(wrapper.find('.weather-detail-header-stub').exists()).toBe(true)
+    expect(wrapper.find('.shared-header-signature').text()).toBe('shared-weather-detail-header')
+    expect(wrapper.find('[data-testid="weather-detail-header-nav"]').exists()).toBe(true)
     expect(wrapper.findAll('.menu-button')).toHaveLength(4)
     expect(wrapper.find('.shared-active-nav').text()).toBe('daily-weather')
     expect(wrapper.find('.daily-weather-panel-stub').attributes('data-city-name')).toBe('武汉市')
@@ -134,11 +140,11 @@ describe('DailyWeatherView', () => {
     await router.push('/weather/武汉市/daily-weather')
     await flushPromises()
 
-    const searchInput = wrapper.get('.shared-search-input')
-    await searchInput.setValue('南京市')
+      const searchInput = wrapper.get('.shared-search-input')
+      await searchInput.setValue('广州')
     await searchInput.trigger('keydown.enter')
     await flushPromises()
 
-    expect(searchSubmitMock).toHaveBeenCalledWith('南京市')
+    expect(searchSubmitMock).toHaveBeenCalledWith('广州')
   })
 })

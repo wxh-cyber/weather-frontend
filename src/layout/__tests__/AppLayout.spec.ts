@@ -337,6 +337,21 @@ describe('AppLayout center actions', () => {
     expect(wrapper.find('.active-center-action').text()).toBe('city-detail')
   })
 
+  it('shows centered route modules and marks city detail group active on daily weather route', async () => {
+    const { wrapper } = await mountLayout(
+      'city-daily-weather',
+      '/weather/%E6%AD%A6%E6%B1%89%E5%B8%82/daily-weather',
+    )
+
+    expect(wrapper.find('.show-center-search').text()).toBe('false')
+    expect(wrapper.find('.show-city-detail').text()).toBe('true')
+    expect(wrapper.find('.show-my-cities').text()).toBe('true')
+    expect(wrapper.find('.show-profile-center').text()).toBe('true')
+    expect(wrapper.find('.show-login-list').text()).toBe('true')
+    expect(wrapper.find('.center-nav-centered').text()).toBe('true')
+    expect(wrapper.find('.active-center-action').text()).toBe('city-detail')
+  })
+
   it('hides search and keeps center nav centered on my cities route', async () => {
     const { wrapper } = await mountLayout('list', '/list')
 

@@ -135,6 +135,7 @@ describe('DailyWeatherPanel', () => {
     expect(wrapper.get('.hero-card').classes()).toContain('is-day-mode')
     expect(wrapper.get('[data-testid="daily-weather-period-mark-day"]').text()).toBe('白天态势')
     expect(wrapper.get('[data-testid="daily-weather-metric-feelsLike"]').text()).toContain('33°C')
+    expect(wrapper.get('[data-testid="daily-weather-metric-windDirection"]').text()).toContain('南')
     expect(wrapper.get('[data-testid="daily-weather-metric-icon-feelsLike"]').attributes('alt')).toBe('体感温度图标')
     expect(wrapper.get('[data-testid="daily-weather-metric-icon-precipitationProbability"]').attributes('alt')).toBe('降水概率图标')
     expect(wrapper.get('[data-testid="daily-weather-metric-icon-precipitationAmount"]').attributes('alt')).toBe('降水量图标')
@@ -150,6 +151,7 @@ describe('DailyWeatherPanel', () => {
     expect(wrapper.get('.hero-card').classes()).toContain('is-night-mode')
     expect(wrapper.get('[data-testid="daily-weather-period-mark-night"]').text()).toBe('夜间态势')
     expect(wrapper.get('[data-testid="daily-weather-metric-precipitationAmount"]').text()).toContain('2.4 mm')
+    expect(wrapper.get('[data-testid="daily-weather-metric-windDirection"]').text()).toContain('西南')
 
     const arrowButtons = wrapper.findAll('.arrow-button')
     await arrowButtons[1]!.trigger('click')
@@ -157,6 +159,7 @@ describe('DailyWeatherPanel', () => {
 
     expect(wrapper.text()).toContain('5月3日星期日')
     expect(wrapper.get('[data-testid="daily-weather-metric-precipitationProbability"]').text()).toContain('22%')
+    expect(wrapper.get('[data-testid="daily-weather-metric-windDirection"]').text()).toContain('西北')
   })
 
   it('shows placeholder values when metrics are missing and disables out-of-range arrows', async () => {

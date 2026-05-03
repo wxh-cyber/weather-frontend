@@ -1,112 +1,37 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { inject } from 'vue'
 import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
 import WeatherMapExplorer from '@/components/weather/map/WeatherMapExplorer.vue'
+import { useWeatherDetailPage, weatherDetailNavItems } from '@/composables/useWeatherDetailPage'
 import WeatherDetailHeader from '@/components/weather/shell/WeatherDetailHeader.vue'
 import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
-import { useCityStore } from '@/store/city'
-
-const route = useRoute()
-const router = useRouter()
-const cityStore = useCityStore()
-const selectedCityName = ref('')
-const searchKeyword = ref('')
 const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weatherSearchSubmitKey, undefined)
-
-const navItems: ReadonlyArray<{
-  key: string
-  label: string
-  disabled?: boolean
-}> = [
-  { key: 'overview', label: '城市概览' },
-  { key: 'temperature-trend', label: '温度趋势' },
-  { key: 'weather-map', label: '天气地图' },
-  { key: 'daily-weather', label: '单日天气' },
-]
-
-const routeCityName = computed(() => String(route.params.cityName ?? ''))
-const selectedCity = computed(
-  () => cityStore.cities.find((city) => city.cityName === selectedCityName.value)
-    ?? cityStore.cities.find((city) => city.cityName === routeCityName.value)
-    ?? null,
-)
-
-const syncSelectedCity = () => {
-  const currentName = selectedCityName.value.trim()
-  const hasCurrentCity = cityStore.cities.some((city) => city.cityName === currentName)
-  if (hasCurrentCity) {
-    return
-  }
-
-  selectedCityName.value = routeCityName.value
-}
-
-const submitSearch = (keyword: string) => {
-  if (!weatherSearchSubmit) {
-    return
-  }
-
-  searchKeyword.value = keyword.trim()
-  void weatherSearchSubmit(searchKeyword.value)
-}
-
-watch(routeCityName, (nextCityName) => {
-  selectedCityName.value = nextCityName
+const {
+  cityStore,
+  selectedCity,
+  searchKeyword,
+  activeNavKey,
+  handleCitySelect,
+  handleNavSelect,
+  submitSearch,
+} = useWeatherDetailPage({
+  activeRouteName: 'city-weather-map',
+  citySelectRouteName: 'city-weather-map',
+  navRouteMap: {
+    overview: 'city-detail',
+    'temperature-trend': 'city-temperature-trend',
+    'weather-map': 'city-weather-map',
+    'daily-weather': 'city-daily-weather',
+  },
+  weatherSearchSubmit,
 })
-watch(() => cityStore.cities, syncSelectedCity, { deep: true, immediate: true })
-
-onMounted(async () => {
-  await cityStore.ensureCitiesLoaded()
-  syncSelectedCity()
-})
-
-const handleCitySelect = (cityName: string) => {
-  if (routeCityName.value === cityName && route.name === 'city-weather-map') {
-    return
-  }
-
-  void router.push({
-    name: 'city-weather-map',
-    params: { cityName },
-  })
-}
-
-const handleNavSelect = (navKey: string) => {
-  if (!routeCityName.value) {
-    return
-  }
-
-  if (navKey === 'overview') {
-    void router.push({
-      name: 'city-detail',
-      params: { cityName: routeCityName.value },
-    })
-    return
-  }
-
-  if (navKey === 'temperature-trend') {
-    void router.push({
-      name: 'city-temperature-trend',
-      params: { cityName: routeCityName.value },
-    })
-    return
-  }
-
-  if (navKey === 'daily-weather') {
-    void router.push({
-      name: 'city-daily-weather',
-      params: { cityName: routeCityName.value },
-    })
-  }
-}
 </script>
 
 <template>
   <section v-if="selectedCity" class="map-view">
     <WeatherDetailHeader
-      :nav-items="navItems"
-      active-nav-key="weather-map"
+      :nav-items="weatherDetailNavItems"
+      :active-nav-key="activeNavKey"
       :initial-search-keyword="searchKeyword"
       @nav-select="handleNavSelect"
       @search-submit="submitSearch"

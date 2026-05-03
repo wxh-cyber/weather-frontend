@@ -5,6 +5,14 @@ import ForecastRangePanel from '@/components/weather/overview/ForecastRangePanel
 
 type ChartMode = 'both' | 'line' | 'bar'
 type SeriesKey = 'average' | 'high' | 'low'
+type ForecastRangeMode = '7d' | '15d' | '90d'
+
+type DailyTrendItem = {
+  day: string
+  high: number
+  low: number
+  average: number
+}
 
 type LegendItem = {
   key: SeriesKey
@@ -25,6 +33,7 @@ const props = withDefaults(
 )
 
 const chartMode = ref<ChartMode>('both')
+const forecastRangeMode = ref<Extract<ForecastRangeMode, '7d' | '15d'>>('7d')
 const chartRef = ref<HTMLDivElement | null>(null)
 
 let chartInstance: echarts.ECharts | null = null
@@ -34,7 +43,7 @@ const baseTemp = computed(() => {
   return Number.isNaN(value) ? 18 : value
 })
 
-const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 const legendItems: ReadonlyArray<LegendItem> = [
   {
@@ -57,11 +66,16 @@ const legendItems: ReadonlyArray<LegendItem> = [
   },
 ]
 
-const weeklySeries = computed(() => {
+const allTrendDays = computed<DailyTrendItem[]>(() => {
   const citySeed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
-  return weekDays.map((day, index) => {
-    const wave = Math.sin((index / weekDays.length) * Math.PI * 2) * 2.8
+  return Array.from({ length: 15 }, (_, index) => {
+    const date = new Date(today)
+    date.setDate(today.getDate() + index)
+    const day = weekDays[date.getDay()] ?? '周一'
+    const wave = Math.sin((index / 15) * Math.PI * 2) * 2.8
     const offset = ((citySeed + index * 11) % 5) - 2
     const average = Number((baseTemp.value + wave + offset * 0.4).toFixed(1))
     const high = Number((average + 4 + ((citySeed + index * 3) % 2) * 0.7).toFixed(1))
@@ -75,6 +89,10 @@ const weeklySeries = computed(() => {
     }
   })
 })
+
+const visibleTrendDays = computed(() =>
+  forecastRangeMode.value === '15d' ? allTrendDays.value.slice(0, 15) : allTrendDays.value.slice(0, 7),
+)
 
 const activeSeries = computed(() => {
   if (chartMode.value === 'line') {
@@ -92,6 +110,14 @@ const activeLegendItems = computed(() =>
   legendItems.filter((item) => activeSeries.value.includes(item.key)),
 )
 
+const handleRangeChange = (nextRangeMode: ForecastRangeMode) => {
+  if (nextRangeMode === '90d') {
+    return
+  }
+
+  forecastRangeMode.value = nextRangeMode
+}
+
 const syncChart = () => {
   if (!chartInstance) {
     return
@@ -106,7 +132,7 @@ const syncChart = () => {
           name: '平均气温',
           type: 'bar',
           barMaxWidth: 30,
-          data: weeklySeries.value.map((item) => item.average),
+          data: visibleTrendDays.value.map((item) => item.average),
           itemStyle: {
             borderRadius: [10, 10, 4, 4],
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -126,7 +152,7 @@ const syncChart = () => {
           smooth: true,
           symbol: 'circle',
           symbolSize: 10,
-          data: weeklySeries.value.map((item) => item.high),
+          data: visibleTrendDays.value.map((item) => item.high),
           lineStyle: {
             width: 3,
             color: '#ffb76a',
@@ -149,7 +175,7 @@ const syncChart = () => {
           smooth: true,
           symbol: 'circle',
           symbolSize: 10,
-          data: weeklySeries.value.map((item) => item.low),
+          data: visibleTrendDays.value.map((item) => item.low),
           lineStyle: {
             width: 3,
             color: '#9de9ff',
@@ -203,7 +229,7 @@ const syncChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: weeklySeries.value.map((item) => item.day),
+      data: visibleTrendDays.value.map((item) => item.day),
       boundaryGap: true,
       axisLine: {
         lineStyle: {
@@ -269,7 +295,7 @@ onBeforeUnmount(() => {
   chartInstance = null
 })
 
-watch([() => props.cityName, () => props.temperature, weeklySeries, chartMode], () => {
+watch([() => props.cityName, () => props.temperature, visibleTrendDays, chartMode], () => {
   syncChart()
 })
 </script>
@@ -278,9 +304,9 @@ watch([() => props.cityName, () => props.temperature, weeklySeries, chartMode], 
   <section class="trend-shell">
     <header class="trend-head">
       <div>
-        <p class="trend-kicker">SEVEN-DAY CLIMATE ARC</p>
+        <p class="trend-kicker">CLIMATE TREND ARC</p>
         <h2>{{ props.cityName }} 周温度趋势</h2>
-        <p class="trend-note">将未来一周的高温、低温与平均气温整合到同一图层中，便于横向观察整体气温波动。</p>
+        <p class="trend-note">将未来温度趋势中的高温、低温与平均气温整合到同一图层中，便于横向观察整体气温波动。</p>
       </div>
 
       <div class="trend-actions">
@@ -335,6 +361,7 @@ watch([() => props.cityName, () => props.temperature, weeklySeries, chartMode], 
     <ForecastRangePanel
       :city-name="props.cityName"
       :temperature="props.temperature"
+      @range-change="handleRangeChange"
     />
   </section>
 </template>

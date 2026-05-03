@@ -108,4 +108,24 @@ describe('WeeklyTemperatureTrendPanel', () => {
     expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
   })
+
+  it('syncs the upper chart range with the forecast range selection', async () => {
+    const wrapper = await mountPanel()
+    const select = wrapper.get('[data-testid="forecast-range-select"]')
+
+    await select.setValue('15d')
+    await flushPromises()
+
+    let option = getLatestOption()
+    expect(option.xAxis.data).toHaveLength(15)
+    expect(option.series).toHaveLength(3)
+    expect(option.series.map((item) => item.data.length)).toEqual([15, 15, 15])
+
+    await select.setValue('7d')
+    await flushPromises()
+
+    option = getLatestOption()
+    expect(option.xAxis.data).toHaveLength(7)
+    expect(option.series.map((item) => item.data.length)).toEqual([7, 7, 7])
+  })
 })

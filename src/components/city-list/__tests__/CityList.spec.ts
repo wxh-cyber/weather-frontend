@@ -61,5 +61,16 @@ describe('CityList', () => {
     expect(icons[2]?.attributes('alt')).toBe('雨天图标')
     expect(icons[3]?.attributes('alt')).toBe('未知天气图标')
   })
-})
 
+  it('displays canonical full city names for configured aliases', () => {
+    const wrapper = mount(CityList, {
+      props: {
+        items: [
+          { cityName: '广州', weatherText: '晴', temperature: '29°C' },
+        ],
+      },
+    })
+
+    expect(wrapper.find('.city-name').text()).toBe('广州市')
+  })
+})

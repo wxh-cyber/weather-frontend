@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { resolveDisplayCityName } from '@/utils/weather/cityNameDisplay'
 import { getCityBackgroundVariant, resolveCityBackground } from '@/utils/weather/cityBackgrounds'
 import { resolveWeatherOverlayPhase } from '@/utils/weather/weatherOverlays'
 
@@ -164,7 +165,7 @@ const backgroundTime = ref(new Date())
 const overlayTime = ref(new Date())
 const isMobileViewport = ref(false)
 const prefersReducedMotion = ref(false)
-const displayedBackgroundCityName = ref(props.cityName?.trim() ?? '')
+const displayedBackgroundCityName = ref(resolveDisplayCityName(props.cityName?.trim() ?? ''))
 
 let backgroundTimer: number | null = null
 let overlayTimer: number | null = null
@@ -173,7 +174,7 @@ let mobileMediaQuery: MediaQueryList | null = null
 let reducedMotionMediaQuery: MediaQueryList | null = null
 let mediaCleanupCallbacks: Array<() => void> = []
 
-const normalizedCityName = computed(() => props.cityName?.trim() ?? '')
+const normalizedCityName = computed(() => resolveDisplayCityName(props.cityName?.trim() ?? ''))
 const normalizedDisplayedBackgroundCityName = computed(() => displayedBackgroundCityName.value.trim())
 const backgroundVariant = computed(() => getCityBackgroundVariant(backgroundTime.value))
 const backgroundUrl = computed(() =>
