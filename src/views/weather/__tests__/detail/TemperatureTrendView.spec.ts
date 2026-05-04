@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
@@ -77,6 +77,7 @@ describe('TemperatureTrendView', () => {
   })
 
   beforeEach(() => {
+    vi.useRealTimers()
     echartsInstanceMock.setOption.mockReset()
     echartsInstanceMock.resize.mockReset()
     echartsInstanceMock.dispose.mockReset()
@@ -100,6 +101,10 @@ describe('TemperatureTrendView', () => {
       writable: true,
       value: vi.fn(),
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   const mountTrendView = async () => {
@@ -251,5 +256,19 @@ describe('TemperatureTrendView', () => {
     expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
+  })
+
+  it('navigates to the matching single-day weather page when a forecast row is selected', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-04T08:00:00+08:00'))
+
+    const { wrapper, router } = await mountTrendView()
+
+    await wrapper.find('.forecast-row').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('city-daily-weather')
+    expect(router.currentRoute.value.params.cityName).toBe('武汉市')
+    expect(router.currentRoute.value.query.date).toBe('2026-05-04')
   })
 })

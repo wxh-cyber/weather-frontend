@@ -64,6 +64,7 @@ vi.mock('mars2d', () => ({
 
 describe('WeatherMapExplorer', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     currentZoom = 9
     mapEventHandlers.clear()
     destroyMock.mockReset()
@@ -138,12 +139,25 @@ describe('WeatherMapExplorer', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="weather-overlay-legend"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-overlay-legend"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weather-precipitation-timeline"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-precipitation-bottom-bar"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-precipitation-bottom-status"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-precipitation-bottom-scale"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weather-precipitation-rainfall-layer"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-precipitation-splash-layer"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-precipitation-zoom-console"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="map-console-stack"]').exists()).toBe(true)
     expect(wrapper.findAll('.weather-overlay-region__core').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-overlay-region__merged').length).toBeGreaterThan(0)
     expect(wrapper.findAll('.weather-overlay-region__accent').length).toBeGreaterThan(0)
     expect(wrapper.findAll('.weather-overlay-region__texture').length).toBeGreaterThan(0)
-    expect(wrapper.text()).toContain('PRECIPITATION SCAN')
+    expect(wrapper.findAll('.weather-precipitation-rainfall-drop').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-precipitation-splash').length).toBeGreaterThan(0)
+    expect(wrapper.text()).toContain('PRECIPITATION MAP')
+    expect(wrapper.text()).toContain('现在')
+    expect(wrapper.text()).toContain('30分钟后')
+    expect(wrapper.text()).toContain('1小时后')
 
     await buttons[0]!.trigger('click')
     await flushPromises()
@@ -157,6 +171,10 @@ describe('WeatherMapExplorer', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="weather-overlay-cloud"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-precipitation-timeline"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weather-precipitation-bottom-bar"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weather-precipitation-rainfall-layer"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="weather-precipitation-splash-layer"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('CLOUD DENSITY SCAN')
     expect(buttons[1]!.classes()).toContain('is-active')
   })
@@ -180,13 +198,14 @@ describe('WeatherMapExplorer', () => {
     expect(wrapper.find('[data-testid="weather-wind-direction"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="weather-global-wind-field"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('WIND FIELD SCAN')
-    expect(wrapper.findAll('.weather-global-wind-field__secondary').length).toBeGreaterThan(0)
-    expect(wrapper.findAll('.weather-global-wind-field__tertiary').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-global-wind-field__stream').length).toBeGreaterThan(0)
+    expect(wrapper.findAll('.weather-global-wind-field__highlight').length).toBeGreaterThan(0)
     expect(wrapper.findAll('.weather-overlay-region__wind-flow').length).toBeGreaterThan(0)
     expect(wrapper.findAll('.weather-overlay-region__marker').length).toBeGreaterThan(0)
   })
 
   it('keeps overlay rendering after zoom changes so weather regions stay synchronized', async () => {
+    vi.useFakeTimers()
     const wrapper = mount(WeatherMapExplorer, {
       props: {
         cityName: '武汉市',
@@ -203,13 +222,29 @@ describe('WeatherMapExplorer', () => {
 
     expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').exists()).toBe(true)
 
+    mapEventHandlers.get('zoomstart')?.()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').attributes('data-precipitation-settling')).toBe('true')
+    expect(wrapper.find('[data-testid="weather-precipitation-rainfall-layer"]').attributes('data-precipitation-settling')).toBe('true')
+    expect(wrapper.find('[data-testid="weather-precipitation-splash-layer"]').attributes('data-precipitation-settling')).toBe('true')
+
     await wrapper.find('[data-testid="map-zoom-slider"]').setValue('12')
     await flushPromises()
 
     expect(setZoomMock).toHaveBeenLastCalledWith(12, { animate: true })
     expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-precipitation-zoom-console"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="weather-precipitation-zoom-console"]').attributes('data-precipitation-settling')).toBe('true')
     expect(wrapper.findAll('.weather-overlay-region__core').length).toBeGreaterThan(0)
     expect(wrapper.findAll('.weather-overlay-region__halo').length).toBeGreaterThan(0)
+
+    vi.advanceTimersByTime(220)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="weather-overlay-precipitation"]').attributes('data-precipitation-settling')).toBe('false')
+    expect(wrapper.find('[data-testid="weather-precipitation-rainfall-layer"]').attributes('data-precipitation-settling')).toBe('false')
+    expect(wrapper.find('[data-testid="weather-precipitation-splash-layer"]').attributes('data-precipitation-settling')).toBe('false')
   })
 
   it('reprojects overlay regions after map movement so weather layers stay aligned', async () => {
@@ -286,6 +321,35 @@ describe('WeatherMapExplorer', () => {
     expect(wrapper.text()).toContain('TARGET LOCKED')
     expect(wrapper.text()).toContain('上海市 · 黄浦区 · 外滩')
     expect(wrapper.text()).toContain('121.4737E · 31.2304N')
+  })
+
+  it('shows locked target summary inside the precipitation bottom bar', async () => {
+    const wrapper = mount(WeatherMapExplorer, {
+      props: {
+        cityName: '武汉市',
+        latitude: 30.5928,
+        longitude: 114.3055,
+      },
+    })
+
+    await flushPromises()
+
+    const buttons = wrapper.findAll('.weather-layer-btn')
+    await buttons[0]!.trigger('click')
+    await flushPromises()
+
+    mapEventHandlers.get('click')?.({
+      latlng: {
+        lat: 31.2304,
+        lng: 121.4737,
+      },
+    })
+    await flushPromises()
+
+    const statusBar = wrapper.find('[data-testid="weather-precipitation-bottom-status"]')
+    expect(statusBar.exists()).toBe(true)
+    expect(statusBar.text()).toContain('上海市 · 黄浦区 · 外滩')
+    expect(statusBar.text()).toContain('121.4737E · 31.2304N')
   })
 
   it('falls back to coordinates when place resolution fails', async () => {
@@ -449,6 +513,34 @@ describe('WeatherMapExplorer', () => {
 
     expect(setZoomMock).toHaveBeenLastCalledWith(16, { animate: true })
     expect(wrapper.find('[data-testid="map-zoom-percent"]').text()).toBe('100%')
+  })
+
+  it('keeps precipitation zoom console aligned with the default console footprint', async () => {
+    const wrapper = mount(WeatherMapExplorer, {
+      props: {
+        cityName: '武汉市',
+        latitude: 30.5928,
+        longitude: 114.3055,
+      },
+    })
+
+    await flushPromises()
+
+    const initialConsole = wrapper.find('.zoom-console')
+    expect(initialConsole.classes()).not.toContain('zoom-console--precipitation')
+    expect(wrapper.find('[data-testid="map-console-stack"]').classes()).not.toContain('map-console-stack--precipitation')
+
+    const buttons = wrapper.findAll('.weather-layer-btn')
+    await buttons[0]!.trigger('click')
+    await flushPromises()
+
+    const precipitationConsole = wrapper.find('[data-testid="weather-precipitation-zoom-console"]')
+    expect(precipitationConsole.exists()).toBe(true)
+    expect(precipitationConsole.classes()).toContain('zoom-console--precipitation')
+    expect(precipitationConsole.classes()).not.toContain('zoom-console--seamless')
+    expect(wrapper.find('[data-testid="map-console-stack"]').classes()).not.toContain('map-console-stack--precipitation')
+    expect(wrapper.find('[data-testid="map-zoom-slider"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="map-zoom-percent"]').exists()).toBe(true)
   })
 
   it('renders fallback content when coordinates are missing', () => {

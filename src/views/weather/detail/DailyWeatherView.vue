@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { inject } from 'vue'
+import { computed, inject } from 'vue'
+import { useRoute } from 'vue-router'
 import DailyWeatherPanel from '@/components/weather/overview/DailyWeatherPanel.vue'
 import { useWeatherDetailPage, weatherDetailNavItems } from '@/composables/useWeatherDetailPage'
 import WeatherDetailHeader from '@/components/weather/shell/WeatherDetailHeader.vue'
 import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
 import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
 const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weatherSearchSubmitKey, undefined)
+const route = useRoute()
 const {
   cityStore,
   selectedCity,
@@ -24,6 +26,10 @@ const {
     'daily-weather': 'city-daily-weather',
   },
   weatherSearchSubmit,
+})
+const selectedDate = computed(() => {
+  const value = route.query.date
+  return typeof value === 'string' ? value : ''
 })
 </script>
 
@@ -44,7 +50,7 @@ const {
       @select="handleCitySelect"
     />
 
-    <DailyWeatherPanel :city="selectedCity" />
+    <DailyWeatherPanel :city="selectedCity" :initial-date="selectedDate" />
   </section>
 </template>
 

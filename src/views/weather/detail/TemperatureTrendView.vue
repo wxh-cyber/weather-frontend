@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { inject } from 'vue'
+import { useRouter } from 'vue-router'
 import WeeklyTemperatureTrendPanel from '@/components/weather/overview/WeeklyTemperatureTrendPanel.vue'
 import { useWeatherDetailPage, weatherDetailNavItems } from '@/composables/useWeatherDetailPage'
 import WeatherDetailHeader from '@/components/weather/shell/WeatherDetailHeader.vue'
 import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
 import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
 const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weatherSearchSubmitKey, undefined)
+const router = useRouter()
 const {
   cityStore,
   selectedCity,
@@ -25,6 +27,18 @@ const {
   },
   weatherSearchSubmit,
 })
+
+const handleTrendDateSelect = (date: string) => {
+  if (!selectedCity.value?.cityName) {
+    return
+  }
+
+  void router.push({
+    name: 'city-daily-weather',
+    params: { cityName: selectedCity.value.cityName },
+    query: { date },
+  })
+}
 </script>
 
 <template>
@@ -47,6 +61,7 @@ const {
     <WeeklyTemperatureTrendPanel
       :city-name="selectedCity.cityName"
       :temperature="selectedCity.temperature"
+      @date-select="handleTrendDateSelect"
     />
   </section>
 </template>

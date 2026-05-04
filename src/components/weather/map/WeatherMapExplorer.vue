@@ -28,6 +28,28 @@ type OverlayRegionSeed = {
   radiusLng: number
   wobble: number
 }
+type PrecipitationDrop = {
+  id: string
+  left: string
+  top: string
+  height: string
+  width: string
+  delay: string
+  duration: string
+  opacity: string
+  blur: string
+  tilt: string
+  depth: 'mist' | 'steady' | 'burst'
+}
+type PrecipitationSplash = {
+  id: string
+  left: string
+  top: string
+  size: string
+  delay: string
+  duration: string
+  opacity: string
+}
 type OverlayRegion = {
   id: string
   color: string
@@ -37,6 +59,7 @@ type OverlayRegion = {
   intensity: string
   legendGradient: string
   path: string
+  mergedPath: string
   innerPath: string
   haloPath: string
   glowPath: string
@@ -75,6 +98,7 @@ const currentZoom = ref(DEFAULT_ZOOM)
 const overlayMode = ref<WeatherOverlayMode>('none')
 const hoverPreviewMode = ref<Exclude<WeatherOverlayMode, 'none'> | null>(null)
 const overlayProjectionTick = ref(0)
+const isPrecipitationSettling = ref(false)
 const lockedTargetPoint = ref<{ lat: number; lng: number } | null>(null)
 const lockedTargetScreenPosition = ref<{ x: number; y: number } | null>(null)
 const lockedTargetStatus = ref<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -84,6 +108,7 @@ let mapInstance: mars2d.Map | null = null
 let baseLayer: mars2d.layer.TileLayer | null = null
 let cityMarker: mars2d.graphic.Marker | null = null
 let lockedTargetRequestId = 0
+let precipitationSettleTimer: ReturnType<typeof setTimeout> | null = null
 
 const hasCoordinates = computed(
   () => Number.isFinite(props.latitude) && Number.isFinite(props.longitude),
@@ -133,6 +158,14 @@ const windLegend = computed<WeatherLegendItem[]>(() => [
   { label: '7-8级', color: '#b06cff', glowColor: '#cd99ff' },
   { label: '9级+', color: '#ff6e8a', glowColor: '#ffa3b4' },
 ])
+const isPrecipitationFocus = computed(
+  () => overlayMode.value === 'precipitation' || hoverPreviewMode.value === 'precipitation',
+)
+const precipitationTimelineStops = computed(() => [
+  { time: '现在', label: precipitationLegend.value[0]?.label ?? '' },
+  { time: '30分钟后', label: precipitationLegend.value[2]?.label ?? '' },
+  { time: '1小时后', label: precipitationLegend.value[4]?.label ?? '' },
+])
 const activeLegend = computed(() => {
   if (overlayMode.value === 'precipitation') {
     return precipitationLegend.value
@@ -155,8 +188,8 @@ const activeLegend = computed(() => {
       : []
 })
 const previewTitle = computed(() => {
-  if (overlayMode.value === 'precipitation' || hoverPreviewMode.value === 'precipitation') {
-    return 'PRECIPITATION SCAN'
+  if (isPrecipitationFocus.value) {
+    return 'PRECIPITATION MAP'
   }
 
   if (overlayMode.value === 'cloud' || hoverPreviewMode.value === 'cloud') {
@@ -168,6 +201,149 @@ const previewTitle = computed(() => {
   }
 
   return ''
+})
+const headerEyebrow = computed(() => (
+  isPrecipitationFocus.value
+    ? 'PRECIPITATION MONITOR'
+    : 'TACTICAL CITY MAP'
+))
+const headerTitle = computed(() => (
+  isPrecipitationFocus.value
+    ? `${props.cityName} 降水地图`
+    : `${props.cityName} 城市地图`
+))
+const headerSubline = computed(() => (
+  isPrecipitationFocus.value
+    ? `${locationLabel.value} · 未来 1 小时降水趋势视觉模拟`
+    : locationLabel.value
+))
+const locationCardLabel = computed(() => (
+  isPrecipitationFocus.value ? 'PRECIPITATION STATUS' : 'LOCKED TARGET'
+))
+const locationCardValue = computed(() => {
+  if (!isPrecipitationFocus.value) {
+    return lockedTargetPoint.value ? 'TARGET LOCKED' : props.cityName
+  }
+
+  if (!hasCoordinates.value) {
+    return '降水视图待定位'
+  }
+
+  return lockedTargetPoint.value ? '局部降水已锁定' : '当前城市降水概览'
+})
+const locationCardPrimaryMeta = computed(() => (
+  isPrecipitationFocus.value
+    ? `${props.cityName} · ${hasCoordinates.value ? '降水云团追踪中' : '等待坐标恢复'}`
+    : lockedTargetPoint.value
+      ? lockedTargetDisplayName.value
+      : locationLabel.value
+))
+const locationCardSecondaryMeta = computed(() => (
+  isPrecipitationFocus.value
+    ? (lockedTargetPoint.value ? lockedTargetCoordinateLabel.value : '时间轴仅用于视觉表达，不代表实时雷达推演')
+    : lockedTargetPoint.value
+      ? lockedTargetCoordinateLabel.value
+      : coordinateLabel.value
+))
+const precipitationBottomBarTitle = computed(() => (
+  lockedTargetPoint.value ? '局部降水锁定' : `${props.cityName} 降水态势`
+))
+const precipitationBottomBarPrimary = computed(() => (
+  lockedTargetPoint.value
+    ? lockedTargetDisplayName.value
+    : `${props.cityName} · ${hasCoordinates.value ? '雷暴回波视觉模拟中' : '等待城市定位'}`
+))
+const precipitationBottomBarSecondary = computed(() => (
+  lockedTargetPoint.value
+    ? lockedTargetCoordinateLabel.value
+    : '图例与时间轴已迁移至地图下方，避免遮挡地图主体内容'
+))
+const precipitationRegionIds = computed(() => (
+  overlayRegions.value
+    .filter((region) => region.id.startsWith('precipitation-'))
+    .map((region) => region.id)
+))
+const precipitationClipPath = computed(() => {
+  if (!isPrecipitationFocus.value) {
+    return ''
+  }
+
+  return overlayRegions.value
+    .filter((region) => region.id.startsWith('precipitation-'))
+    .map((region) => region.path)
+    .join(' ')
+})
+const precipitationMergedFieldPath = computed(() => {
+  if (!isPrecipitationFocus.value) {
+    return ''
+  }
+
+  return overlayRegions.value
+    .filter((region) => region.id.startsWith('precipitation-'))
+    .map((region) => region.mergedPath)
+    .join(' ')
+})
+const precipitationDrops = computed<PrecipitationDrop[]>(() => {
+  if (!isPrecipitationFocus.value || !overlayRegions.value.length) {
+    return []
+  }
+
+  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const precipitationRegions = overlayRegions.value.filter((region) => region.id.startsWith('precipitation-'))
+  const dropDensity = isPrecipitationSettling.value ? 3 : 8
+
+  return precipitationRegions.flatMap((region, regionIndex) => (
+    Array.from({ length: dropDensity }, (_, dropIndex) => {
+      const dropSeed = seed + regionIndex * 19 + dropIndex * 13
+      const bandOffset = (dropIndex % 3) * 0.8
+      const left = 8 + ((regionIndex * 17 + dropIndex * 7 + seed) % 82)
+      const top = 12 + ((regionIndex * 11 + dropIndex * 5 + seed) % 68)
+      const depth = dropIndex % 5 === 0
+        ? 'burst'
+        : dropIndex % 2 === 0
+          ? 'steady'
+          : 'mist'
+      return {
+        id: `${region.id}-drop-${dropIndex}`,
+        left: `${left}%`,
+        top: `${top}%`,
+        height: `${depth === 'burst' ? 38 : depth === 'steady' ? 28 : 20 + (dropSeed % 8)}px`,
+        width: `${depth === 'burst' ? 1.8 : depth === 'steady' ? 1.4 : 1}px`,
+        delay: `${((regionIndex + dropIndex) % 7) * 0.24}s`,
+        duration: `${isPrecipitationSettling.value ? 1.35 : depth === 'burst' ? 1.02 : depth === 'steady' ? 1.26 : 1.5}s`,
+        opacity: `${isPrecipitationSettling.value ? 0.14 : depth === 'burst' ? 0.34 : depth === 'steady' ? 0.24 : 0.18}`,
+        blur: `${depth === 'mist' ? 0.6 : depth === 'burst' ? 0.15 : 0.3}px`,
+        tilt: `${-3.5 - bandOffset - (dropSeed % 4) * 0.45}deg`,
+        depth,
+      }
+    })
+  ))
+})
+const precipitationSplashes = computed<PrecipitationSplash[]>(() => {
+  if (!isPrecipitationFocus.value || !overlayRegions.value.length) {
+    return []
+  }
+
+  const seed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const precipitationRegions = overlayRegions.value.filter((region) => region.id.startsWith('precipitation-'))
+  const splashDensity = isPrecipitationSettling.value ? 2 : 4
+
+  return precipitationRegions.flatMap((region, regionIndex) => (
+    Array.from({ length: splashDensity }, (_, splashIndex) => {
+      const splashSeed = seed + regionIndex * 23 + splashIndex * 17
+      const left = 14 + ((regionIndex * 19 + splashIndex * 15 + seed) % 70)
+      const top = 62 + ((regionIndex * 9 + splashIndex * 6 + seed) % 18)
+      return {
+        id: `${region.id}-splash-${splashIndex}`,
+        left: `${left}%`,
+        top: `${top}%`,
+        size: `${8 + (splashSeed % 8)}px`,
+        delay: `${((regionIndex + splashIndex) % 6) * 0.28}s`,
+        duration: `${isPrecipitationSettling.value ? 1.8 : 1.25 + (splashIndex % 3) * 0.18}s`,
+        opacity: `${isPrecipitationSettling.value ? 0.1 : 0.18 + (splashIndex % 3) * 0.08}`,
+      }
+    })
+  ))
 })
 const activeLegendGradient = computed(() => {
   if (!activeLegend.value.length) {
@@ -238,6 +414,27 @@ const globalWindFlowPath = computed(() => {
 const invalidateOverlayProjection = () => {
   overlayProjectionTick.value += 1
 }
+const clearPrecipitationSettleTimer = () => {
+  if (precipitationSettleTimer) {
+    clearTimeout(precipitationSettleTimer)
+    precipitationSettleTimer = null
+  }
+}
+const beginPrecipitationSettling = () => {
+  if (!isPrecipitationFocus.value) {
+    return
+  }
+
+  clearPrecipitationSettleTimer()
+  isPrecipitationSettling.value = true
+}
+const schedulePrecipitationSettleRelease = () => {
+  clearPrecipitationSettleTimer()
+  precipitationSettleTimer = setTimeout(() => {
+    isPrecipitationSettling.value = false
+    precipitationSettleTimer = null
+  }, 180)
+}
 const mixHexColor = (baseColor: string, targetColor: string, ratio: number) => {
   const normalizedBase = baseColor.replace('#', '')
   const normalizedTarget = targetColor.replace('#', '')
@@ -273,12 +470,21 @@ const overlayRegions = computed<OverlayRegion[]>(() => {
     : mode === 'cloud'
       ? cloudLegend.value
       : windLegend.value
-  const regionSeeds: OverlayRegionSeed[] = [
-    { id: 'northwest', anchorLatOffset: 0.26, anchorLngOffset: -0.34, radiusLat: 0.18, radiusLng: 0.26, wobble: 0.18 },
-    { id: 'east', anchorLatOffset: 0.08, anchorLngOffset: 0.42, radiusLat: 0.2, radiusLng: 0.28, wobble: 0.14 },
-    { id: 'southwest', anchorLatOffset: -0.22, anchorLngOffset: -0.24, radiusLat: 0.16, radiusLng: 0.22, wobble: 0.22 },
-    { id: 'southeast', anchorLatOffset: -0.3, anchorLngOffset: 0.3, radiusLat: 0.18, radiusLng: 0.26, wobble: 0.16 },
-  ]
+  const regionSeeds: OverlayRegionSeed[] = mode === 'precipitation'
+    ? [
+        { id: 'west-band', anchorLatOffset: 0.18, anchorLngOffset: -0.42, radiusLat: 0.32, radiusLng: 0.48, wobble: 0.1 },
+        { id: 'north-core', anchorLatOffset: 0.3, anchorLngOffset: -0.08, radiusLat: 0.26, radiusLng: 0.4, wobble: 0.12 },
+        { id: 'central-band', anchorLatOffset: 0.02, anchorLngOffset: 0.08, radiusLat: 0.32, radiusLng: 0.48, wobble: 0.1 },
+        { id: 'southwest-field', anchorLatOffset: -0.24, anchorLngOffset: -0.18, radiusLat: 0.3, radiusLng: 0.42, wobble: 0.14 },
+        { id: 'southeast-tail', anchorLatOffset: -0.2, anchorLngOffset: 0.36, radiusLat: 0.28, radiusLng: 0.38, wobble: 0.12 },
+        { id: 'east-echo', anchorLatOffset: 0.12, anchorLngOffset: 0.46, radiusLat: 0.24, radiusLng: 0.34, wobble: 0.1 },
+      ]
+    : [
+        { id: 'northwest', anchorLatOffset: 0.26, anchorLngOffset: -0.34, radiusLat: 0.18, radiusLng: 0.26, wobble: 0.18 },
+        { id: 'east', anchorLatOffset: 0.08, anchorLngOffset: 0.42, radiusLat: 0.2, radiusLng: 0.28, wobble: 0.14 },
+        { id: 'southwest', anchorLatOffset: -0.22, anchorLngOffset: -0.24, radiusLat: 0.16, radiusLng: 0.22, wobble: 0.22 },
+        { id: 'southeast', anchorLatOffset: -0.3, anchorLngOffset: 0.3, radiusLat: 0.18, radiusLng: 0.26, wobble: 0.16 },
+      ]
 
   const toPoint = (lat: number, lng: number) => {
     const point = mapInstance?.latLngToContainerPoint?.({ lat, lng } as never)
@@ -300,8 +506,9 @@ const overlayRegions = computed<OverlayRegion[]>(() => {
     const anchorLat = centerLat + baseSeed.anchorLatOffset
     const anchorLng = centerLng + baseSeed.anchorLngOffset
 
-    const contourPoints = Array.from({ length: 7 }, (_, pointIndex) => {
-      const angle = (Math.PI * 2 * pointIndex) / 7
+    const pointCount = mode === 'precipitation' ? 11 : 7
+    const contourPoints = Array.from({ length: pointCount }, (_, pointIndex) => {
+      const angle = (Math.PI * 2 * pointIndex) / pointCount
       const wobbleFactor = 1 + Math.sin(seed * 0.07 + pointIndex * 1.37) * baseSeed.wobble
       const pointLat = anchorLat + Math.sin(angle) * baseSeed.radiusLat * wobbleFactor
       const pointLng = anchorLng + Math.cos(angle) * baseSeed.radiusLng * wobbleFactor
@@ -361,7 +568,7 @@ const overlayRegions = computed<OverlayRegion[]>(() => {
 
     const createTexturePath = () => {
       const streakIndices = mode === 'precipitation'
-        ? [1, 3, 5]
+        ? [1, 3, 5, 7, 9]
         : [0, 2, 4]
       const streakAnchors = streakIndices.map((pointIndex, streakIndex) => {
         const point = points[pointIndex]!
@@ -419,48 +626,55 @@ const overlayRegions = computed<OverlayRegion[]>(() => {
       color: legendItem.color,
       accentColor: mixHexColor(
         legendItem.color,
-        mode === 'precipitation' ? '#f4fbff' : '#ffffff',
-        mode === 'precipitation' ? 0.34 : 0.4,
+        mode === 'precipitation' ? '#dbeaf4' : '#ffffff',
+        mode === 'precipitation' ? 0.42 : 0.4,
       ),
       hazeColor: mixHexColor(
         legendItem.color,
-        mode === 'precipitation' ? '#061426' : '#091a31',
-        mode === 'precipitation' ? 0.26 : 0.22,
+        mode === 'precipitation' ? '#5f7893' : '#091a31',
+        mode === 'precipitation' ? 0.66 : 0.22,
       ),
       streakColor: mixHexColor(
         legendItem.color,
-        mode === 'precipitation' ? '#f8fbff' : mode === 'cloud' ? '#eef6ff' : '#effbff',
-        mode === 'precipitation' ? 0.48 : mode === 'cloud' ? 0.38 : 0.46,
+        mode === 'precipitation' ? '#d8e7f1' : mode === 'cloud' ? '#eef6ff' : '#effbff',
+        mode === 'precipitation' ? 0.3 : mode === 'cloud' ? 0.38 : 0.46,
       ),
       intensity: legendItem.label,
       legendGradient: `linear-gradient(135deg, ${legendItem.color}, ${legendItem.glowColor ?? mixHexColor(legendItem.color, '#ffffff', 0.32)})`,
       path: createClosedPath(
-        mode === 'precipitation' ? 1 : mode === 'cloud' ? 1.08 : 1.03,
+        mode === 'precipitation' ? 1.22 : mode === 'cloud' ? 1.08 : 1.03,
         1,
-        mode === 'wind' ? 12 : 8,
-        mode === 'wind' ? 14 : 6,
-        mode === 'precipitation' ? 0.12 : mode === 'cloud' ? 0.08 : 0.14,
+        mode === 'wind' ? 12 : mode === 'precipitation' ? 18 : 8,
+        mode === 'wind' ? 14 : mode === 'precipitation' ? 14 : 6,
+        mode === 'precipitation' ? 0.1 : mode === 'cloud' ? 0.08 : 0.14,
+      ),
+      mergedPath: createClosedPath(
+        mode === 'precipitation' ? 1.62 : 1.03,
+        0,
+        mode === 'precipitation' ? 12 : 0,
+        mode === 'precipitation' ? 10 : 0,
+        mode === 'precipitation' ? 0.06 : 0,
       ),
       innerPath: createClosedPath(
-        mode === 'precipitation' ? 0.68 : mode === 'cloud' ? 0.74 : 0.66,
+        mode === 'precipitation' ? 0.9 : mode === 'cloud' ? 0.74 : 0.66,
         2,
-        mode === 'wind' ? 18 : 14,
-        mode === 'wind' ? 16 : 10,
-        mode === 'precipitation' ? 0.22 : mode === 'cloud' ? 0.16 : 0.2,
+        mode === 'wind' ? 18 : mode === 'precipitation' ? 14 : 14,
+        mode === 'wind' ? 16 : mode === 'precipitation' ? 10 : 10,
+        mode === 'precipitation' ? 0.12 : mode === 'cloud' ? 0.16 : 0.2,
       ),
       haloPath: createClosedPath(
-        mode === 'precipitation' ? 0.9 : mode === 'cloud' ? 0.98 : 0.92,
+        mode === 'precipitation' ? 1.46 : mode === 'cloud' ? 0.98 : 0.92,
         3,
-        mode === 'wind' ? 22 : 18,
-        mode === 'wind' ? 20 : 14,
-        mode === 'precipitation' ? 0.18 : mode === 'cloud' ? 0.12 : 0.18,
+        mode === 'wind' ? 22 : mode === 'precipitation' ? 22 : 18,
+        mode === 'wind' ? 20 : mode === 'precipitation' ? 18 : 14,
+        mode === 'precipitation' ? 0.1 : mode === 'cloud' ? 0.12 : 0.18,
       ),
       glowPath: createClosedPath(
-        mode === 'precipitation' ? 1.2 : mode === 'cloud' ? 1.32 : 1.24,
+        mode === 'precipitation' ? 1.72 : mode === 'cloud' ? 1.32 : 1.24,
         4,
-        mode === 'wind' ? 28 : 22,
-        mode === 'wind' ? 22 : 20,
-        mode === 'precipitation' ? 0.1 : mode === 'cloud' ? 0.14 : 0.18,
+        mode === 'wind' ? 28 : mode === 'precipitation' ? 28 : 22,
+        mode === 'wind' ? 22 : mode === 'precipitation' ? 22 : 20,
+        mode === 'precipitation' ? 0.08 : mode === 'cloud' ? 0.14 : 0.18,
       ),
       texturePath: createTexturePath(),
       labelX: centroid.x,
@@ -621,6 +835,10 @@ const handleZoomEnd = () => {
   syncZoomState()
   syncLockedTargetScreenPosition()
   invalidateOverlayProjection()
+  schedulePrecipitationSettleRelease()
+}
+const handleZoomStart = () => {
+  beginPrecipitationSettling()
 }
 
 const handleBaseLayerTileError = (error: unknown) => {
@@ -631,6 +849,10 @@ const handleBaseLayerTileError = (error: unknown) => {
 const handleMapMoveEnd = () => {
   syncLockedTargetScreenPosition()
   invalidateOverlayProjection()
+  schedulePrecipitationSettleRelease()
+}
+const handleMapMoveStart = () => {
+  beginPrecipitationSettling()
 }
 
 const handleMapClick = (event: { latlng?: { lat?: number; lng?: number } } | undefined) => {
@@ -648,8 +870,11 @@ const handleMapClick = (event: { latlng?: { lat?: number; lng?: number } } | und
 }
 
 const destroyMap = () => {
+  clearPrecipitationSettleTimer()
   mapInstance?.off?.('zoomend', handleZoomEnd)
+  mapInstance?.off?.('zoomstart', handleZoomStart)
   mapInstance?.off?.('moveend', handleMapMoveEnd)
+  mapInstance?.off?.('movestart', handleMapMoveStart)
   mapInstance?.off?.('click', handleMapClick)
   baseLayer?.off?.('tileerror', handleBaseLayerTileError)
   cityMarker?.remove()
@@ -730,7 +955,9 @@ const ensureMap = async () => {
         },
       })
       mapInstance.on('zoomend', handleZoomEnd)
+      mapInstance.on('zoomstart', handleZoomStart)
       mapInstance.on('moveend', handleMapMoveEnd)
+      mapInstance.on('movestart', handleMapMoveStart)
       mapInstance.on('click', handleMapClick)
 
       baseLayer = createEcoBasemapLayer()
@@ -759,9 +986,18 @@ watch(
   () => [props.latitude, props.longitude, props.cityName] as const,
   () => {
     clearLockedTarget()
+    clearPrecipitationSettleTimer()
+    isPrecipitationSettling.value = false
     void ensureMap()
   },
 )
+
+watch(isPrecipitationFocus, (focused) => {
+  if (!focused) {
+    clearPrecipitationSettleTimer()
+    isPrecipitationSettling.value = false
+  }
+})
 
 onBeforeUnmount(() => {
   destroyMap()
@@ -770,26 +1006,32 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="map-page" :data-map-ready="mapReady">
-    <header class="map-page__head">
+    <header class="map-page__head" :class="{ 'map-page__head--precipitation': isPrecipitationFocus }">
       <div>
-        <p class="eyebrow">TACTICAL CITY MAP</p>
-        <h2>{{ props.cityName }} 城市地图</h2>
-        <p class="subline">{{ locationLabel }}</p>
+        <p class="eyebrow">{{ headerEyebrow }}</p>
+        <h2>{{ headerTitle }}</h2>
+        <p class="subline">{{ headerSubline }}</p>
       </div>
       <div class="head-status">
-        <div class="status-chip" :class="{ 'is-offline': !hasCoordinates || !!mapError }">
-          {{ hasCoordinates && !mapError ? 'MAP LINKED' : 'DEGRADED' }}
+        <div
+          class="status-chip"
+          :class="{
+            'is-offline': !hasCoordinates || !!mapError,
+            'status-chip--precipitation': isPrecipitationFocus,
+          }"
+        >
+          {{ hasCoordinates && !mapError ? (isPrecipitationFocus ? 'PRECIP READY' : 'MAP LINKED') : 'DEGRADED' }}
         </div>
-        <div class="scale-frame" data-testid="map-scale-frame">
-          <span class="scale-frame__label">SCALE LIVE</span>
+        <div class="scale-frame" :class="{ 'scale-frame--precipitation': isPrecipitationFocus }" data-testid="map-scale-frame">
+          <span class="scale-frame__label">{{ isPrecipitationFocus ? 'TIMELINE PREVIEW' : 'SCALE LIVE' }}</span>
         </div>
       </div>
     </header>
 
-    <div class="map-shell">
+    <div class="map-shell" :class="{ 'map-shell--precipitation': isPrecipitationFocus }">
       <div ref="mapContainerRef" class="map" data-testid="weather-map-explorer-canvas" />
 
-      <div class="map-hud" aria-hidden="true">
+      <div class="map-hud" :class="{ 'map-hud--precipitation': isPrecipitationFocus }" aria-hidden="true">
         <span class="hud-corner hud-corner--lt" />
         <span class="hud-corner hud-corner--rt" />
         <span class="hud-corner hud-corner--lb" />
@@ -835,19 +1077,20 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <div class="location-card">
-          <span class="location-card__label">LOCKED TARGET</span>
-          <strong class="location-card__value">{{ lockedTargetPoint ? 'TARGET LOCKED' : props.cityName }}</strong>
-          <span class="location-card__meta">{{ lockedTargetPoint ? lockedTargetDisplayName : locationLabel }}</span>
+        <div v-if="!isPrecipitationFocus" class="location-card" :class="{ 'location-card--precipitation': isPrecipitationFocus }">
+          <span class="location-card__label">{{ locationCardLabel }}</span>
+          <strong class="location-card__value">{{ locationCardValue }}</strong>
+          <span class="location-card__meta">{{ locationCardPrimaryMeta }}</span>
           <span class="location-card__meta location-card__meta--secondary">
-            {{ lockedTargetPoint ? lockedTargetCoordinateLabel : coordinateLabel }}
+            {{ locationCardSecondaryMeta }}
           </span>
         </div>
 
         <div class="map-console-stack" data-testid="map-console-stack">
           <div
-            v-if="activeLegend.length"
+            v-if="activeLegend.length && !isPrecipitationFocus"
             class="weather-legend"
+            :class="{ 'weather-legend--precipitation': isPrecipitationFocus }"
             data-testid="weather-overlay-legend"
           >
             <span class="weather-legend__label">{{ previewTitle }}</span>
@@ -869,7 +1112,7 @@ onBeforeUnmount(() => {
               </span>
             </div>
             <div
-              v-if="visibleOverlayMode === 'wind'"
+              v-if="visibleOverlayMode === 'wind' && !isPrecipitationFocus"
               class="weather-legend__wind-direction"
               data-testid="weather-wind-direction"
             >
@@ -878,8 +1121,15 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="zoom-console">
-            <span class="zoom-console__label">ZOOM DRIVE</span>
+          <div
+            class="zoom-console"
+            :class="{
+              'zoom-console--precipitation': isPrecipitationFocus,
+            }"
+            :data-testid="isPrecipitationFocus ? 'weather-precipitation-zoom-console' : undefined"
+            :data-precipitation-settling="isPrecipitationFocus ? String(isPrecipitationSettling) : undefined"
+          >
+            <span class="zoom-console__label">{{ isPrecipitationFocus ? 'MAP SCALE' : 'ZOOM DRIVE' }}</span>
             <div class="zoom-console__controls">
               <button type="button" class="zoom-btn" aria-label="缩小地图" @click="zoomOut">-</button>
               <input
@@ -904,6 +1154,7 @@ onBeforeUnmount(() => {
         viewBox="0 0 1000 1000"
         preserveAspectRatio="none"
         :data-overlay-mode="visibleOverlayMode"
+        :data-precipitation-settling="visibleOverlayMode === 'precipitation' ? String(isPrecipitationSettling) : undefined"
         :data-testid="`weather-overlay-${visibleOverlayMode}`"
       >
         <g
@@ -911,6 +1162,12 @@ onBeforeUnmount(() => {
           :key="region.id"
           class="weather-overlay-region"
         >
+          <path
+            v-if="visibleOverlayMode === 'precipitation'"
+            class="weather-overlay-region__merged"
+            :d="region.mergedPath"
+            :fill="region.hazeColor"
+          />
           <path
             class="weather-overlay-region__glow"
             :d="region.glowPath"
@@ -982,6 +1239,62 @@ onBeforeUnmount(() => {
         </g>
       </svg>
 
+      <div
+        v-if="isPrecipitationFocus && precipitationDrops.length"
+        class="weather-precipitation-rainfall-layer"
+        data-testid="weather-precipitation-rainfall-layer"
+        :data-precipitation-settling="String(isPrecipitationSettling)"
+        aria-hidden="true"
+      >
+        <svg class="weather-precipitation-rainfall-mask" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+          <defs>
+            <clipPath id="precipitation-rainfall-clip">
+              <path :d="precipitationClipPath" />
+            </clipPath>
+          </defs>
+        </svg>
+        <span
+          v-for="drop in precipitationDrops"
+          :key="drop.id"
+          class="weather-precipitation-rainfall-drop"
+          :class="`weather-precipitation-rainfall-drop--${drop.depth}`"
+          :style="{
+            left: drop.left,
+            top: drop.top,
+            height: drop.height,
+            width: drop.width,
+            animationDelay: drop.delay,
+            animationDuration: drop.duration,
+            opacity: drop.opacity,
+            filter: `blur(${drop.blur})`,
+            transform: `translate3d(0, -10px, 0) rotate(${drop.tilt})`,
+          }"
+        />
+      </div>
+
+      <div
+        v-if="isPrecipitationFocus && precipitationSplashes.length"
+        class="weather-precipitation-splash-layer"
+        data-testid="weather-precipitation-splash-layer"
+        :data-precipitation-settling="String(isPrecipitationSettling)"
+        aria-hidden="true"
+      >
+        <span
+          v-for="splash in precipitationSplashes"
+          :key="splash.id"
+          class="weather-precipitation-splash"
+          :style="{
+            left: splash.left,
+            top: splash.top,
+            width: splash.size,
+            height: splash.size,
+            animationDelay: splash.delay,
+            animationDuration: splash.duration,
+            opacity: splash.opacity,
+          }"
+        />
+      </div>
+
       <div v-if="!hasCoordinates || mapError" class="map-fallback">
         <p class="map-fallback__title">{{ mapError || '城市坐标暂不可用' }}</p>
         <p class="map-fallback__text">当前地图页仍可保留完整赛博面板，待坐标恢复后会自动载入真实底图与比例尺。</p>
@@ -1009,6 +1322,58 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <div
+      v-if="isPrecipitationFocus && activeLegend.length"
+      class="precipitation-bottom-bar"
+      data-testid="weather-precipitation-bottom-bar"
+    >
+      <section class="precipitation-bottom-bar__section precipitation-bottom-bar__section--status" data-testid="weather-precipitation-bottom-status">
+        <span class="precipitation-bottom-bar__eyebrow">PRECIPITATION STATUS</span>
+        <strong class="precipitation-bottom-bar__title">{{ precipitationBottomBarTitle }}</strong>
+        <span class="precipitation-bottom-bar__text">{{ precipitationBottomBarPrimary }}</span>
+        <span class="precipitation-bottom-bar__text precipitation-bottom-bar__text--muted">{{ precipitationBottomBarSecondary }}</span>
+      </section>
+
+      <section class="precipitation-bottom-bar__section precipitation-bottom-bar__section--timeline" data-testid="weather-precipitation-timeline">
+        <div class="weather-legend__timeline">
+          <div class="weather-legend__timeline-meta">
+            <span class="weather-legend__label">{{ previewTitle }}</span>
+            <strong class="weather-legend__timeline-title">降水 / Precipitation</strong>
+            <span class="weather-legend__timeline-subtitle">时间轴已移至地图下方，保证主地图视野完整</span>
+          </div>
+          <div class="weather-legend__timeline-track">
+            <div class="weather-legend__bar weather-legend__bar--precipitation" :style="{ backgroundImage: activeLegendGradient }">
+              <span
+                v-for="item in activeLegend"
+                :key="item.label"
+                class="weather-legend__segment weather-legend__segment--precipitation"
+                :style="{ '--legend-segment-glow': item.glowColor ?? item.color }"
+              />
+            </div>
+            <div class="weather-legend__ticks weather-legend__ticks--precipitation">
+              <span
+                v-for="item in activeLegend"
+                :key="item.label"
+                class="weather-legend__tick"
+              >
+                {{ item.label }}
+              </span>
+            </div>
+          </div>
+          <div class="weather-legend__timeline-stops">
+            <span
+              v-for="item in precipitationTimelineStops"
+              :key="item.time"
+              class="weather-legend__timeline-stop"
+            >
+              <strong>{{ item.time }}</strong>
+              <span>{{ item.label }}</span>
+            </span>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <div class="meta-grid">
       <div class="meta-card">
         <span class="meta-card__label">LOCATION</span>
@@ -1031,6 +1396,10 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.map-page:has(.precipitation-bottom-bar) {
+  gap: 12px;
+}
+
 .map-page__head {
   display: flex;
   justify-content: space-between;
@@ -1046,6 +1415,13 @@ onBeforeUnmount(() => {
     inset 0 1px 0 rgba(180, 252, 255, 0.08),
     inset 0 0 18px rgba(117, 241, 255, 0.08),
     var(--cyber-glow-md);
+}
+
+.map-page__head--precipitation {
+  border-color: rgba(145, 220, 255, 0.22);
+  background:
+    radial-gradient(circle at top left, rgba(110, 198, 255, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(7, 24, 56, 0.94), rgba(5, 18, 40, 0.9));
 }
 
 .eyebrow {
@@ -1086,6 +1462,12 @@ h2 {
   color: #9af5ff;
 }
 
+.status-chip--precipitation {
+  border-color: rgba(153, 214, 255, 0.34);
+  color: rgba(236, 247, 255, 0.96);
+  background: rgba(9, 27, 52, 0.82);
+}
+
 .status-chip.is-offline {
   border-color: rgba(255, 82, 205, 0.35);
   color: rgba(255, 208, 239, 0.88);
@@ -1094,6 +1476,12 @@ h2 {
 .scale-frame {
   border: 1px solid rgba(117, 241, 255, 0.22);
   color: rgba(214, 242, 255, 0.78);
+}
+
+.scale-frame--precipitation {
+  border-color: rgba(164, 221, 255, 0.26);
+  color: rgba(229, 245, 255, 0.84);
+  background: rgba(8, 24, 46, 0.76);
 }
 
 .scale-frame__label {
@@ -1114,10 +1502,25 @@ h2 {
     var(--cyber-glow-md);
 }
 
+.map-shell--precipitation {
+  border-color: rgba(138, 220, 255, 0.22);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(112, 193, 255, 0.16), transparent 30%),
+    radial-gradient(circle at 84% 14%, rgba(108, 114, 255, 0.12), transparent 24%),
+    linear-gradient(180deg, #163754 0%, #0e2741 46%, #0b1f34 100%);
+  box-shadow:
+    inset 0 0 28px rgba(95, 198, 255, 0.08),
+    0 22px 48px rgba(2, 10, 22, 0.4);
+}
+
 .map {
   width: 100%;
   min-height: 540px;
   filter: saturate(1.03) brightness(0.98) contrast(1);
+}
+
+.map-shell--precipitation .map {
+  filter: saturate(0.96) brightness(0.99) contrast(1.02);
 }
 
 .map-shell :deep(.leaflet-pane),
@@ -1143,6 +1546,16 @@ h2 {
   inset: 0;
   pointer-events: none;
   z-index: 2;
+}
+
+.map-hud--precipitation .hud-corner {
+  border-color: rgba(218, 243, 255, 0.5);
+  filter: drop-shadow(0 0 8px rgba(106, 183, 255, 0.18));
+}
+
+.map-hud--precipitation .scanline {
+  background: linear-gradient(180deg, rgba(117, 241, 255, 0), rgba(155, 214, 255, 0.12), rgba(117, 241, 255, 0));
+  opacity: 0.72;
 }
 
 .hud-corner {
@@ -1323,6 +1736,16 @@ h2 {
     rgba(6, 26, 58, 0.94);
 }
 
+.weather-layer-btn:first-child.is-active {
+  border-color: rgba(200, 232, 255, 0.52);
+  background:
+    linear-gradient(145deg, rgba(231, 243, 255, 0.18), rgba(109, 145, 255, 0.14)),
+    rgba(10, 32, 57, 0.94);
+  box-shadow:
+    inset 0 0 0 1px rgba(235, 248, 255, 0.08),
+    0 12px 28px rgba(45, 118, 214, 0.22);
+}
+
 .weather-layer-btn__icon {
   width: 18px;
   height: 18px;
@@ -1339,6 +1762,19 @@ h2 {
     drop-shadow(0 0 10px rgba(117, 241, 255, 0.34))
     drop-shadow(0 0 18px rgba(140, 112, 255, 0.18));
   opacity: 0.96;
+}
+
+.weather-layer-btn:first-child.is-active .weather-layer-btn__icon {
+  filter:
+    brightness(0)
+    saturate(100%)
+    invert(97%)
+    sepia(4%)
+    saturate(1754%)
+    hue-rotate(173deg)
+    brightness(102%)
+    contrast(101%)
+    drop-shadow(0 0 8px rgba(160, 214, 255, 0.2));
 }
 
 .target-lock {
@@ -1452,6 +1888,15 @@ h2 {
   padding: 12px 14px;
 }
 
+.location-card--precipitation {
+  border-color: rgba(172, 220, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(8, 24, 46, 0.88) 0%, rgba(6, 18, 34, 0.78) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(236, 247, 255, 0.05),
+    0 14px 28px rgba(2, 12, 26, 0.28);
+}
+
 .location-card__label,
 .zoom-console__label {
   display: block;
@@ -1491,6 +1936,86 @@ h2 {
   pointer-events: auto;
   width: 100%;
   padding: 14px 16px;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.zoom-console--precipitation {
+  border-color: rgba(165, 220, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(8, 22, 41, 0.82), rgba(6, 18, 34, 0.74));
+  box-shadow:
+    inset 0 1px 0 rgba(235, 246, 255, 0.04),
+    0 10px 22px rgba(3, 12, 24, 0.22);
+}
+
+.zoom-console--precipitation .zoom-console__controls {
+  grid-template-columns: auto minmax(180px, 260px) auto auto;
+  gap: 12px;
+}
+
+.zoom-console--precipitation[data-precipitation-settling='true'] {
+  border-color: rgba(169, 215, 246, 0.12);
+  background:
+    linear-gradient(180deg, rgba(8, 21, 38, 0.76), rgba(6, 17, 32, 0.7));
+  box-shadow:
+    inset 0 1px 0 rgba(235, 246, 255, 0.03),
+    0 8px 18px rgba(2, 10, 20, 0.18);
+}
+
+.precipitation-bottom-bar {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.92fr) minmax(420px, 1.48fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.precipitation-bottom-bar__section {
+  min-width: 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(166, 219, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(6, 18, 35, 0.94) 0%, rgba(8, 20, 38, 0.9) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(239, 247, 255, 0.04),
+    0 18px 34px rgba(2, 10, 22, 0.28);
+  backdrop-filter: blur(14px);
+}
+
+.precipitation-bottom-bar__section--timeline {
+  padding: 18px 20px;
+}
+
+.precipitation-bottom-bar__eyebrow {
+  display: block;
+  color: rgba(182, 223, 248, 0.62);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+}
+
+.precipitation-bottom-bar__title {
+  display: block;
+  margin-top: 8px;
+  color: rgba(243, 249, 255, 0.96);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.precipitation-bottom-bar__text {
+  display: block;
+  margin-top: 8px;
+  color: rgba(220, 238, 250, 0.84);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.precipitation-bottom-bar__text--muted {
+  color: rgba(171, 211, 236, 0.62);
 }
 
 .weather-legend {
@@ -1511,6 +2036,16 @@ h2 {
   backdrop-filter: blur(14px);
 }
 
+.weather-legend--precipitation {
+  padding: 16px 18px 18px;
+  border-color: rgba(178, 223, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(6, 18, 35, 0.96) 0%, rgba(8, 21, 40, 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(243, 249, 255, 0.05),
+    0 22px 44px rgba(2, 10, 22, 0.42);
+}
+
 .weather-legend::before {
   content: '';
   position: absolute;
@@ -1523,6 +2058,12 @@ h2 {
   pointer-events: none;
 }
 
+.weather-legend--precipitation::before {
+  background:
+    linear-gradient(120deg, rgba(116, 207, 255, 0.1), transparent 36%),
+    radial-gradient(circle at top right, rgba(123, 108, 255, 0.18), transparent 54%);
+}
+
 .weather-legend::after {
   content: '';
   position: absolute;
@@ -1530,6 +2071,35 @@ h2 {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(117, 241, 255, 0.32), transparent);
   pointer-events: none;
+}
+
+.weather-legend__timeline {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+}
+
+.weather-legend__timeline-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.weather-legend__timeline-title {
+  color: rgba(243, 249, 255, 0.96);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.weather-legend__timeline-subtitle {
+  color: rgba(205, 227, 244, 0.66);
+  font-size: 12px;
+}
+
+.weather-legend__timeline-track {
+  display: grid;
+  gap: 8px;
 }
 
 .weather-legend__label {
@@ -1540,6 +2110,16 @@ h2 {
   font-size: 10px;
   letter-spacing: 0.22em;
   text-shadow: 0 0 10px rgba(70, 197, 255, 0.32);
+}
+
+.weather-legend__bar--precipitation {
+  min-height: 18px;
+  padding: 1px;
+  border: 0;
+  background-size: 100% 100%;
+  box-shadow:
+    inset 0 0 0 1px rgba(229, 242, 255, 0.12),
+    0 10px 18px rgba(60, 124, 208, 0.18);
 }
 
 .weather-legend__bar {
@@ -1555,6 +2135,13 @@ h2 {
   box-shadow:
     inset 0 0 18px rgba(117, 241, 255, 0.08),
     0 0 16px rgba(65, 178, 255, 0.14);
+}
+
+.weather-legend__segment--precipitation {
+  height: 16px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
+  opacity: 0.9;
 }
 
 .weather-legend__segment {
@@ -1577,11 +2164,37 @@ h2 {
   margin-top: 8px;
 }
 
+.weather-legend__ticks--precipitation {
+  gap: 10px;
+  margin-top: 0;
+}
+
 .weather-legend__tick {
   color: rgba(232, 247, 255, 0.84);
   font-size: 10px;
   text-align: center;
   text-shadow: 0 0 8px rgba(14, 59, 94, 0.56);
+}
+
+.weather-legend__timeline-stops {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.weather-legend__timeline-stop {
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(200, 226, 244, 0.16);
+  color: rgba(226, 240, 251, 0.8);
+  font-size: 11px;
+}
+
+.weather-legend__timeline-stop strong {
+  color: rgba(245, 251, 255, 0.96);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .weather-legend__wind-direction {
@@ -1608,10 +2221,117 @@ h2 {
   pointer-events: none;
 }
 
+.weather-overlay-region__merged {
+  opacity: 0.32;
+  filter: blur(22px) saturate(82%);
+  mix-blend-mode: multiply;
+}
+
+.weather-precipitation-rainfall-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  clip-path: url(#precipitation-rainfall-clip);
+  transition: opacity 160ms ease;
+}
+
+.weather-precipitation-rainfall-layer[data-precipitation-settling='true'] {
+  opacity: 0.76;
+}
+
+.weather-precipitation-splash-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  clip-path: url(#precipitation-rainfall-clip);
+}
+
+.weather-precipitation-splash {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(214, 232, 246, 0.26);
+  box-shadow:
+    0 0 8px rgba(157, 194, 220, 0.06),
+    inset 0 0 0 1px rgba(238, 247, 255, 0.04);
+  transform: translate3d(0, 0, 0) rotateX(66deg) rotateZ(-14deg) scaleX(1.95) scaleY(0.42);
+  transform-origin: center;
+  animation: precipitation-splash-ring ease-out infinite;
+  will-change: transform, opacity;
+}
+
+.weather-precipitation-splash::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  height: 42%;
+  border-radius: 50%;
+  background: rgba(229, 241, 250, 0.18);
+  transform: translate(-50%, -50%);
+}
+
+.weather-precipitation-splash-layer[data-precipitation-settling='true'] .weather-precipitation-splash {
+  animation-play-state: paused;
+  opacity: 0.08 !important;
+}
+
+.weather-precipitation-rainfall-mask {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.weather-precipitation-rainfall-drop {
+  position: absolute;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(232, 242, 250, 0.58) 0%, rgba(155, 189, 220, 0.24) 62%, rgba(155, 189, 220, 0.02) 100%);
+  box-shadow:
+    0 0 6px rgba(170, 207, 235, 0.08),
+    0 0 14px rgba(116, 150, 190, 0.05);
+  animation: precipitation-drop-fall linear infinite;
+  will-change: transform, opacity;
+  transform-origin: top center;
+}
+
+.weather-precipitation-rainfall-drop--mist {
+  background:
+    linear-gradient(180deg, rgba(220, 234, 245, 0.42) 0%, rgba(146, 180, 212, 0.16) 60%, rgba(146, 180, 212, 0) 100%);
+}
+
+.weather-precipitation-rainfall-drop--steady {
+  box-shadow:
+    0 0 8px rgba(180, 218, 242, 0.1),
+    0 0 14px rgba(128, 162, 196, 0.07);
+}
+
+.weather-precipitation-rainfall-drop--burst {
+  background:
+    linear-gradient(180deg, rgba(238, 247, 252, 0.68) 0%, rgba(168, 202, 230, 0.28) 56%, rgba(168, 202, 230, 0.04) 100%);
+  box-shadow:
+    0 0 10px rgba(193, 225, 246, 0.12),
+    0 0 18px rgba(132, 166, 202, 0.08);
+}
+
+.weather-precipitation-rainfall-layer[data-precipitation-settling='true'] .weather-precipitation-rainfall-drop {
+  animation-play-state: paused;
+}
+
 .weather-overlay-region__glow {
   opacity: 0.2;
   filter: blur(24px) saturate(120%);
   animation: weather-overlay-drift 7.4s ease-in-out infinite;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'] .weather-overlay-region__glow {
+  opacity: 0.2;
+  filter: blur(30px) saturate(78%);
+  mix-blend-mode: multiply;
 }
 
 .weather-overlay-region__halo {
@@ -1619,6 +2339,12 @@ h2 {
   filter: blur(8px) saturate(118%);
   mix-blend-mode: screen;
   animation: weather-overlay-drift 6.9s ease-in-out infinite reverse;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'] .weather-overlay-region__halo {
+  opacity: 0.24;
+  filter: blur(16px) saturate(78%);
+  mix-blend-mode: multiply;
 }
 
 .weather-overlay-region__core {
@@ -1629,6 +2355,14 @@ h2 {
     drop-shadow(0 0 10px rgba(117, 241, 255, 0.14))
     drop-shadow(0 0 22px rgba(117, 241, 255, 0.16));
   animation: weather-overlay-drift 6.4s ease-in-out infinite;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'] .weather-overlay-region__core {
+  opacity: 0.4;
+  stroke: rgba(214, 231, 244, 0.12);
+  stroke-width: 0.8;
+  filter: blur(0.45px) saturate(82%);
+  mix-blend-mode: multiply;
 }
 
 .weather-overlay-region__texture {
@@ -1642,6 +2376,15 @@ h2 {
     drop-shadow(0 0 10px rgba(234, 247, 255, 0.16));
   mix-blend-mode: screen;
   animation: weather-overlay-drift 5.6s ease-in-out infinite reverse;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'] .weather-overlay-region__texture {
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-dasharray: 2 22;
+  opacity: 0.1;
+  filter: blur(0.2px);
+  mix-blend-mode: normal;
 }
 
 .weather-overlay-region__wind-flow {
@@ -1664,6 +2407,44 @@ h2 {
     drop-shadow(0 0 12px rgba(236, 249, 255, 0.2));
   mix-blend-mode: screen;
   animation: weather-overlay-drift 5.8s ease-in-out infinite;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'] .weather-overlay-region__accent {
+  opacity: 0.12;
+  filter: blur(4px) saturate(80%);
+  mix-blend-mode: multiply;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__glow,
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__merged,
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__halo,
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__texture,
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__accent {
+  animation: none;
+  filter: none;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__merged {
+  opacity: 0.28;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__glow {
+  opacity: 0.16;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__halo {
+  opacity: 0.22;
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__core {
+  animation: none;
+  opacity: 0.36;
+  filter: blur(0.35px);
+}
+
+.weather-overlay-field[data-overlay-mode='precipitation'][data-precipitation-settling='true'] .weather-overlay-region__texture {
+  opacity: 0.1;
+  stroke-dasharray: 2 20;
 }
 
 .weather-overlay-region__label-box {
@@ -1727,6 +2508,14 @@ h2 {
   color: var(--cyber-cyan);
   font-size: 18px;
   cursor: pointer;
+}
+
+.zoom-console--precipitation .zoom-btn {
+  border-color: rgba(201, 227, 248, 0.18);
+  background:
+    linear-gradient(180deg, rgba(229, 243, 255, 0.08), rgba(103, 141, 214, 0.08)),
+    rgba(8, 22, 42, 0.84);
+  color: rgba(238, 247, 255, 0.94);
 }
 
 .zoom-slider {
@@ -1885,6 +2674,37 @@ h2 {
   }
 }
 
+@keyframes precipitation-drop-fall {
+  0% {
+    transform: translate3d(0, -10px, 0);
+    opacity: 0;
+  }
+  18% {
+    opacity: inherit;
+  }
+  100% {
+    transform: translate3d(-7px, 46px, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes precipitation-splash-ring {
+  0% {
+    transform: translate3d(-1px, 1px, 0) rotateX(66deg) rotateZ(-14deg) scaleX(0.62) scaleY(0.18);
+    opacity: 0;
+  }
+  24% {
+    opacity: inherit;
+  }
+  64% {
+    transform: translate3d(2px, -1px, 0) rotateX(66deg) rotateZ(-14deg) scaleX(1.75) scaleY(0.38);
+  }
+  100% {
+    transform: translate3d(4px, -2px, 0) rotateX(66deg) rotateZ(-14deg) scaleX(2.5) scaleY(0.5);
+    opacity: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .map-page__head {
     flex-direction: column;
@@ -1913,6 +2733,10 @@ h2 {
 
   .zoom-console__controls {
     grid-template-columns: auto 1fr auto auto;
+  }
+
+  .precipitation-bottom-bar {
+    grid-template-columns: 1fr;
   }
 
   .meta-grid {

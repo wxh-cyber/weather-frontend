@@ -14,6 +14,91 @@ vi.mock('@/service/weather', async () => {
   }
 })
 
+const mockDailyWeatherDetailResponse = () => ({
+  data: {
+    cityId: 'city-1',
+    cityName: '武汉市',
+    source: 'open-meteo',
+    items: [
+      {
+        date: '2026-05-01',
+        temperatureMax: '28°C',
+        temperatureMin: '19°C',
+        sunrise: '05:35',
+        sunset: '18:58',
+        dayWeatherText: '晴',
+        nightWeatherText: '多云',
+        dayMetrics: {
+          feelsLike: '29°C',
+          precipitationProbability: '8%',
+          precipitationAmount: '0.0 mm',
+          airQuality: 'AQI 46',
+          windDirection: '东南',
+          cloudCover: '18%',
+        },
+        nightMetrics: {
+          feelsLike: '22°C',
+          precipitationProbability: '15%',
+          precipitationAmount: '0.3 mm',
+          airQuality: 'AQI 52',
+          windDirection: '东北',
+          cloudCover: '34%',
+        },
+      },
+      {
+        date: '2026-05-02',
+        temperatureMax: '31°C',
+        temperatureMin: '22°C',
+        sunrise: '05:34',
+        sunset: '18:59',
+        dayWeatherText: '晴',
+        nightWeatherText: '小雨',
+        dayMetrics: {
+          feelsLike: '33°C',
+          precipitationProbability: '12%',
+          precipitationAmount: '0.1 mm',
+          airQuality: 'AQI 61',
+          windDirection: '南',
+          cloudCover: '26%',
+        },
+        nightMetrics: {
+          feelsLike: '25°C',
+          precipitationProbability: '48%',
+          precipitationAmount: '2.4 mm',
+          airQuality: 'AQI 63',
+          windDirection: '西南',
+          cloudCover: '68%',
+        },
+      },
+      {
+        date: '2026-05-03',
+        temperatureMax: '24°C',
+        temperatureMin: '17°C',
+        sunrise: '05:33',
+        sunset: '19:00',
+        dayWeatherText: '小雨',
+        nightWeatherText: '多云',
+        dayMetrics: {
+          feelsLike: '23°C',
+          precipitationProbability: '--',
+          precipitationAmount: '--',
+          airQuality: 'AQI 55',
+          windDirection: '北',
+          cloudCover: '74%',
+        },
+        nightMetrics: {
+          feelsLike: '18°C',
+          precipitationProbability: '22%',
+          precipitationAmount: '0.6 mm',
+          airQuality: 'AQI 50',
+          windDirection: '西北',
+          cloudCover: '52%',
+        },
+      },
+    ],
+  },
+})
+
 describe('DailyWeatherPanel', () => {
   beforeEach(() => {
     getDailyWeatherDetailMock.mockReset()
@@ -26,90 +111,7 @@ describe('DailyWeatherPanel', () => {
   })
 
   it('renders today by default and updates when switching date and period', async () => {
-    getDailyWeatherDetailMock.mockResolvedValue({
-      data: {
-        cityId: 'city-1',
-        cityName: '武汉市',
-        source: 'open-meteo',
-        items: [
-          {
-            date: '2026-05-01',
-            temperatureMax: '28°C',
-            temperatureMin: '19°C',
-            sunrise: '05:35',
-            sunset: '18:58',
-            dayWeatherText: '晴',
-            nightWeatherText: '多云',
-            dayMetrics: {
-              feelsLike: '29°C',
-              precipitationProbability: '8%',
-              precipitationAmount: '0.0 mm',
-              airQuality: 'AQI 46',
-              windDirection: '东南',
-              cloudCover: '18%',
-            },
-            nightMetrics: {
-              feelsLike: '22°C',
-              precipitationProbability: '15%',
-              precipitationAmount: '0.3 mm',
-              airQuality: 'AQI 52',
-              windDirection: '东北',
-              cloudCover: '34%',
-            },
-          },
-          {
-            date: '2026-05-02',
-            temperatureMax: '31°C',
-            temperatureMin: '22°C',
-            sunrise: '05:34',
-            sunset: '18:59',
-            dayWeatherText: '晴',
-            nightWeatherText: '小雨',
-            dayMetrics: {
-              feelsLike: '33°C',
-              precipitationProbability: '12%',
-              precipitationAmount: '0.1 mm',
-              airQuality: 'AQI 61',
-              windDirection: '南',
-              cloudCover: '26%',
-            },
-            nightMetrics: {
-              feelsLike: '25°C',
-              precipitationProbability: '48%',
-              precipitationAmount: '2.4 mm',
-              airQuality: 'AQI 63',
-              windDirection: '西南',
-              cloudCover: '68%',
-            },
-          },
-          {
-            date: '2026-05-03',
-            temperatureMax: '24°C',
-            temperatureMin: '17°C',
-            sunrise: '05:33',
-            sunset: '19:00',
-            dayWeatherText: '小雨',
-            nightWeatherText: '多云',
-            dayMetrics: {
-              feelsLike: '23°C',
-              precipitationProbability: '--',
-              precipitationAmount: '--',
-              airQuality: 'AQI 55',
-              windDirection: '北',
-              cloudCover: '74%',
-            },
-            nightMetrics: {
-              feelsLike: '18°C',
-              precipitationProbability: '22%',
-              precipitationAmount: '0.6 mm',
-              airQuality: 'AQI 50',
-              windDirection: '西北',
-              cloudCover: '52%',
-            },
-          },
-        ],
-      },
-    })
+    getDailyWeatherDetailMock.mockResolvedValue(mockDailyWeatherDetailResponse())
 
     const wrapper = mount(DailyWeatherPanel, {
       props: {
@@ -160,6 +162,50 @@ describe('DailyWeatherPanel', () => {
     expect(wrapper.text()).toContain('5月3日星期日')
     expect(wrapper.get('[data-testid="daily-weather-metric-precipitationProbability"]').text()).toContain('22%')
     expect(wrapper.get('[data-testid="daily-weather-metric-windDirection"]').text()).toContain('西北')
+  })
+
+  it('selects the route-provided initial date when it exists', async () => {
+    getDailyWeatherDetailMock.mockResolvedValue(mockDailyWeatherDetailResponse())
+
+    const wrapper = mount(DailyWeatherPanel, {
+      props: {
+        city: {
+          cityId: 'city-1',
+          cityName: '武汉市',
+          weatherText: '晴',
+          temperature: '26°C',
+        },
+        initialDate: '2026-05-03',
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('5月3日星期日')
+    expect(wrapper.text()).toContain('24°C')
+    expect(wrapper.text()).toContain('17°C')
+  })
+
+  it('falls back to today when the route-provided initial date is unavailable', async () => {
+    getDailyWeatherDetailMock.mockResolvedValue(mockDailyWeatherDetailResponse())
+
+    const wrapper = mount(DailyWeatherPanel, {
+      props: {
+        city: {
+          cityId: 'city-1',
+          cityName: '武汉市',
+          weatherText: '晴',
+          temperature: '26°C',
+        },
+        initialDate: '2026-05-12',
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('5月2日星期六')
+    expect(wrapper.text()).toContain('31°C')
+    expect(wrapper.text()).toContain('22°C')
   })
 
   it('shows placeholder values when metrics are missing and disables out-of-range arrows', async () => {

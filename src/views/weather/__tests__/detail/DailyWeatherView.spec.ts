@@ -105,8 +105,8 @@ describe('DailyWeatherView', () => {
             template: '<div class="weather-city-tabs-stub" @click="$emit(\'select\', \'上海市\')" />',
           },
           DailyWeatherPanel: {
-            props: ['city'],
-            template: '<section class="daily-weather-panel-stub" :data-city-name="city.cityName" />',
+            props: ['city', 'initialDate'],
+            template: '<section class="daily-weather-panel-stub" :data-city-name="city.cityName" :data-initial-date="initialDate" />',
           },
         },
       },
@@ -146,5 +146,14 @@ describe('DailyWeatherView', () => {
     await flushPromises()
 
     expect(searchSubmitMock).toHaveBeenCalledWith('广州')
+  })
+
+  it('passes the selected route date query to the daily panel', async () => {
+    const { wrapper, router } = await mountDailyView()
+
+    await router.push('/weather/武汉市/daily-weather?date=2026-05-03')
+    await flushPromises()
+
+    expect(wrapper.find('.daily-weather-panel-stub').attributes('data-initial-date')).toBe('2026-05-03')
   })
 })

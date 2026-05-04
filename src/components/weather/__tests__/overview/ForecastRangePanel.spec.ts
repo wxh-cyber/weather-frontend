@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ForecastRangePanel from '@/components/weather/overview/ForecastRangePanel.vue'
 
@@ -28,11 +28,16 @@ vi.mock('echarts', () => ({
 
 describe('ForecastRangePanel', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     echartsInstanceMock.setOption.mockReset()
     echartsInstanceMock.resize.mockReset()
     echartsInstanceMock.dispose.mockReset()
     echartsInitMock.mockReset()
     echartsInitMock.mockReturnValue(echartsInstanceMock)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   const mountPanel = async () => {
@@ -59,6 +64,17 @@ describe('ForecastRangePanel', () => {
     expect(wrapper.text()).toContain('今天')
     expect(wrapper.findAll('.forecast-icon img').length).toBeGreaterThan(0)
     expect(wrapper.emitted('range-change')).toEqual([['7d']])
+  })
+
+  it('emits the selected forecast date when clicking a list row', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-04T08:00:00+08:00'))
+
+    const wrapper = await mountPanel()
+    await wrapper.find('.forecast-row').trigger('click')
+
+    expect(wrapper.emitted('date-select')).toEqual([['2026-05-04']])
+
   })
 
   it('expands to a 15-day list when selecting 15 days', async () => {

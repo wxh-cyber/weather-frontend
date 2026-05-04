@@ -38,6 +38,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'range-change': [rangeMode: RangeOption]
+  'date-select': [date: string]
 }>()
 
 const rangeMode = ref<RangeOption>('7d')
@@ -330,6 +331,17 @@ const handleBucketSelect = (bucketId: string) => {
   activeBucketId.value = bucketId
 }
 
+const formatRouteDate = (date: Date) => {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const handleDateSelect = (item: DailyForecastItem) => {
+  emit('date-select', formatRouteDate(item.date))
+}
+
 watch(
   rangeMode,
   async (nextMode) => {
@@ -432,6 +444,12 @@ onBeforeUnmount(() => {
         v-for="item in visibleForecastDays"
         :key="item.id"
         class="forecast-row"
+        role="button"
+        tabindex="0"
+        :aria-label="`查看${item.monthLabel}${item.dateLabel}${item.relationLabel}单日天气`"
+        @click="handleDateSelect(item)"
+        @keydown.enter.prevent="handleDateSelect(item)"
+        @keydown.space.prevent="handleDateSelect(item)"
       >
         <div class="forecast-date">
           <span class="forecast-month">{{ item.monthLabel }}</span>
@@ -644,6 +662,25 @@ onBeforeUnmount(() => {
   box-shadow:
     inset 0 0 14px rgba(117, 241, 255, 0.06),
     0 12px 24px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  outline: none;
+  transition:
+    transform var(--cyber-ease),
+    border-color var(--cyber-ease),
+    box-shadow var(--cyber-ease),
+    background var(--cyber-ease);
+}
+
+.forecast-row:hover,
+.forecast-row:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(117, 241, 255, 0.38);
+  background:
+    linear-gradient(140deg, rgba(15, 42, 82, 0.86), rgba(5, 18, 40, 0.9));
+  box-shadow:
+    inset 0 0 18px rgba(117, 241, 255, 0.1),
+    0 16px 30px rgba(0, 0, 0, 0.2),
+    0 0 18px rgba(117, 241, 255, 0.12);
 }
 
 .forecast-date {

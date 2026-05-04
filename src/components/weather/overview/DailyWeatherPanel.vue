@@ -14,6 +14,7 @@ import sunsetIcon from '@/assets/information/日落.svg'
 
 const props = defineProps<{
   city: CityItem
+  initialDate?: string
 }>()
 
 type DayPeriod = 'day' | 'night'
@@ -118,6 +119,10 @@ const setPeriod = (period: DayPeriod) => {
   activePeriod.value = period
 }
 
+const syncSelectedDate = () => {
+  selectedIndex.value = resolveInitialDateIndex(detailItems.value, props.initialDate)
+}
+
 const fetchDailyDetail = async () => {
   if (!props.city.cityId) {
     detailItems.value = []
@@ -131,7 +136,7 @@ const fetchDailyDetail = async () => {
   try {
     const response = await getDailyWeatherDetail(props.city.cityId)
     detailItems.value = response.data.items
-    selectedIndex.value = getTodayIndex(response.data.items)
+    syncSelectedDate()
     activePeriod.value = getInitialPeriod()
   } catch (error) {
     detailItems.value = []
@@ -145,6 +150,10 @@ watch(() => props.city.cityId, () => {
   void fetchDailyDetail()
 }, { immediate: true })
 
+watch(() => props.initialDate, () => {
+  syncSelectedDate()
+})
+
 onMounted(() => {
   if (!detailItems.value.length) {
     void fetchDailyDetail()
@@ -155,6 +164,17 @@ function getTodayIndex(items: DailyWeatherDetailItem[]) {
   const today = new Date().toISOString().slice(0, 10)
   const foundIndex = items.findIndex((item) => item.date === today)
   return foundIndex >= 0 ? foundIndex : 0
+}
+
+function resolveInitialDateIndex(items: DailyWeatherDetailItem[], initialDate?: string) {
+  if (initialDate) {
+    const foundIndex = items.findIndex((item) => item.date === initialDate)
+    if (foundIndex >= 0) {
+      return foundIndex
+    }
+  }
+
+  return getTodayIndex(items)
 }
 
 function getInitialPeriod(): DayPeriod {

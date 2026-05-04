@@ -32,6 +32,10 @@ const props = withDefaults(
   },
 )
 
+const emit = defineEmits<{
+  'date-select': [date: string]
+}>()
+
 const chartMode = ref<ChartMode>('both')
 const forecastRangeMode = ref<Extract<ForecastRangeMode, '7d' | '15d'>>('7d')
 const chartRef = ref<HTMLDivElement | null>(null)
@@ -116,6 +120,10 @@ const handleRangeChange = (nextRangeMode: ForecastRangeMode) => {
   }
 
   forecastRangeMode.value = nextRangeMode
+}
+
+const handleDateSelect = (date: string) => {
+  emit('date-select', date)
 }
 
 const syncChart = () => {
@@ -362,6 +370,7 @@ watch([() => props.cityName, () => props.temperature, visibleTrendDays, chartMod
       :city-name="props.cityName"
       :temperature="props.temperature"
       @range-change="handleRangeChange"
+      @date-select="handleDateSelect"
     />
   </section>
 </template>

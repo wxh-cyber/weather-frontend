@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import WeeklyTemperatureTrendPanel from '@/components/weather/overview/WeeklyTemperatureTrendPanel.vue'
 
@@ -28,11 +28,16 @@ vi.mock('echarts', () => ({
 
 describe('WeeklyTemperatureTrendPanel', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     echartsInstanceMock.setOption.mockReset()
     echartsInstanceMock.resize.mockReset()
     echartsInstanceMock.dispose.mockReset()
     echartsInitMock.mockReset()
     echartsInitMock.mockReturnValue(echartsInstanceMock)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   const mountPanel = async () => {
@@ -127,5 +132,16 @@ describe('WeeklyTemperatureTrendPanel', () => {
     option = getLatestOption()
     expect(option.xAxis.data).toHaveLength(7)
     expect(option.series.map((item) => item.data.length)).toEqual([7, 7, 7])
+  })
+
+  it('forwards forecast date selection to the parent view', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-04T08:00:00+08:00'))
+
+    const wrapper = await mountPanel()
+    await wrapper.find('.forecast-row').trigger('click')
+
+    expect(wrapper.emitted('date-select')).toEqual([['2026-05-04']])
+
   })
 })
