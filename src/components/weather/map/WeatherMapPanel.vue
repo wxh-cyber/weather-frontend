@@ -240,7 +240,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .panel {
   position: relative;
-  padding: 20px;
+  padding: 18px 20px;
   border-radius: 16px;
   border: 1px solid var(--cyber-glass-border);
   background: linear-gradient(160deg, rgba(16, 40, 78, 0.86), rgba(8, 24, 52, 0.84));
@@ -296,7 +296,7 @@ onBeforeUnmount(() => {
 }
 
 .eyebrow {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   color: rgba(117, 241, 255, 0.62);
   font-size: 11px;
   letter-spacing: 0.22em;
@@ -305,6 +305,7 @@ onBeforeUnmount(() => {
 h3 {
   margin: 0;
   color: var(--cyber-cyan);
+  font-size: 21px;
   text-shadow: 0 0 10px rgba(117, 241, 255, 0.45);
   animation: cyber-breathe-soft var(--cyber-breathe-soft-duration) var(--cyber-breathe-ease) infinite;
 }
@@ -338,8 +339,8 @@ h3 {
 
 .map-shell {
   position: relative;
-  margin-top: 14px;
-  height: 220px;
+  margin-top: 12px;
+  height: 248px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(117, 241, 255, 0.28);
@@ -349,7 +350,7 @@ h3 {
 }
 
 .map {
-  height: 220px;
+  height: 248px;
   width: 100%;
   filter: saturate(1.03) brightness(0.98) contrast(1);
 }
@@ -477,12 +478,12 @@ h3 {
   z-index: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .meta-card {
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-radius: 12px;
   border: 1px solid rgba(117, 241, 255, 0.14);
   background: rgba(4, 18, 42, 0.4);
@@ -498,18 +499,18 @@ h3 {
 
 .meta-card__value {
   display: block;
-  margin-top: 6px;
+  margin-top: 5px;
   color: rgba(234, 252, 255, 0.92);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .note {
-  margin-top: 12px;
+  margin-top: 10px;
   color: var(--cyber-text-muted);
   position: relative;
   z-index: 1;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 @keyframes map-scan {

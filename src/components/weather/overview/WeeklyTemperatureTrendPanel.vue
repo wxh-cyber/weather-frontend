@@ -2,13 +2,15 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import ForecastRangePanel from '@/components/weather/overview/ForecastRangePanel.vue'
+import type { WeatherDailyItem } from '@/service/weather'
 
 type ChartMode = 'both' | 'line' | 'bar'
 type SeriesKey = 'average' | 'high' | 'low'
 type ForecastRangeMode = '7d' | '15d' | '90d'
 
 type DailyTrendItem = {
-  day: string
+  id: string
+  label: string
   high: number
   low: number
   average: number
@@ -25,6 +27,7 @@ const props = withDefaults(
   defineProps<{
     cityName?: string
     temperature?: string
+    dailyItems?: WeatherDailyItem[]
   }>(),
   {
     cityName: '默认城市',
@@ -37,17 +40,18 @@ const emit = defineEmits<{
 }>()
 
 const chartMode = ref<ChartMode>('both')
-const forecastRangeMode = ref<Extract<ForecastRangeMode, '7d' | '15d'>>('7d')
+const forecastRangeMode = ref<ForecastRangeMode>('7d')
+const activeBucketId = ref('')
 const chartRef = ref<HTMLDivElement | null>(null)
 
 let chartInstance: echarts.ECharts | null = null
 
-const baseTemp = computed(() => {
-  const value = Number.parseInt(props.temperature, 10)
-  return Number.isNaN(value) ? 18 : value
-})
-
 const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+const parseTemperature = (value?: string) => {
+  const parsed = Number.parseFloat(value ?? '')
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
 const legendItems: ReadonlyArray<LegendItem> = [
   {
@@ -71,22 +75,15 @@ const legendItems: ReadonlyArray<LegendItem> = [
 ]
 
 const allTrendDays = computed<DailyTrendItem[]>(() => {
-  const citySeed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  return Array.from({ length: 15 }, (_, index) => {
-    const date = new Date(today)
-    date.setDate(today.getDate() + index)
-    const day = weekDays[date.getDay()] ?? '周一'
-    const wave = Math.sin((index / 15) * Math.PI * 2) * 2.8
-    const offset = ((citySeed + index * 11) % 5) - 2
-    const average = Number((baseTemp.value + wave + offset * 0.4).toFixed(1))
-    const high = Number((average + 4 + ((citySeed + index * 3) % 2) * 0.7).toFixed(1))
-    const low = Number((average - 5 - ((citySeed + index * 5) % 2) * 0.6).toFixed(1))
+  return (props.dailyItems ?? []).slice(0, 90).map((item) => {
+    const date = new Date(`${item.date}T00:00:00`)
+    const high = parseTemperature(item.temperatureMax)
+    const low = parseTemperature(item.temperatureMin)
+    const average = Number(((high + low) / 2).toFixed(1))
 
     return {
-      day,
+      id: item.date,
+      label: `${date.getMonth() + 1}/${date.getDate()} ${weekDays[date.getDay()] ?? '周一'}`,
       high,
       low,
       average,
@@ -94,9 +91,63 @@ const allTrendDays = computed<DailyTrendItem[]>(() => {
   })
 })
 
-const visibleTrendDays = computed(() =>
-  forecastRangeMode.value === '15d' ? allTrendDays.value.slice(0, 15) : allTrendDays.value.slice(0, 7),
-)
+const tenDayBuckets = computed<DailyTrendItem[]>(() => {
+  const buckets = new Map<string, DailyTrendItem & { dayCount: number }>()
+
+  for (const item of allTrendDays.value) {
+    const source = (props.dailyItems ?? []).find((dailyItem) => dailyItem.date === item.id)
+    if (!source) {
+      continue
+    }
+
+    const date = new Date(`${source.date}T00:00:00`)
+    const segment = date.getDate() <= 10 ? '上旬' : date.getDate() <= 20 ? '中旬' : '下旬'
+    const bucketId = `${date.getFullYear()}-${date.getMonth() + 1}-${segment}`
+    const label = `${date.getMonth() + 1}月${segment}`
+    const existing = buckets.get(bucketId)
+
+    if (!existing) {
+      buckets.set(bucketId, {
+        id: bucketId,
+        label,
+        high: item.high,
+        low: item.low,
+        average: item.average,
+        dayCount: 1,
+      })
+      continue
+    }
+
+    existing.high = Math.max(existing.high, item.high)
+    existing.low = Math.min(existing.low, item.low)
+    existing.average = Number((((existing.average * existing.dayCount) + item.average) / (existing.dayCount + 1)).toFixed(1))
+    existing.dayCount += 1
+  }
+
+  return Array.from(buckets.values()).map(({ dayCount: _dayCount, ...bucket }) => bucket)
+})
+
+const syncActiveBucket = () => {
+  if (forecastRangeMode.value !== '90d') {
+    return
+  }
+
+  if (!tenDayBuckets.value.some((item) => item.id === activeBucketId.value)) {
+    activeBucketId.value = tenDayBuckets.value[0]?.id ?? ''
+  }
+}
+
+const visibleTrendDays = computed(() => {
+  if (forecastRangeMode.value === '15d') {
+    return allTrendDays.value.slice(0, 15)
+  }
+
+  if (forecastRangeMode.value === '90d') {
+    return tenDayBuckets.value
+  }
+
+  return allTrendDays.value.slice(0, 7)
+})
 
 const activeSeries = computed(() => {
   if (chartMode.value === 'line') {
@@ -115,11 +166,11 @@ const activeLegendItems = computed(() =>
 )
 
 const handleRangeChange = (nextRangeMode: ForecastRangeMode) => {
-  if (nextRangeMode === '90d') {
-    return
-  }
-
   forecastRangeMode.value = nextRangeMode
+}
+
+const handleBucketChange = (bucketId: string) => {
+  activeBucketId.value = bucketId
 }
 
 const handleDateSelect = (date: string) => {
@@ -134,13 +185,28 @@ const syncChart = () => {
   const showAverage = activeSeries.value.includes('average')
   const showHigh = activeSeries.value.includes('high')
   const showLow = activeSeries.value.includes('low')
+  const activeIndex = forecastRangeMode.value === '90d'
+    ? visibleTrendDays.value.findIndex((item) => item.id === activeBucketId.value)
+    : -1
   const series = [
     showAverage
       ? {
           name: '平均气温',
           type: 'bar',
           barMaxWidth: 30,
-          data: visibleTrendDays.value.map((item) => item.average),
+          data: visibleTrendDays.value.map((item, index) =>
+            forecastRangeMode.value === '90d'
+              ? {
+                  value: item.average,
+                  itemStyle: index === activeIndex
+                    ? {
+                        shadowBlur: 24,
+                        shadowColor: 'rgba(117, 241, 255, 0.48)',
+                      }
+                    : undefined,
+                }
+              : item.average,
+          ),
           itemStyle: {
             borderRadius: [10, 10, 4, 4],
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -160,7 +226,22 @@ const syncChart = () => {
           smooth: true,
           symbol: 'circle',
           symbolSize: 10,
-          data: visibleTrendDays.value.map((item) => item.high),
+          data: visibleTrendDays.value.map((item, index) =>
+            forecastRangeMode.value === '90d'
+              ? {
+                  value: item.high,
+                  itemStyle: index === activeIndex
+                    ? {
+                        color: '#ffe2bf',
+                        borderColor: '#ffb76a',
+                        borderWidth: 3,
+                        shadowBlur: 18,
+                        shadowColor: 'rgba(255, 183, 106, 0.48)',
+                      }
+                    : undefined,
+                }
+              : item.high,
+          ),
           lineStyle: {
             width: 3,
             color: '#ffb76a',
@@ -183,7 +264,22 @@ const syncChart = () => {
           smooth: true,
           symbol: 'circle',
           symbolSize: 10,
-          data: visibleTrendDays.value.map((item) => item.low),
+          data: visibleTrendDays.value.map((item, index) =>
+            forecastRangeMode.value === '90d'
+              ? {
+                  value: item.low,
+                  itemStyle: index === activeIndex
+                    ? {
+                        color: '#f2fdff',
+                        borderColor: '#43c9ff',
+                        borderWidth: 3,
+                        shadowBlur: 18,
+                        shadowColor: 'rgba(117, 241, 255, 0.48)',
+                      }
+                    : undefined,
+                }
+              : item.low,
+          ),
           lineStyle: {
             width: 3,
             color: '#9de9ff',
@@ -237,7 +333,7 @@ const syncChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: visibleTrendDays.value.map((item) => item.day),
+      data: visibleTrendDays.value.map((item) => item.label),
       boundaryGap: true,
       axisLine: {
         lineStyle: {
@@ -303,7 +399,8 @@ onBeforeUnmount(() => {
   chartInstance = null
 })
 
-watch([() => props.cityName, () => props.temperature, visibleTrendDays, chartMode], () => {
+watch([() => props.cityName, () => props.temperature, () => props.dailyItems, visibleTrendDays, chartMode, forecastRangeMode, activeBucketId], () => {
+  syncActiveBucket()
   syncChart()
 })
 </script>
@@ -369,7 +466,9 @@ watch([() => props.cityName, () => props.temperature, visibleTrendDays, chartMod
     <ForecastRangePanel
       :city-name="props.cityName"
       :temperature="props.temperature"
+      :daily-items="props.dailyItems"
       @range-change="handleRangeChange"
+      @bucket-change="handleBucketChange"
       @date-select="handleDateSelect"
     />
   </section>
@@ -492,11 +591,12 @@ watch([() => props.cityName, () => props.temperature, visibleTrendDays, chartMod
   top: 20px;
   right: 20px;
   z-index: 2;
-  display: grid;
-  gap: 10px;
-  width: 188px;
-  padding: 14px 16px;
-  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100% - 40px);
+  padding: 10px 12px;
+  border-radius: 16px;
   border: 1px solid rgba(117, 241, 255, 0.22);
   background:
     linear-gradient(180deg, rgba(7, 17, 39, 0.94) 0%, rgba(3, 10, 26, 0.9) 100%);
@@ -506,6 +606,7 @@ watch([() => props.cityName, () => props.temperature, visibleTrendDays, chartMod
 }
 
 .trend-legend__title {
+  flex: 0 0 auto;
   color: rgba(160, 231, 255, 0.76);
   font-size: 11px;
   letter-spacing: 0.22em;
@@ -513,10 +614,11 @@ watch([() => props.cityName, () => props.temperature, visibleTrendDays, chartMod
 }
 
 .trend-legend__items {
-  display: grid;
-  gap: 10px;
-  min-height: 70px;
-  align-content: start;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .trend-legend__item {
@@ -627,7 +729,8 @@ watch([() => props.cityName, () => props.temperature, visibleTrendDays, chartMod
     left: 16px;
     right: 16px;
     top: 16px;
-    width: auto;
+    max-width: none;
+    justify-content: space-between;
   }
 }
 </style>

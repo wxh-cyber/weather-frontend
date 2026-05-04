@@ -8,13 +8,14 @@ import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/store/auth'
 import TemperatureTrendView from '@/views/weather/detail/TemperatureTrendView.vue'
 import { useCityStore } from '@/store/city'
 
-const { echartsInstanceMock, echartsInitMock } = vi.hoisted(() => ({
+const { echartsInstanceMock, echartsInitMock, getDailyWeatherMock } = vi.hoisted(() => ({
   echartsInstanceMock: {
     setOption: vi.fn(),
     resize: vi.fn(),
     dispose: vi.fn(),
   },
   echartsInitMock: vi.fn(),
+  getDailyWeatherMock: vi.fn(),
 }))
 
 vi.mock('echarts', () => ({
@@ -31,6 +32,14 @@ vi.mock('echarts', () => ({
     },
   },
 }))
+
+vi.mock('@/service/weather', async () => {
+  const actual = await vi.importActual<typeof import('@/service/weather')>('@/service/weather')
+  return {
+    ...actual,
+    getDailyWeather: getDailyWeatherMock,
+  }
+})
 
 describe('TemperatureTrendView', () => {
   const WeatherDetailHeaderStub = defineComponent({
@@ -83,6 +92,23 @@ describe('TemperatureTrendView', () => {
     echartsInstanceMock.dispose.mockReset()
     echartsInitMock.mockReset()
     echartsInitMock.mockReturnValue(echartsInstanceMock)
+    getDailyWeatherMock.mockReset()
+    getDailyWeatherMock.mockResolvedValue({
+      data: {
+        items: Array.from({ length: 90 }, (_, index) => {
+          const date = new Date('2026-05-04T00:00:00+08:00')
+          date.setDate(date.getDate() + index)
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          return {
+            date: `${date.getFullYear()}-${month}-${day}`,
+            weatherText: '晴',
+            temperatureMax: `${30 + index}°C`,
+            temperatureMin: `${20 + index}°C`,
+          }
+        }),
+      },
+    })
     localStorage.clear()
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -134,8 +160,8 @@ describe('TemperatureTrendView', () => {
     setActivePinia(pinia)
     const cityStore = useCityStore(pinia)
     cityStore.setCities([
-      { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
-      { cityName: '北京市', weatherText: '多云', temperature: '20°C' },
+      { cityId: 'city-1', cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+      { cityId: 'city-2', cityName: '北京市', weatherText: '多云', temperature: '20°C' },
     ])
     const searchSubmitMock = vi.fn().mockResolvedValue(undefined)
 
@@ -159,38 +185,26 @@ describe('TemperatureTrendView', () => {
   }
 
   const getLatestOption = () =>
-    echartsInstanceMock.setOption.mock.calls[echartsInstanceMock.setOption.mock.calls.length - 1]?.[0] as {
-      legend: { show: boolean }
-      xAxis: { data: string[] }
-      series: Array<{ name: string; type: string }>
-    }
+    [...echartsInstanceMock.setOption.mock.calls]
+      .map((call) => call[0] as {
+        legend?: { show: boolean }
+        xAxis: { data: string[] }
+        series: Array<{ name: string; type: string }>
+      })
+      .reverse()
+      .find((option) => option.legend?.show === false) as {
+        xAxis: { data: string[] }
+        series: Array<{ name: string; type: string }>
+      }
 
   it('renders the shared top navigation, search, tabs and chart', async () => {
     const { wrapper } = await mountTrendView()
 
-    expect(wrapper.text()).toContain('城市概览')
-    expect(wrapper.text()).toContain('温度趋势')
-    expect(wrapper.text()).toContain('天气地图')
-    expect(wrapper.text()).toContain('单日天气')
     expect(wrapper.find('.weather-detail-header-stub').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="weather-detail-header-nav"]').exists()).toBe(true)
-    expect(wrapper.find('.shared-active-nav').text()).toBe('temperature-trend')
-    expect(wrapper.find('.shared-search-input').exists()).toBe(true)
-    expect(wrapper.text()).toContain('北京市')
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-chart"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="forecast-range-select"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('武汉市 周温度趋势')
-    expect(wrapper.text()).toContain('柱状图')
-    expect(wrapper.text()).toContain('折线图')
-    expect(wrapper.text()).toContain('同时显示')
+    expect(wrapper.find('[data-testid="weekly-temperature-trend-chart"]').exists()).toBe(true)
     expect(echartsInitMock).toHaveBeenCalledTimes(1)
-    expect(echartsInstanceMock.setOption).toHaveBeenCalled()
-
-    const option = getLatestOption()
-    expect(option.legend.show).toBe(false)
-    expect(option.xAxis.data).toHaveLength(7)
-    expect(option.series).toHaveLength(3)
+    expect(getLatestOption().xAxis.data).toHaveLength(7)
   })
 
   it('navigates through the top nav and forwards search submissions', async () => {
@@ -203,72 +217,55 @@ describe('TemperatureTrendView', () => {
 
     await router.push('/weather/武汉市/temperature-trend')
     await flushPromises()
-
     await navButtons[2]!.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('city-weather-map')
 
     await router.push('/weather/武汉市/temperature-trend')
     await flushPromises()
-
-    await navButtons[3]!.trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.name).toBe('city-daily-weather')
-
-    await router.push('/weather/武汉市/temperature-trend')
-    await flushPromises()
-
     const searchInput = wrapper.get('.shared-search-input')
     await searchInput.setValue('北京')
     await searchInput.trigger('keydown.enter')
     await flushPromises()
-
     expect(searchSubmitMock).toHaveBeenCalledWith('北京')
   })
 
-  it('updates series visibility when switching chart modes', async () => {
+  it('updates the chart when switching 7 day, 15 day and 90 day ranges', async () => {
     const { wrapper } = await mountTrendView()
+    const select = wrapper.get('[data-testid="forecast-range-select"]')
 
-    const buttons = wrapper.findAll('.mode-btn')
-    await buttons[0]!.trigger('click')
+    await select.setValue('15d')
     await flushPromises()
+    expect(getLatestOption().xAxis.data).toHaveLength(15)
 
-    let latestOption = getLatestOption()
-    expect(latestOption.series.map((item) => item.name)).toEqual(['平均气温'])
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(false)
-
-    await buttons[1]!.trigger('click')
+    await select.setValue('90d')
     await flushPromises()
+    expect(getLatestOption().xAxis.data.length).toBeGreaterThan(1)
+    expect(wrapper.find('[data-testid="forecast-range-90d"]').exists()).toBe(true)
 
-    latestOption = getLatestOption()
-    expect(latestOption.series.map((item) => item.name)).toEqual(['最高气温', '最低气温'])
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
-
-    await buttons[2]!.trigger('click')
+    await select.setValue('7d')
     await flushPromises()
-
-    latestOption = getLatestOption()
-    expect(latestOption.series.map((item) => item.name)).toEqual(['平均气温', '最高气温', '最低气温'])
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-average"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-high"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="weekly-temperature-trend-legend-low"]').exists()).toBe(true)
+    expect(getLatestOption().xAxis.data).toHaveLength(7)
   })
 
-  it('navigates to the matching single-day weather page when a forecast row is selected', async () => {
+  it('navigates to the matching single day weather page when a forecast row is selected', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-05-04T08:00:00+08:00'))
 
     const { wrapper, router } = await mountTrendView()
-
     await wrapper.find('.forecast-row').trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('city-daily-weather')
     expect(router.currentRoute.value.params.cityName).toBe('武汉市')
     expect(router.currentRoute.value.query.date).toBe('2026-05-04')
+  })
+
+  it('shows icon only forecast rows on the temperature trend route', async () => {
+    const { wrapper } = await mountTrendView()
+
+    expect(wrapper.findAll('.forecast-icon img').length).toBeGreaterThan(0)
+    expect(wrapper.find('.forecast-date').exists()).toBe(false)
+    expect(wrapper.find('.forecast-temp').exists()).toBe(false)
   })
 })

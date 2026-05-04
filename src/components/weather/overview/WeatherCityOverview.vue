@@ -1,10 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import CurrentWeatherPanel from '@/components/weather/overview/CurrentWeatherPanel.vue'
 import HourlyForecastPanel from '@/components/weather/overview/HourlyForecastPanel.vue'
 import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
 import WeatherMapPanel from '@/components/weather/map/WeatherMapPanel.vue'
 import WeatherDetailHeader from '@/components/weather/shell/WeatherDetailHeader.vue'
+import {
+  getCurrentWeather,
+  getDailyWeather,
+  getHourlyWeather,
+  type WeatherCurrentData,
+  type WeatherDailyItem,
+  type WeatherHourlyItem,
+} from '@/service/weather'
 import type { CityItem } from '@/store/city'
 import { resolveDisplayCityName } from '@/utils/weather/cityNameDisplay'
 
@@ -28,10 +36,47 @@ const emit = defineEmits<{
   (e: 'search-submit', keyword: string): void
 }>()
 
-const selectedCityMeta = computed(
-  () => props.cities.find((city) => city.cityName === props.selectedCityName) ?? null,
-)
+const selectedCityMeta = computed(() => {
+  const matchedCities = props.cities.filter((city) => city.cityName === props.selectedCityName)
+  if (!matchedCities.length) {
+    return null
+  }
+
+  return matchedCities.find((city) => city.cityId) ?? matchedCities[0] ?? null
+})
 const displaySelectedCityName = computed(() => resolveDisplayCityName(props.selectedCityName))
+const currentWeather = ref<WeatherCurrentData | null>(null)
+const hourlyItems = ref<WeatherHourlyItem[]>([])
+const dailyItems = ref<WeatherDailyItem[]>([])
+
+watch(
+  () => selectedCityMeta.value?.cityId,
+  async (cityId) => {
+    currentWeather.value = null
+    hourlyItems.value = []
+    dailyItems.value = []
+
+    if (!cityId) {
+      return
+    }
+
+    try {
+      const [currentResponse, hourlyResponse, dailyResponse] = await Promise.all([
+        getCurrentWeather(cityId),
+        getHourlyWeather(cityId),
+        getDailyWeather(cityId),
+      ])
+      currentWeather.value = currentResponse.data
+      hourlyItems.value = hourlyResponse.data.items
+      dailyItems.value = dailyResponse.data.items
+    } catch {
+      currentWeather.value = null
+      hourlyItems.value = []
+      dailyItems.value = []
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -53,12 +98,13 @@ const displaySelectedCityName = computed(() => resolveDisplayCityName(props.sele
     <section class="overview-grid">
       <CurrentWeatherPanel
         :city-name="displaySelectedCityName"
-        :temperature="props.temperature"
-        :weather-text="props.weatherText"
+        :temperature="currentWeather?.temperature ?? props.temperature"
+        :weather-text="currentWeather?.weatherText ?? props.weatherText"
+        :current-weather="currentWeather"
       />
       <WeatherMapPanel
         :city-name="displaySelectedCityName"
-        :weather-text="props.weatherText"
+        :weather-text="currentWeather?.weatherText ?? props.weatherText"
         :province="selectedCityMeta?.province"
         :country="selectedCityMeta?.country"
         :latitude="selectedCityMeta?.latitude"
@@ -68,8 +114,9 @@ const displaySelectedCityName = computed(() => resolveDisplayCityName(props.sele
 
     <HourlyForecastPanel
       :city-name="displaySelectedCityName"
-      :temperature="props.temperature"
-      :weather-text="props.weatherText"
+      :temperature="currentWeather?.temperature ?? props.temperature"
+      :weather-text="currentWeather?.weatherText ?? props.weatherText"
+      :hourly-items="hourlyItems"
     />
   </section>
 </template>
@@ -85,7 +132,8 @@ const displaySelectedCityName = computed(() => resolveDisplayCityName(props.sele
   margin-top: 4px;
   display: grid;
   gap: 14px;
-  grid-template-columns: 1.8fr 1fr;
+  grid-template-columns: minmax(0, 1.64fr) minmax(320px, 0.96fr);
+  align-items: stretch;
   min-width: 0;
 }
 

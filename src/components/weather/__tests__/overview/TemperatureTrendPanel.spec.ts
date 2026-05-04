@@ -42,6 +42,14 @@ describe('TemperatureTrendPanel', () => {
         temperature: '26°C',
         compact: true,
         showIntervalSelector: true,
+        hourlyItems: Array.from({ length: 24 }, (_, index) => ({
+          time: `2026-05-04T${String(index).padStart(2, '0')}:00`,
+          temperature: `${10 + index}°C`,
+          weatherText: '晴',
+          precipitationProbability: `${20 + index}%`,
+          windSpeed: `${8 + index} km/h`,
+          humidity: `${50 + index}%`,
+        })),
       },
     })
 
@@ -67,6 +75,11 @@ describe('TemperatureTrendPanel', () => {
     expect(option.xAxis.data).toHaveLength(24)
     expect(option.series[0]?.data).toHaveLength(24)
     expect(option.series[1]?.data).toHaveLength(24)
+    expect(option.series[0]?.data.slice(0, 3)).toEqual([10, 11, 12])
+    expect(wrapper.find('[data-testid="temperature-trend-summary"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('最高')
+    expect(wrapper.text()).not.toContain('最低')
+    expect(wrapper.text()).not.toContain('平均')
   })
 
   it('updates chart density when switching interval and preserves chart mode', async () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
+import type { WeatherHourlyItem } from '@/service/weather'
 
 type ChartMode = 'both' | 'line' | 'bar'
 type IntervalOption = '30m' | '1h' | '2h'
@@ -9,6 +10,7 @@ const props = withDefaults(
   defineProps<{
     cityName?: string
     temperature?: string
+    hourlyItems?: WeatherHourlyItem[]
     compact?: boolean
     showIntervalSelector?: boolean
   }>(),
@@ -35,10 +37,10 @@ const intervalOptions: ReadonlyArray<{
   { value: '2h', label: '2小时' },
 ]
 
-const baseTemp = computed(() => {
-  const value = Number.parseInt(props.temperature, 10)
-  return Number.isNaN(value) ? 18 : value
-})
+const parseTemperature = (value?: string) => {
+  const parsed = Number.parseFloat(value ?? '')
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 const trendHours = computed(() => {
   const hourStep = interval.value === '30m' ? 0.5 : interval.value === '1h' ? 1 : 2
@@ -54,14 +56,32 @@ const trendHours = computed(() => {
 })
 
 const trendValues = computed(() => {
-  const citySeed = Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const sourceValues = props.hourlyItems
+    ?.slice(0, 24)
+    .map((item) => parseTemperature(item.temperature))
+    .filter((value): value is number => value !== null) ?? []
+
+  if (!sourceValues.length) {
+    const fallback = parseTemperature(props.temperature) ?? 18
+    return trendHours.value.map(() => fallback)
+  }
+
+  if (interval.value === '1h') {
+    return sourceValues.slice(0, 24)
+  }
+
+  if (interval.value === '2h') {
+    return sourceValues.filter((_, index) => index % 2 === 0)
+  }
 
   return trendHours.value.map((_, index) => {
-    const progress = index / Math.max(trendHours.value.length - 1, 1)
-    const wave = Math.sin(progress * Math.PI * 2) * 3.2
-    const pulse = Math.cos(progress * Math.PI * 4 + citySeed * 0.03) * 1.15
-    const offset = ((citySeed + index * 7) % 5) - 2
-    return Number((baseTemp.value + wave + pulse + offset * 0.35).toFixed(1))
+    const sourceIndex = index / 2
+    const leftIndex = Math.floor(sourceIndex)
+    const rightIndex = Math.min(leftIndex + 1, sourceValues.length - 1)
+    const left = sourceValues[leftIndex] ?? sourceValues[0] ?? 0
+    const right = sourceValues[rightIndex] ?? left
+    const progress = sourceIndex - leftIndex
+    return Number((left + (right - left) * progress).toFixed(1))
   })
 })
 
@@ -258,6 +278,7 @@ onBeforeUnmount(() => {
 watch([
   () => props.cityName,
   () => props.temperature,
+  () => props.hourlyItems,
   trendValues,
   chartMode,
   interval,
@@ -560,6 +581,38 @@ watch([
 .chart-surface {
   position: absolute;
   inset: 0;
+}
+
+.trend-summary {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 18px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+  pointer-events: none;
+}
+
+.trend-summary__item {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(117, 241, 255, 0.16);
+  background: rgba(3, 13, 32, 0.62);
+  box-shadow: inset 0 0 12px rgba(117, 241, 255, 0.06);
+}
+
+.trend-summary__item span {
+  color: rgba(160, 231, 255, 0.7);
+  font-size: 11px;
+}
+
+.trend-summary__item strong {
+  color: rgba(241, 253, 255, 0.94);
+  font-size: 13px;
 }
 
 .chart-grid {

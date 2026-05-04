@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
+import type { WeatherDailyItem } from '@/service/weather'
 import { getWeatherIcon, type WeatherIconKey } from '@/utils/weather/weatherIconMap'
 
 type RangeOption = '7d' | '15d' | '90d'
@@ -29,16 +30,20 @@ const props = withDefaults(
   defineProps<{
     cityName?: string
     temperature?: string
+    dailyItems?: WeatherDailyItem[]
+    iconOnly?: boolean
   }>(),
   {
     cityName: '默认城市',
     temperature: '18°C',
+    iconOnly: false,
   },
 )
 
 const emit = defineEmits<{
   'range-change': [rangeMode: RangeOption]
   'date-select': [date: string]
+  'bucket-change': [bucketId: string]
 }>()
 
 const rangeMode = ref<RangeOption>('7d')
@@ -58,12 +63,10 @@ const rangeOptions: ReadonlyArray<{
 
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-const baseTemp = computed(() => {
-  const value = Number.parseInt(props.temperature, 10)
-  return Number.isNaN(value) ? 18 : value
-})
-
-const citySeed = computed(() => Array.from(props.cityName).reduce((sum, char) => sum + char.charCodeAt(0), 0))
+const parseTemperature = (value?: string) => {
+  const parsed = Number.parseFloat(value ?? '')
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
 const resolveRelationLabel = (offset: number, date: Date) => {
   if (offset === -1) return '昨天'
@@ -72,40 +75,32 @@ const resolveRelationLabel = (offset: number, date: Date) => {
   return weekdayLabels[date.getDay()] ?? '周一'
 }
 
-const resolveIconKey = (offset: number): WeatherIconKey => {
-  const pattern = (citySeed.value + offset * 5) % 6
-  if (pattern === 0) return 'sunny'
-  if (pattern === 1) return 'partly-cloudy'
-  if (pattern === 2) return 'cloudy'
-  if (pattern === 3) return 'rainy'
-  if (pattern === 4) return 'night-cloudy'
-  return 'sunny'
+const resolveIconKey = (text: string): WeatherIconKey => {
+  if (text.includes('雨')) return 'rainy'
+  if (text.includes('雪')) return 'snowy'
+  if (text.includes('晴')) return 'sunny'
+  if (text.includes('云')) return 'partly-cloudy'
+  if (text.includes('阴')) return 'cloudy'
+  return 'unknown'
 }
 
 const allForecastDays = computed<DailyForecastItem[]>(() => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  return Array.from({ length: 90 }, (_, index) => {
-    const date = new Date(today)
-    date.setDate(today.getDate() + index)
-
-    const seasonalWave = Math.sin((index / 90) * Math.PI * 2.4) * 5.1
-    const shortWave = Math.cos((index / 9) * Math.PI * 1.8) * 1.6
-    const average = baseTemp.value + seasonalWave + shortWave + ((citySeed.value + index * 13) % 4) - 1.5
-    const high = Number((average + 4.2 + ((citySeed.value + index * 3) % 3) * 0.6).toFixed(1))
-    const low = Number((average - 4.8 - ((citySeed.value + index * 7) % 3) * 0.5).toFixed(1))
+  return (props.dailyItems ?? []).slice(0, 90).map((item, index) => {
+    const date = new Date(`${item.date}T00:00:00`)
 
     return {
-      id: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
+      id: item.date,
       date,
       monthLabel: `${date.getMonth() + 1}月`,
       dateLabel: `${date.getDate()}日`,
       relationLabel: resolveRelationLabel(index, date),
       weekdayLabel: weekdayLabels[date.getDay()] ?? '周一',
-      iconKey: resolveIconKey(index),
-      high,
-      low,
+      iconKey: resolveIconKey(item.weatherText),
+      high: parseTemperature(item.temperatureMax),
+      low: parseTemperature(item.temperatureMin),
     }
   })
 })
@@ -169,6 +164,9 @@ const syncActiveBucket = () => {
   const hasActiveBucket = tenDayBuckets.value.some((bucket) => bucket.id === activeBucketId.value)
   if (!hasActiveBucket) {
     activeBucketId.value = tenDayBuckets.value[0]?.id ?? ''
+    if (activeBucketId.value) {
+      emit('bucket-change', activeBucketId.value)
+    }
   }
 }
 
@@ -329,6 +327,7 @@ const resizeChart = () => {
 
 const handleBucketSelect = (bucketId: string) => {
   activeBucketId.value = bucketId
+  emit('bucket-change', bucketId)
 }
 
 const formatRouteDate = (date: Date) => {
@@ -363,7 +362,7 @@ watch([tenDayBuckets, activeBucketId], () => {
   syncChart()
 })
 
-watch([() => props.cityName, () => props.temperature], async () => {
+watch([() => props.cityName, () => props.temperature, () => props.dailyItems], async () => {
   if (rangeMode.value === '90d') {
     syncActiveBucket()
     await mountChart()
@@ -437,6 +436,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section
+      v-if="visibleForecastDays.length"
       class="forecast-list"
       :data-testid="rangeMode === '90d' ? 'forecast-day-list-90d' : 'forecast-day-list'"
     >
@@ -444,6 +444,7 @@ onBeforeUnmount(() => {
         v-for="item in visibleForecastDays"
         :key="item.id"
         class="forecast-row"
+        :class="{ 'forecast-row--icon-only': props.iconOnly }"
         role="button"
         tabindex="0"
         :aria-label="`查看${item.monthLabel}${item.dateLabel}${item.relationLabel}单日天气`"
@@ -451,10 +452,12 @@ onBeforeUnmount(() => {
         @keydown.enter.prevent="handleDateSelect(item)"
         @keydown.space.prevent="handleDateSelect(item)"
       >
-        <div class="forecast-date">
+        <div v-if="!props.iconOnly" class="forecast-date">
           <span class="forecast-month">{{ item.monthLabel }}</span>
-          <strong class="forecast-day">{{ item.dateLabel }}</strong>
-          <span class="forecast-relation">{{ item.relationLabel }}</span>
+          <span class="forecast-date-line">
+            <strong class="forecast-day">{{ item.dateLabel }}</strong>
+            <span class="forecast-relation">{{ item.relationLabel }}</span>
+          </span>
         </div>
 
         <div class="forecast-icon">
@@ -464,13 +467,16 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <div class="forecast-temp">
+        <div v-if="!props.iconOnly" class="forecast-temp">
           <span class="forecast-temp-high">{{ item.high.toFixed(1) }}°</span>
           <span class="forecast-temp-divider">/</span>
           <span class="forecast-temp-low">{{ item.low.toFixed(1) }}°</span>
         </div>
       </article>
     </section>
+    <div v-else class="forecast-empty" data-testid="forecast-day-list-empty">
+      暂无后端分段天气数据
+    </div>
   </section>
 </template>
 
@@ -649,9 +655,17 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.forecast-empty {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 241, 255, 0.18);
+  background: rgba(6, 24, 52, 0.66);
+  color: rgba(203, 238, 250, 0.74);
+}
+
 .forecast-row {
   display: grid;
-  grid-template-columns: minmax(0, 160px) 72px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 190px) 72px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
@@ -671,6 +685,13 @@ onBeforeUnmount(() => {
     background var(--cyber-ease);
 }
 
+.forecast-row--icon-only {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  min-height: 86px;
+  padding: 14px 12px;
+}
+
 .forecast-row:hover,
 .forecast-row:focus-visible {
   transform: translateY(-2px);
@@ -684,8 +705,10 @@ onBeforeUnmount(() => {
 }
 
 .forecast-date {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
 .forecast-month,
@@ -695,9 +718,29 @@ onBeforeUnmount(() => {
   letter-spacing: 0.08em;
 }
 
+.forecast-month {
+  flex: 0 0 auto;
+}
+
+.forecast-date-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
 .forecast-day {
   color: #f3fdff;
   font-size: 20px;
+  line-height: 1;
+}
+
+.forecast-relation {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(117, 241, 255, 0.18);
+  background: rgba(4, 18, 42, 0.56);
+  white-space: nowrap;
 }
 
 .forecast-icon {
@@ -711,6 +754,11 @@ onBeforeUnmount(() => {
   height: 40px;
   object-fit: contain;
   filter: drop-shadow(0 0 8px rgba(117, 241, 255, 0.52));
+}
+
+.forecast-row--icon-only .forecast-icon img {
+  width: 44px;
+  height: 44px;
 }
 
 .forecast-temp {
@@ -737,9 +785,13 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
-  .forecast-row {
+  .forecast-row:not(.forecast-row--icon-only) {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .forecast-date {
+    width: 100%;
   }
 
   .forecast-temp {

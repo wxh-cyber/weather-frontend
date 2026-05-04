@@ -66,6 +66,7 @@ const particleEnabled = ref(true)
 let lastFrameTs = 0
 let lastSampleX: number | null = null
 let lastSampleY: number | null = null
+let pointerDragging = false
 
 /**
  * @function handlePointerMove
@@ -88,7 +89,27 @@ const showPointer = () => {
 
 //设置鼠标隐藏
 const hidePointer = () => {
+  if (pointerDragging) {
+    return
+  }
   pointerVisible.value = false
+}
+
+const handlePointerDown = (event: PointerEvent) => {
+  pointerDragging = true
+  handlePointerMove(event)
+}
+
+const releasePointerDrag = () => {
+  pointerDragging = false
+}
+
+const handleDrag = (event: DragEvent) => {
+  if (event.clientX === 0 && event.clientY === 0) {
+    return
+  }
+
+  handlePointerMove(event)
 }
 
 /**
@@ -327,6 +348,10 @@ onMounted(() => {
   }
   window.addEventListener('mousemove', handlePointerMove)
   window.addEventListener('pointermove', handlePointerMove)
+  window.addEventListener('pointerdown', handlePointerDown)
+  window.addEventListener('pointerup', releasePointerDrag)
+  window.addEventListener('pointercancel', releasePointerDrag)
+  window.addEventListener('drag', handleDrag)
   window.addEventListener('mouseenter', showPointer)
   window.addEventListener('resize', handleResize)
   document.addEventListener('mouseleave', hidePointer)
@@ -345,6 +370,10 @@ onBeforeUnmount(() => {
   rippleTimers.clear()
   window.removeEventListener('mousemove', handlePointerMove)
   window.removeEventListener('pointermove', handlePointerMove)
+  window.removeEventListener('pointerdown', handlePointerDown)
+  window.removeEventListener('pointerup', releasePointerDrag)
+  window.removeEventListener('pointercancel', releasePointerDrag)
+  window.removeEventListener('drag', handleDrag)
   window.removeEventListener('mouseenter', showPointer)
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('mouseleave', hidePointer)

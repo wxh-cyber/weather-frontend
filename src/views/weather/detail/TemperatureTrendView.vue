@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { inject } from 'vue'
+import { inject, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import WeeklyTemperatureTrendPanel from '@/components/weather/overview/WeeklyTemperatureTrendPanel.vue'
 import { useWeatherDetailPage, weatherDetailNavItems } from '@/composables/useWeatherDetailPage'
 import WeatherDetailHeader from '@/components/weather/shell/WeatherDetailHeader.vue'
 import WeatherCityTabs from '@/components/weather/shell/WeatherCityTabs.vue'
+import { getDailyWeather, type WeatherDailyItem } from '@/service/weather'
 import { weatherSearchSubmitKey, type WeatherSearchSubmitHandler } from '@/layout/helpers/weatherSearch'
 const weatherSearchSubmit = inject<WeatherSearchSubmitHandler | undefined>(weatherSearchSubmitKey, undefined)
 const router = useRouter()
+const dailyItems = ref<WeatherDailyItem[]>([])
 const {
   cityStore,
   selectedCity,
@@ -39,6 +41,24 @@ const handleTrendDateSelect = (date: string) => {
     query: { date },
   })
 }
+
+watch(
+  () => selectedCity.value?.cityId,
+  async (cityId) => {
+    dailyItems.value = []
+    if (!cityId) {
+      return
+    }
+
+    try {
+      const response = await getDailyWeather(cityId)
+      dailyItems.value = response.data.items
+    } catch {
+      dailyItems.value = []
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -61,6 +81,7 @@ const handleTrendDateSelect = (date: string) => {
     <WeeklyTemperatureTrendPanel
       :city-name="selectedCity.cityName"
       :temperature="selectedCity.temperature"
+      :daily-items="dailyItems"
       @date-select="handleTrendDateSelect"
     />
   </section>
