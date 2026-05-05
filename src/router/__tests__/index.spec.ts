@@ -35,6 +35,18 @@ describe('router auth guard', () => {
     })
   })
 
+  it('redirects unauthenticated users away from the city management route', () => {
+    const result = resolveProtectedRoute('/list', true)
+
+    expect(result).toEqual({
+      path: '/login',
+      query: {
+        reason: 'unauthorized',
+        redirect: '/list',
+      },
+    })
+  })
+
   it('redirects /weather to the stored default city detail route', () => {
     setStoredAuth('u-1')
     localStorage.setItem(buildCityListStorageKey('u-1'), JSON.stringify([

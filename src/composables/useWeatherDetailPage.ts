@@ -100,7 +100,7 @@ export const useWeatherDetailPage = (options: {
   watch(() => cityStore.cities, syncSelectedCity, { deep: true, immediate: true })
 
   onMounted(async () => {
-    await cityStore.ensureCitiesLoaded()
+    await cityStore.ensureCitiesLoaded({ requireWeatherBundle: true })
     syncSelectedCity()
   })
 

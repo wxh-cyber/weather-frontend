@@ -1,19 +1,17 @@
 import { defineStore } from 'pinia'
-import { createCity, deleteCity, getCityList, updateCity } from '@/service/city'
+import {
+  createCity,
+  deleteCity,
+  deleteUserCities,
+  deleteUserCity,
+  getCityList,
+  updateCity,
+  type CityWeatherItem,
+} from '@/service/city'
 import { getStoredAuthUserId } from '@/store/auth'
 import { isEquivalentCityName, resolveCanonicalCityName } from '@/utils/weather/cityNameDisplay'
 
-export interface CityItem {
-  cityId?: string
-  cityName: string
-  cityCode?: string | null
-  province?: string
-  country?: string
-  latitude?: number | null
-  longitude?: number | null
-  weatherText: string
-  temperature: string
-}
+export type CityItem = CityWeatherItem
 
 const LEGACY_CITY_LIST_KEY = 'city_list'
 const CITY_LIST_KEY_PREFIX = 'city_list:user:'
@@ -38,6 +36,32 @@ const isStoredCityItem = (item: unknown): item is CityItem =>
   && item !== null
   && typeof (item as CityItem).cityName === 'string'
   && (item as CityItem).cityName.trim().length > 0
+const hasCompleteWeatherBundle = (item: CityItem) =>
+  Boolean(
+    item.weather?.current
+    && Array.isArray(item.weather.hourly?.items)
+    && Array.isArray(item.weather.daily?.items)
+    && Array.isArray(item.weather.dailyDetail?.items),
+  )
+const uniqueCityNames = (cityNames: string[]) => {
+  const names: string[] = []
+  for (const cityName of cityNames) {
+    const normalizedName = normalizeCityName(cityName)
+    if (!normalizedName) {
+      continue
+    }
+
+    if (names.some((name) => equalsCityName(name, normalizedName))) {
+      continue
+    }
+
+    names.push(normalizedName)
+  }
+
+  return names
+}
+const findCityByName = (cities: CityItem[], cityName: string) =>
+  cities.find((city) => equalsCityName(city.cityName, cityName)) ?? null
 
 export const buildCityListStorageKey = (userId: string) => `${CITY_LIST_KEY_PREFIX}${userId}`
 
@@ -115,13 +139,16 @@ export const useCityStore = defineStore('city', {
         this.loading = false
       }
     },
-    async ensureCitiesLoaded() {
+    async ensureCitiesLoaded(options: { requireWeatherBundle?: boolean } = {}) {
       if (!getCurrentUserId()) {
         this.clearCities()
         return
       }
 
-      if (this.cities.length > 0 && !this.hydratedFromStorage) {
+      const requiresWeatherRefresh = options.requireWeatherBundle === true
+        && this.cities.some((city) => !hasCompleteWeatherBundle(city))
+
+      if (this.cities.length > 0 && !this.hydratedFromStorage && !requiresWeatherRefresh) {
         return
       }
       await this.fetchCities('')
@@ -148,7 +175,32 @@ export const useCityStore = defineStore('city', {
       try {
         const previousCities = [...this.cities]
         const response = await createCity(normalizedName)
-        this.setCities(this.mergeCreatedCityList(previousCities, response.data, normalizedName))
+        
+        if (!Array.isArray(response.data)) {
+          this.setError('后端返回数据格式错误，请稍后重试')
+          return false
+        }
+
+        const mergedList = this.mergeCreatedCityList(previousCities, response.data, normalizedName)
+        
+        const newCityFound = mergedList.some((item) => equalsCityName(item.cityName, normalizedName))
+        if (!newCityFound) {
+          this.setError('城市添加失败，请重试')
+          return false
+        }
+        
+        const stateConsistent = previousCities.length === this.cities.length
+          && previousCities.every((prev, idx) => {
+            const current = this.cities[idx]
+            return current && equalsCityName(prev.cityName, current.cityName)
+          })
+        
+        if (!stateConsistent) {
+          await this.fetchCities('')
+          return true
+        }
+        
+        this.setCities(mergedList)
         return true
       } catch (error) {
         const message = error instanceof Error ? error.message : '新增城市失败'
@@ -263,7 +315,18 @@ export const useCityStore = defineStore('city', {
       this.setError('')
       this.loading = true
       try {
-        const response = await deleteCity(normalizedName)
+        let city = findCityByName(this.cities, normalizedName)
+        if (!city?.cityId) {
+          await this.fetchCities('')
+          city = findCityByName(this.cities, normalizedName)
+        }
+
+        if (!city?.cityId) {
+          this.setError('未找到待删除的城市')
+          return false
+        }
+
+        const response = await deleteUserCity(city.cityId)
         this.setCities(response.data)
         return true
       } catch (error) {
@@ -273,6 +336,85 @@ export const useCityStore = defineStore('city', {
       } finally {
         this.loading = false
       }
+    },
+    async deleteCitiesByName(cityNames: string[]) {
+      if (!getCurrentUserId()) {
+        this.setError('请先登录后再删除城市')
+        return {
+          successCities: [] as string[],
+          failedCities: uniqueCityNames(cityNames),
+        }
+      }
+
+      const targets = uniqueCityNames(cityNames)
+      const successCities: string[] = []
+      const failedCities: string[] = []
+      let lastErrorMessage = ''
+
+      if (targets.length === 0) {
+        return { successCities, failedCities }
+      }
+
+      this.loading = true
+      this.setError('')
+      try {
+        let citySnapshot = [...this.cities]
+        if (targets.some((cityName) => !findCityByName(citySnapshot, cityName)?.cityId)) {
+          await this.fetchCities('')
+          citySnapshot = [...this.cities]
+        }
+
+        const deletableCities: Array<{ cityName: string; cityId: string }> = []
+        for (const cityName of targets) {
+          const city = findCityByName(citySnapshot, cityName)
+          if (!city?.cityId) {
+            lastErrorMessage = '未找到待删除的城市'
+            this.setError(lastErrorMessage)
+            failedCities.push(cityName)
+            continue
+          }
+
+          deletableCities.push({
+            cityName,
+            cityId: city.cityId,
+          })
+        }
+
+        if (deletableCities.length > 0) {
+          try {
+            const response = await deleteUserCities(deletableCities.map((city) => city.cityId))
+            const failedCityIds = new Set(response.failedCityIds ?? [])
+            this.setCities(response.data)
+
+            for (const city of deletableCities) {
+              if (failedCityIds.has(city.cityId)) {
+                failedCities.push(city.cityName)
+              } else {
+                successCities.push(city.cityName)
+              }
+            }
+
+            if (failedCityIds.size > 0) {
+              lastErrorMessage = '部分城市删除失败'
+              this.setError(lastErrorMessage)
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : '删除城市失败'
+            lastErrorMessage = message
+            this.setError(message)
+            failedCities.push(...deletableCities.map((city) => city.cityName))
+          }
+        }
+
+        await this.fetchCities('')
+        if (lastErrorMessage) {
+          this.setError(lastErrorMessage)
+        }
+      } finally {
+        this.loading = false
+      }
+
+      return { successCities, failedCities }
     },
     persistCities() {
       if (!isBrowser()) return
@@ -324,7 +466,6 @@ export const useCityStore = defineStore('city', {
         return [...nextCities]
       }
 
-      const previousNames = new Set(previousCities.map((item) => item.cityName))
       const mergedCities: CityItem[] = []
 
       for (const item of previousCities) {
@@ -338,7 +479,7 @@ export const useCityStore = defineStore('city', {
       }
 
       for (const item of nextCities) {
-        if (previousNames.has(item.cityName)) {
+        if (previousCities.some((prev) => equalsCityName(prev.cityName, item.cityName))) {
           continue
         }
 

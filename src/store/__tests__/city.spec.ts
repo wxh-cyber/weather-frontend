@@ -3,19 +3,23 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from '@/store/auth'
 import { useCityStore } from '@/store/city'
 import { buildCityListStorageKey, clearPersistedCitiesForUserId } from '@/store/city'
-import { createCity, deleteCity, getCityList, type CityListResponse, updateCity } from '@/service/city'
+import { createCity, deleteCity, deleteUserCities, deleteUserCity, getCityList, type CityListResponse, updateCity } from '@/service/city'
 
 vi.mock('@/service/city', () => ({
   getCityList: vi.fn(),
   createCity: vi.fn(),
   updateCity: vi.fn(),
   deleteCity: vi.fn(),
+  deleteUserCity: vi.fn(),
+  deleteUserCities: vi.fn(),
 }))
 
 const mockedGetCityList = vi.mocked(getCityList)
 const mockedCreateCity = vi.mocked(createCity)
 const mockedUpdateCity = vi.mocked(updateCity)
 const mockedDeleteCity = vi.mocked(deleteCity)
+const mockedDeleteUserCity = vi.mocked(deleteUserCity)
+const mockedDeleteUserCities = vi.mocked(deleteUserCities)
 
 const sampleResponse: CityListResponse = {
   code: 0,
@@ -24,6 +28,74 @@ const sampleResponse: CityListResponse = {
     { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
     { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
   ],
+}
+
+const completeWeatherBundle = {
+  current: {
+    cityId: 'city-1',
+    cityName: '武汉市',
+    weatherText: '小雨',
+    temperature: '24°C',
+    observedAt: '2026-05-04T08:00',
+    source: 'open-meteo',
+  },
+  hourly: {
+    cityId: 'city-1',
+    cityName: '武汉市',
+    source: 'open-meteo',
+    items: [
+      {
+        time: '2026-05-04T09:00',
+        weatherText: '小雨',
+        temperature: '25°C',
+      },
+    ],
+  },
+  daily: {
+    cityId: 'city-1',
+    cityName: '武汉市',
+    source: 'open-meteo',
+    items: [
+      {
+        date: '2026-05-04',
+        weatherText: '小雨',
+        temperatureMax: '28°C',
+        temperatureMin: '21°C',
+      },
+    ],
+  },
+  dailyDetail: {
+    cityId: 'city-1',
+    cityName: '武汉市',
+    source: 'open-meteo',
+    items: [
+      {
+        date: '2026-05-04',
+        temperatureMax: '28°C',
+        temperatureMin: '21°C',
+        sunrise: '05:36',
+        sunset: '19:01',
+        dayWeatherText: '小雨',
+        nightWeatherText: '多云',
+        dayMetrics: {
+          feelsLike: '29°C',
+          precipitationProbability: '35%',
+          precipitationAmount: '0.8 mm',
+          airQuality: 'AQI 42',
+          windDirection: '东北',
+          cloudCover: '62%',
+        },
+        nightMetrics: {
+          feelsLike: '23°C',
+          precipitationProbability: '20%',
+          precipitationAmount: '0.2 mm',
+          airQuality: 'AQI 39',
+          windDirection: '东南',
+          cloudCover: '48%',
+        },
+      },
+    ],
+  },
 }
 
 const loginAs = (userId = 'u-1') => {
@@ -42,6 +114,8 @@ describe('city store', () => {
     mockedCreateCity.mockReset()
     mockedUpdateCity.mockReset()
     mockedDeleteCity.mockReset()
+    mockedDeleteUserCity.mockReset()
+    mockedDeleteUserCities.mockReset()
   })
 
   it('fetchCities should update city list and persist when success', async () => {
@@ -182,6 +256,51 @@ describe('city store', () => {
     await store.ensureCitiesLoaded()
 
     expect(mockedGetCityList).toHaveBeenCalledTimes(1)
+  })
+
+  it('ensureCitiesLoaded should refresh when detail page requires weather bundle and current cities lack it', async () => {
+    loginAs()
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [
+        {
+          cityId: 'city-1',
+          cityName: '武汉市',
+          weatherText: '小雨',
+          temperature: '24°C',
+          weather: completeWeatherBundle,
+        },
+      ],
+    })
+    const store = useCityStore()
+    store.setCities([{ cityId: 'city-1', cityName: '武汉市', weatherText: '晴', temperature: '26°C' }])
+
+    await store.ensureCitiesLoaded({ requireWeatherBundle: true })
+
+    expect(mockedGetCityList).toHaveBeenCalledWith('')
+    expect(store.cities[0]?.weather?.current.weatherText).toBe('小雨')
+    expect(store.cities[0]?.weather?.hourly.items).toHaveLength(1)
+    expect(store.cities[0]?.weather?.daily.items).toHaveLength(1)
+    expect(store.cities[0]?.weather?.dailyDetail.items).toHaveLength(1)
+  })
+
+  it('ensureCitiesLoaded should not refresh when detail page requires weather bundle and all cities already have it', async () => {
+    loginAs()
+    const store = useCityStore()
+    store.setCities([
+      {
+        cityId: 'city-1',
+        cityName: '武汉市',
+        weatherText: '小雨',
+        temperature: '24°C',
+        weather: completeWeatherBundle,
+      },
+    ])
+
+    await store.ensureCitiesLoaded({ requireWeatherBundle: true })
+
+    expect(mockedGetCityList).not.toHaveBeenCalled()
   })
 
   it('syncFromStorage should keep cities empty when localStorage has no city_list', () => {
@@ -374,58 +493,192 @@ describe('city store', () => {
     expect(store.error).toContain('已存在')
   })
 
-  it('deleteCityByName should fail when city not found after fallback', async () => {
+  it('deleteCityByName should fail when city id is missing after fallback', async () => {
     loginAs()
-    mockedDeleteCity.mockRejectedValue(new Error('未找到待删除的城市'))
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [{ cityName: '北京市', weatherText: '晴', temperature: '20°C' }],
+    })
     const store = useCityStore()
 
     const result = await store.deleteCityByName('不存在城市')
 
     expect(result).toBe(false)
-    expect(mockedDeleteCity).toHaveBeenCalledWith('不存在城市')
-    expect(store.error).toContain('未找到')
+    expect(mockedGetCityList).toHaveBeenCalledWith('')
+    expect(mockedDeleteUserCity).not.toHaveBeenCalled()
+    expect(mockedDeleteCity).not.toHaveBeenCalled()
+    expect(store.error).toContain('未找到待删除的城市')
   })
 
-  it('deleteCityByName should call backend and update list when success', async () => {
+  it('deleteCityByName should remove user city by city id and update list when success', async () => {
     loginAs()
-    mockedDeleteCity.mockResolvedValue({
+    mockedDeleteUserCity.mockResolvedValue({
       ...sampleResponse,
       data: [{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }],
     })
     const store = useCityStore()
-    store.setCities(sampleResponse.data)
+    store.setCities([
+      { cityId: 'city-1', cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+      { cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+    ])
 
     const result = await store.deleteCityByName('武汉市')
 
     expect(result).toBe(true)
-    expect(mockedDeleteCity).toHaveBeenCalledWith('武汉市')
+    expect(mockedDeleteUserCity).toHaveBeenCalledWith('city-1')
+    expect(mockedDeleteCity).not.toHaveBeenCalled()
     expect(store.cities).toEqual([{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }])
   })
 
   it('deleteCityByName should not depend on current pinia list during sequential deletes', async () => {
     loginAs()
-    mockedDeleteCity
+    mockedDeleteUserCity
       .mockResolvedValueOnce({
         ...sampleResponse,
-        data: [{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }],
+        data: [{ cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C' }],
       })
       .mockResolvedValueOnce({
         ...sampleResponse,
         data: [],
       })
     const store = useCityStore()
-    store.setCities(sampleResponse.data)
+    store.setCities([
+      { cityId: 'city-1', cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+      { cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+    ])
 
     const firstResult = await store.deleteCityByName('武汉市')
-    store.setCities([])
+    store.setCities([{ cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C' }])
     const secondResult = await store.deleteCityByName('上海市')
 
     expect(firstResult).toBe(true)
     expect(secondResult).toBe(true)
-    expect(mockedDeleteCity).toHaveBeenNthCalledWith(1, '武汉市')
-    expect(mockedDeleteCity).toHaveBeenNthCalledWith(2, '上海市')
+    expect(mockedDeleteUserCity).toHaveBeenNthCalledWith(1, 'city-1')
+    expect(mockedDeleteUserCity).toHaveBeenNthCalledWith(2, 'city-2')
+    expect(mockedDeleteCity).not.toHaveBeenCalled()
     expect(mockedGetCityList).not.toHaveBeenCalled()
     expect(store.cities).toEqual([])
+  })
+
+  it('deleteCitiesByName should delete a snapshot of names through default-city rotation and reconcile with backend', async () => {
+    loginAs()
+    mockedDeleteUserCities.mockResolvedValue({
+      code: 0,
+      message: '删除成功',
+      data: [],
+      failedCityIds: [],
+    })
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [],
+    })
+    const store = useCityStore()
+    store.setCities([
+      { cityId: 'city-1', cityName: '武汉市', weatherText: '小雨', temperature: '24°C', isDefault: true },
+      { cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C', isDefault: false },
+      { cityId: 'city-3', cityName: '南昌市', weatherText: '晴', temperature: '28°C', isDefault: false },
+    ])
+
+    const result = await store.deleteCitiesByName(['武汉市', '上海市', '南昌市'])
+
+    expect(mockedDeleteUserCities).toHaveBeenCalledWith(['city-1', 'city-2', 'city-3'])
+    expect(mockedDeleteUserCity).not.toHaveBeenCalled()
+    expect(mockedDeleteCity).not.toHaveBeenCalled()
+    expect(mockedGetCityList).toHaveBeenCalledWith('')
+    expect(result).toEqual({
+      successCities: ['武汉市', '上海市', '南昌市'],
+      failedCities: [],
+    })
+    expect(store.cities).toEqual([])
+    expect(localStorage.getItem(buildCityListStorageKey('u-1'))).toBe('[]')
+  })
+
+  it('deleteUserCities service should use the post batch-delete endpoint', async () => {
+    loginAs()
+    mockedDeleteUserCities.mockResolvedValue({
+      code: 0,
+      message: '删除成功',
+      data: [],
+      failedCityIds: [],
+    })
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [],
+    })
+    const store = useCityStore()
+    store.setCities([
+      { cityId: 'city-1', cityName: '武汉市', weatherText: '小雨', temperature: '24°C', isDefault: true },
+      { cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C', isDefault: false },
+    ])
+
+    await store.deleteCitiesByName(['武汉市', '上海市'])
+
+    expect(mockedDeleteUserCities).toHaveBeenCalledWith(['city-1', 'city-2'])
+  })
+
+  it('deleteCitiesByName should report failed cities and keep final reconciled backend list', async () => {
+    loginAs()
+    mockedDeleteUserCities.mockResolvedValue({
+      code: 0,
+      message: '删除成功',
+      data: [{ cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C', isDefault: true }],
+      failedCityIds: ['city-2'],
+    })
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [{ cityName: '上海市', weatherText: '多云', temperature: '22°C', isDefault: true }],
+    })
+    const store = useCityStore()
+    store.setCities([
+      { cityId: 'city-1', cityName: '武汉市', weatherText: '小雨', temperature: '24°C', isDefault: true },
+      { cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C', isDefault: false },
+    ])
+
+    const result = await store.deleteCitiesByName(['武汉市', '上海市'])
+
+    expect(result).toEqual({
+      successCities: ['武汉市'],
+      failedCities: ['上海市'],
+    })
+    expect(mockedGetCityList).toHaveBeenCalledWith('')
+    expect(store.cities).toEqual([{ cityName: '上海市', weatherText: '多云', temperature: '22°C', isDefault: true }])
+    expect(store.error).toBe('部分城市删除失败')
+  })
+
+  it('deleteCitiesByName should refresh once when selected cities lack city id and fail unresolved targets', async () => {
+    loginAs()
+    mockedGetCityList.mockResolvedValue({
+      code: 0,
+      message: '获取成功',
+      data: [{ cityId: 'city-1', cityName: '武汉市', weatherText: '小雨', temperature: '24°C' }],
+    })
+    mockedDeleteUserCities.mockResolvedValue({
+      code: 0,
+      message: '删除成功',
+      data: [],
+      failedCityIds: [],
+    })
+    const store = useCityStore()
+    store.setCities([
+      { cityName: '武汉市', weatherText: '小雨', temperature: '24°C' },
+      { cityName: '南昌市', weatherText: '晴', temperature: '28°C' },
+    ])
+
+    const result = await store.deleteCitiesByName(['武汉市', '南昌市'])
+
+    expect(mockedGetCityList).toHaveBeenCalledWith('')
+    expect(mockedDeleteUserCities).toHaveBeenCalledWith(['city-1'])
+    expect(mockedDeleteUserCity).not.toHaveBeenCalled()
+    expect(mockedDeleteCity).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      successCities: ['武汉市'],
+      failedCities: ['南昌市'],
+    })
+    expect(store.error).toContain('未找到待删除的城市')
   })
 
   it('setDefaultCityByName should move target city to first position when city exists', async () => {

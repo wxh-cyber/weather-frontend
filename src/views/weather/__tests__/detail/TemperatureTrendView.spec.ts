@@ -133,7 +133,22 @@ describe('TemperatureTrendView', () => {
     vi.useRealTimers()
   })
 
-  const mountTrendView = async () => {
+  const bundledDailyItems = [
+    {
+      date: '2026-05-04',
+      weatherText: '阴',
+      temperatureMax: '25°C',
+      temperatureMin: '18°C',
+    },
+    {
+      date: '2026-05-05',
+      weatherText: '多云',
+      temperatureMax: '27°C',
+      temperatureMin: '19°C',
+    },
+  ]
+
+  const mountTrendView = async (options?: { withBundle?: boolean }) => {
     localStorage.setItem(AUTH_TOKEN_KEY, 'test-token')
     localStorage.setItem(
       AUTH_USER_KEY,
@@ -160,7 +175,42 @@ describe('TemperatureTrendView', () => {
     setActivePinia(pinia)
     const cityStore = useCityStore(pinia)
     cityStore.setCities([
-      { cityId: 'city-1', cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+      {
+        cityId: 'city-1',
+        cityName: '武汉市',
+        weatherText: '晴',
+        temperature: '26°C',
+        weather: options?.withBundle
+          ? {
+              current: {
+                cityId: 'city-1',
+                cityName: '武汉市',
+                weatherText: '晴',
+                temperature: '26°C',
+                observedAt: '2026-05-04T08:00',
+                source: 'open-meteo',
+              },
+              hourly: {
+                cityId: 'city-1',
+                cityName: '武汉市',
+                source: 'open-meteo',
+                items: [],
+              },
+              daily: {
+                cityId: 'city-1',
+                cityName: '武汉市',
+                source: 'open-meteo',
+                items: bundledDailyItems,
+              },
+              dailyDetail: {
+                cityId: 'city-1',
+                cityName: '武汉市',
+                source: 'open-meteo',
+                items: [],
+              },
+            }
+          : undefined,
+      },
       { cityId: 'city-2', cityName: '北京市', weatherText: '多云', temperature: '20°C' },
     ])
     const searchSubmitMock = vi.fn().mockResolvedValue(undefined)
@@ -261,11 +311,31 @@ describe('TemperatureTrendView', () => {
     expect(router.currentRoute.value.query.date).toBe('2026-05-04')
   })
 
-  it('shows icon only forecast rows on the temperature trend route', async () => {
+  it('shows forecast rows on the temperature trend route', async () => {
     const { wrapper } = await mountTrendView()
 
     expect(wrapper.findAll('.forecast-icon img').length).toBeGreaterThan(0)
-    expect(wrapper.find('.forecast-date').exists()).toBe(false)
-    expect(wrapper.find('.forecast-temp').exists()).toBe(false)
+    expect(wrapper.find('.forecast-date').exists()).toBe(true)
+    expect(wrapper.find('.forecast-temp').exists()).toBe(true)
+  })
+
+  it('renders bundled daily weather before backend refresh completes', async () => {
+    getDailyWeatherMock.mockReturnValueOnce(new Promise(() => {}))
+
+    const { wrapper } = await mountTrendView({ withBundle: true })
+
+    expect(wrapper.findAll('.forecast-icon img')).toHaveLength(2)
+    expect(getLatestOption().xAxis.data).toHaveLength(2)
+  })
+
+  it('keeps bundled daily weather when backend refresh fails', async () => {
+    getDailyWeatherMock.mockRejectedValueOnce(new Error('network'))
+
+    const { wrapper } = await mountTrendView({ withBundle: true })
+
+    await flushPromises()
+
+    expect(wrapper.findAll('.forecast-icon img')).toHaveLength(2)
+    expect(getLatestOption().xAxis.data).toHaveLength(2)
   })
 })

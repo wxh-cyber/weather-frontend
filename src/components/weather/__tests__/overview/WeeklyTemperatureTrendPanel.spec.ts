@@ -66,7 +66,7 @@ describe('WeeklyTemperatureTrendPanel', () => {
     return wrapper
   }
 
-  const getLatestOption = () =>
+  const getLatestWeeklyChartCall = () =>
     [...echartsInstanceMock.setOption.mock.calls]
       .map((call) => call[0] as {
         legend?: { show: boolean }
@@ -74,18 +74,24 @@ describe('WeeklyTemperatureTrendPanel', () => {
         series: Array<{ name: string; type: string; data: number[] }>
       })
       .reverse()
-      .find((option) => option.legend?.show === false) as {
+      .map((option, index, calls) => [option, echartsInstanceMock.setOption.mock.calls[calls.length - 1 - index]?.[1]] as const)
+      .find(([option]) => option.legend?.show === false) as readonly [{
         legend: { show: boolean }
         xAxis: { data: string[] }
         series: Array<{ name: string; type: string; data: number[] }>
-      }
+      }, unknown]
+
+  const getLatestOption = () => getLatestWeeklyChartCall()[0]
+  const expectLatestWeeklyChartRebuilt = () => {
+    expect(getLatestWeeklyChartCall()[1]).toBe(true)
+  }
 
   it('renders weekly title and initializes a combined weekly chart', async () => {
     const wrapper = await mountPanel()
 
     expect(wrapper.find('[data-testid="weekly-temperature-trend-chart"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="weekly-temperature-trend-legend"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('武汉市 周温度趋势')
+    expect(wrapper.text()).toContain('武汉市 7日温度趋势')
     expect(wrapper.find('[data-testid="forecast-range-select"]').exists()).toBe(true)
 
     const option = getLatestOption()
@@ -94,6 +100,7 @@ describe('WeeklyTemperatureTrendPanel', () => {
     expect(option.series).toHaveLength(3)
     expect(option.series[1]?.data[0]).toBe(30)
     expect(option.series[2]?.data[0]).toBe(20)
+    expectLatestWeeklyChartRebuilt()
   })
 
   it('toggles weekly series visibility with chart mode controls', async () => {
@@ -123,8 +130,12 @@ describe('WeeklyTemperatureTrendPanel', () => {
     await select.setValue('15d')
     await flushPromises()
     let option = getLatestOption()
+    expect(wrapper.text()).toContain('武汉市 15日温度趋势')
     expect(option.xAxis.data).toHaveLength(15)
     expect(option.series.map((item) => item.data.length)).toEqual([15, 15, 15])
+    expect(wrapper.findAll('.forecast-row')).toHaveLength(15)
+    expect(wrapper.find('[data-testid="forecast-range-90d"]').exists()).toBe(false)
+    expectLatestWeeklyChartRebuilt()
 
     await select.setValue('90d')
     await flushPromises()
@@ -136,12 +147,19 @@ describe('WeeklyTemperatureTrendPanel', () => {
       option.xAxis.data.length,
       option.xAxis.data.length,
     ])
+    expect(wrapper.find('[data-testid="forecast-range-90d"]').exists()).toBe(true)
+    expect(wrapper.findAll('.forecast-row').length).toBeGreaterThan(0)
+    expectLatestWeeklyChartRebuilt()
 
     await select.setValue('7d')
     await flushPromises()
     option = getLatestOption()
+    expect(wrapper.text()).toContain('武汉市 7日温度趋势')
     expect(option.xAxis.data).toHaveLength(7)
     expect(option.series.map((item) => item.data.length)).toEqual([7, 7, 7])
+    expect(wrapper.findAll('.forecast-row')).toHaveLength(7)
+    expect(wrapper.find('[data-testid="forecast-range-90d"]').exists()).toBe(false)
+    expectLatestWeeklyChartRebuilt()
   })
 
   it('forwards forecast date selection to the parent view', async () => {

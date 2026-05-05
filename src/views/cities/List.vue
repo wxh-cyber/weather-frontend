@@ -122,17 +122,7 @@ const handleBatchDelete = async () => {
   if (targets.length === 0) return
 
   batchConfirmVisible.value = false
-  const successCities: string[] = []
-  const failedCities: string[] = []
-
-  for (const cityName of targets) {
-    const success = await cityStore.deleteCityByName(cityName)
-    if (success) {
-      successCities.push(cityName)
-    } else {
-      failedCities.push(cityName)
-    }
-  }
+  const { successCities, failedCities } = await cityStore.deleteCitiesByName(targets)
 
   selectedDeleteCities.value = selectedDeleteCities.value.filter((name) => !successCities.includes(name))
   syncDeleteTags()

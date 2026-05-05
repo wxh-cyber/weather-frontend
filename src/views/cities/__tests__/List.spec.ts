@@ -5,18 +5,22 @@ import List from '@/views/cities/List.vue'
 import CityList from '@/components/city-list/CityList.vue'
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/store/auth'
 import { useCityStore } from '@/store/city'
-import { createCity, deleteCity, getCityList } from '@/service/city'
+import { createCity, deleteCity, deleteUserCities, deleteUserCity, getCityList } from '@/service/city'
 
 vi.mock('@/service/city', () => ({
   getCityList: vi.fn(),
   createCity: vi.fn(),
   updateCity: vi.fn(),
   deleteCity: vi.fn(),
+  deleteUserCity: vi.fn(),
+  deleteUserCities: vi.fn(),
 }))
 
 const mockedGetCityList = vi.mocked(getCityList)
 const mockedCreateCity = vi.mocked(createCity)
 const mockedDeleteCity = vi.mocked(deleteCity)
+const mockedDeleteUserCity = vi.mocked(deleteUserCity)
+const mockedDeleteUserCities = vi.mocked(deleteUserCities)
 
 const ElInputStub = {
   props: ['modelValue'],
@@ -69,14 +73,16 @@ describe('List view', () => {
     mockedGetCityList.mockReset()
     mockedCreateCity.mockReset()
     mockedDeleteCity.mockReset()
+    mockedDeleteUserCity.mockReset()
+    mockedDeleteUserCities.mockReset()
     mockedGetCityList.mockResolvedValue({
       code: 0,
       message: '获取成功',
-      data: [
-        { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
-        { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
-      ],
-    })
+        data: [
+          { cityId: 'city-1', cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+          { cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+        ],
+      })
   })
 
   const mountList = async (options?: { stubCityList?: boolean }) => {
@@ -137,8 +143,8 @@ describe('List view', () => {
 
     expect(mockedGetCityList).toHaveBeenCalledWith('')
     expect(cityStore.cities).toEqual([
-      { cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
-      { cityName: '上海市', weatherText: '多云', temperature: '22°C' },
+      { cityId: 'city-1', cityName: '武汉市', weatherText: '晴', temperature: '26°C' },
+      { cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C' },
     ])
     expect(wrapper.text()).not.toContain('旧缓存城市')
   })
@@ -270,8 +276,9 @@ describe('List view', () => {
   it('opens batch delete confirm dialog and deletes selected items sequentially', async () => {
     const wrapper = await mountList()
     const cityStore = useCityStore()
-    const deleteSpy = vi.spyOn(cityStore, 'deleteCityByName').mockImplementation(async (cityName: string) => {
-      return cityName !== '上海市'
+    const batchDeleteSpy = vi.spyOn(cityStore, 'deleteCitiesByName').mockResolvedValue({
+      successCities: ['武汉市'],
+      failedCities: ['上海市'],
     })
 
     const selectAllButton = wrapper.findAll('button').find((button) => button.text() === '全选')
@@ -293,7 +300,7 @@ describe('List view', () => {
     await confirmBtn?.trigger('click')
     await flushPromises()
 
-    expect(deleteSpy).toHaveBeenCalledTimes(2)
+    expect(batchDeleteSpy).toHaveBeenCalledWith(['武汉市', '上海市'])
     expect(wrapper.text()).toContain('失败项：上海市')
   })
 
@@ -308,19 +315,12 @@ describe('List view', () => {
     )
 
     const wrapper = await mountList()
-    const cityStore = useCityStore()
-    const deleteSpy = vi.spyOn(cityStore, 'deleteCityByName')
-    mockedDeleteCity
-      .mockResolvedValueOnce({
-        code: 0,
-        message: '删除成功',
-        data: [{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }],
-      })
-      .mockResolvedValueOnce({
-        code: 0,
-        message: '删除成功',
-        data: [],
-      })
+    mockedDeleteUserCities.mockResolvedValue({
+      code: 0,
+      message: '删除成功',
+      data: [],
+      failedCityIds: [],
+    })
 
     const selectAllButton = wrapper.findAll('button').find((button) => button.text() === '全选')
     await selectAllButton?.trigger('click')
@@ -332,9 +332,63 @@ describe('List view', () => {
     await confirmBtn?.trigger('click')
     await flushPromises()
 
-    expect(deleteSpy).toHaveBeenNthCalledWith(1, '武汉市')
-    expect(deleteSpy).toHaveBeenNthCalledWith(2, '上海市')
+    expect(mockedDeleteUserCities).toHaveBeenCalledWith(['city-1', 'city-2'])
+    expect(mockedDeleteUserCity).not.toHaveBeenCalled()
+    expect(mockedDeleteCity).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('批量删除完成，共删除 2 项')
+    expect(wrapper.text()).not.toContain('失败项：')
+  })
+
+  it('deletes all selected cities through default-city rotation and renders empty states', async () => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'test-token')
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({
+        userId: 'test-user',
+        email: 'tester@example.com',
+      }),
+    )
+    mockedGetCityList
+      .mockResolvedValueOnce({
+        code: 0,
+        message: '获取成功',
+        data: [
+          { cityId: 'city-1', cityName: '武汉市', weatherText: '小雨', temperature: '24°C', isDefault: true },
+          { cityId: 'city-2', cityName: '上海市', weatherText: '多云', temperature: '22°C', isDefault: false },
+          { cityId: 'city-3', cityName: '南昌市', weatherText: '晴', temperature: '28°C', isDefault: false },
+        ],
+      })
+      .mockResolvedValueOnce({
+        code: 0,
+        message: '获取成功',
+        data: [],
+      })
+    mockedDeleteUserCities.mockResolvedValue({
+      code: 0,
+      message: '删除成功',
+      data: [],
+      failedCityIds: [],
+    })
+
+    const wrapper = await mountList({ stubCityList: false })
+    const selectAllButton = wrapper.findAll('button').find((button) => button.text() === '全选')
+    await selectAllButton?.trigger('click')
+    expect(wrapper.findAll('.delete-tag-chip')).toHaveLength(3)
+
+    const batchBtn = wrapper.findAll('button').find((button) => button.text() === '批量删除')
+    await batchBtn?.trigger('click')
+    const confirmBtn = wrapper.findAll('button').find((button) => button.text() === '确认删除')
+    await confirmBtn?.trigger('click')
+    await flushPromises()
+
+    expect(mockedDeleteUserCities).toHaveBeenCalledWith(['city-1', 'city-2', 'city-3'])
+    expect(mockedDeleteUserCity).not.toHaveBeenCalled()
+    expect(mockedDeleteCity).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('批量删除完成，共删除 3 项')
+    expect(wrapper.findAll('.delete-tag-chip')).toHaveLength(0)
+    expect(wrapper.findAll('.delete-city-row')).toHaveLength(0)
+    expect(wrapper.find('[data-delete-city-empty="true"]').exists()).toBe(true)
+    expect(wrapper.find('[data-city-list-empty="true"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('失败项：')
   })
 

@@ -165,6 +165,18 @@ const activeLegendItems = computed(() =>
   legendItems.filter((item) => activeSeries.value.includes(item.key)),
 )
 
+const trendTitle = computed(() => {
+  if (forecastRangeMode.value === '15d') {
+    return `${props.cityName} 15日温度趋势`
+  }
+
+  if (forecastRangeMode.value === '90d') {
+    return `${props.cityName} 分旬温度趋势`
+  }
+
+  return `${props.cityName} 7日温度趋势`
+})
+
 const handleRangeChange = (nextRangeMode: ForecastRangeMode) => {
   forecastRangeMode.value = nextRangeMode
 }
@@ -370,7 +382,7 @@ const syncChart = () => {
       },
     },
     series,
-  })
+  }, true)
 }
 
 const mountChart = async () => {
@@ -410,7 +422,7 @@ watch([() => props.cityName, () => props.temperature, () => props.dailyItems, vi
     <header class="trend-head">
       <div>
         <p class="trend-kicker">CLIMATE TREND ARC</p>
-        <h2>{{ props.cityName }} 周温度趋势</h2>
+        <h2>{{ trendTitle }}</h2>
         <p class="trend-note">将未来温度趋势中的高温、低温与平均气温整合到同一图层中，便于横向观察整体气温波动。</p>
       </div>
 

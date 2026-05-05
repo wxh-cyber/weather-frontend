@@ -42,10 +42,17 @@ const handleTrendDateSelect = (date: string) => {
   })
 }
 
+const applyBundledDailyItems = () => {
+  dailyItems.value = selectedCity.value?.weather?.daily.items ?? []
+}
+
 watch(
-  () => selectedCity.value?.cityId,
-  async (cityId) => {
-    dailyItems.value = []
+  () => ({
+    cityId: selectedCity.value?.cityId,
+    dailyItems: selectedCity.value?.weather?.daily.items,
+  }),
+  async ({ cityId }) => {
+    applyBundledDailyItems()
     if (!cityId) {
       return
     }
@@ -54,7 +61,7 @@ watch(
       const response = await getDailyWeather(cityId)
       dailyItems.value = response.data.items
     } catch {
-      dailyItems.value = []
+      applyBundledDailyItems()
     }
   },
   { immediate: true },

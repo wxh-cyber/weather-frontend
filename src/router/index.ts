@@ -127,7 +127,7 @@ const router = createRouter({
       path: '/list',
       name: 'list',
       component: List,     //城市列表页面
-      meta: { navVariant: 'home' },
+      meta: { navVariant: 'home', requiresAuth: true },
     },
     {
       path: '/login-list',

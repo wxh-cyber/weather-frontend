@@ -74,6 +74,7 @@ npm run preview
 | `npm run test:unit` | 运行所有 Vitest 单元测试 |
 | `npm run test:e2e` | 运行 Playwright 端到端测试 |
 | `npm run format` | 使用 oxfmt 格式化源码 |
+| `npm run docs:api` | 使用 TypeDoc 生成前端 API 文档 |
 
 首次执行端到端测试时，如本机尚未安装 Playwright 浏览器，可执行：
 
@@ -84,13 +85,13 @@ npx playwright install
 运行单个测试文件：
 
 ```bash
-npx vitest run src/views/auth/__tests__/Login.spec.ts
+npm run test:unit -- src/views/auth/__tests__/Login.spec.ts
 ```
 
 按描述匹配测试：
 
 ```bash
-npx vitest run --reporter=verbose -t "shows unregistered"
+npm run test:unit -- --reporter=verbose -t "shows unregistered"
 ```
 
 ## 当前功能
@@ -100,13 +101,15 @@ npx vitest run --reporter=verbose -t "shows unregistered"
 - 登录、注册与本地登录态持久化（`localStorage` + Pinia `authStore`）
 - 个人中心资料编辑与头像上传
 - 登录记录查询（需鉴权）
-- 我的城市页面支持查询、新增、设置默认城市、删除和批量删除
-- 城市详情页展示当前天气、地图、短时预报与温度趋势图
+- 我的城市页面支持查询、新增、设置默认城市、单删和用户态批量删除
+- 城市详情页展示当前天气、地图、短时预报、逐日预报与温度趋势图
 - 温度趋势图支持在详情页内部进行局部视图切换，不替换整页内容
 - 动态城市背景：按城市名 + 时段（昼 / 昏 / 夜）自动切换背景图片
 - 天气粒子特效叠加层：雨、雪、阵雨（含晴雨交替）、雷阵雨（含闪电帧动画）
 - 天气地图页支持地图面板与天气点位浏览组件联动
 - 用户退出后会清空当前账号城市缓存；重新登录不同账号时，城市列表会按账号隔离展示
+- 城市详情优先消费后端返回的 `weather` bundle，接口刷新失败时保留已有可用数据
+- 城市管理页批量删除会在后端一次性处理用户城市关系；删除所有城市后进入空状态，不保留默认城市
 
 ## 路由说明
 
@@ -117,10 +120,11 @@ npx vitest run --reporter=verbose -t "shows unregistered"
 | `/weather/:cityName` | 城市详情概览（`CityOverviewView`） | — |
 | `/weather/:cityName/temperature-trend` | 城市详情内的温度趋势子视图 | — |
 | `/weather/:cityName/map` | 城市详情内的天气地图子视图 | — |
+| `/weather/:cityName/daily-weather` | 城市详情内的逐日天气子视图 | — |
 | `/login` | 登录页 | — |
 | `/register` | 注册页 | — |
 | `/center` | 个人中心 | — |
-| `/list` | 我的城市管理；未登录时从导航点击会先跳转到登录页 | — |
+| `/list` | 我的城市管理；未登录访问会跳转登录页 | `requiresAuth: true` |
 | `/login-list` | 登录记录，需要登录后访问 | `requiresAuth: true` |
 
 未匹配路由统一重定向至 `/weather`。
@@ -132,8 +136,9 @@ npx vitest run --reporter=verbose -t "shows unregistered"
 - `HourlyForecastPanel` 内部通过右上角按钮在「概览 / 温度轨迹」之间切换：
   - `/weather/:cityName` 显示短时预报卡片
   - `/weather/:cityName/temperature-trend` 显示温度趋势图
-- 城市详情顶部导航已接入 `map` 子路由，可在概览 / 温度趋势 / 天气地图之间切换。
+- 城市详情顶部导航已接入 `map` 与 `daily-weather` 子路由，可在概览 / 温度趋势 / 天气地图 / 逐日天气之间切换。
 - `TemperatureTrendView` 保留为路由组件，承接现有路由语义与趋势图能力复用。
+- `DailyWeatherView` 负责逐日天气视图，复用后端 `daily-detail` 数据展示更细粒度的日夜指标。
 
 ## 核心模块说明
 
@@ -230,6 +235,7 @@ weather-frontend/
 │  │        ├─ WeatherCityTabs.vue
 │  │        ├─ WeatherPageShell.vue
 │  │        └─ WeatherTopBar.vue
+│  ├─ composables/              页面级复用组合式逻辑（详情页加载、共享状态等）
 │  ├─ layout/
 │  │  ├─ __tests__/           布局与导航单测
 │  │  ├─ helpers/
@@ -241,10 +247,11 @@ weather-frontend/
 │  │  ├─ __tests__/           路由守卫与入口逻辑单测
 │  │  └─ index.ts             路由配置 + 守卫（resolveProtectedRoute / resolveWeatherEntryRoute）
 │  ├─ service/
+│  │  ├─ city.spec.ts         城市接口封装单测
 │  │  ├─ auth.ts              登录/注册/用户资料/登录记录接口
-│  │  ├─ city.ts              城市 CRUD 接口
+│  │  ├─ city.ts              城市 CRUD、用户城市单删/批量删除接口
 │  │  ├─ http.ts              Axios 实例 + 拦截器
-│  │  └─ weather.ts           天气详情 / 预报 / 地图相关接口
+│  │  └─ weather.ts           天气详情 / 预报 / 逐日详情 / 地图相关接口
 │  ├─ store/
 │  │  ├─ __tests__/           authStore / cityStore 单测
 │  │  ├─ auth.ts              authStore
@@ -263,12 +270,13 @@ weather-frontend/
 │  │  ├─ system/              开始页（Start）
 │  │  └─ weather/             天气相关页
 │  │     ├─ __tests__/
-│  │     │  ├─ detail/        详情页单测
+│  │     │  ├─ detail/        详情页、趋势页、逐日天气页单测
 │  │     │  ├─ entry/         首页入口单测
 │  │     │  └─ map/           地图页单测
 │  │     ├─ detail/
 │  │     │  ├─ CityDetail.vue
 │  │     │  ├─ CityOverviewView.vue
+│  │     │  ├─ DailyWeatherView.vue
 │  │     │  └─ TemperatureTrendView.vue
 │  │     ├─ entry/
 │  │     │  └─ Home.vue
@@ -286,12 +294,14 @@ weather-frontend/
 - 前端默认通过 `/api` 前缀代理访问后端，启动前须先确保 `weather-backend` 服务已启动。
 - 当前已接入的服务端点：
   - `auth`：登录、注册、资料编辑、头像上传、登录记录查询
-  - `cities`：城市列表拉取与 CRUD（新增/删除/默认城市/用户隔离）
-  - `weather`：当前天气、小时级趋势、多日预报与地图逆地理编码
+  - `cities`：城市列表拉取与 CRUD（新增/删除/批量删除/默认城市/用户隔离）
+  - `weather`：当前天气、小时级趋势、多日预报、逐日详情与地图逆地理编码
 - 当前 `/cities` 已由后端按登录态自适应处理：
   - 未登录时可获取公共城市列表 / 搜索结果
   - 已登录且不带 `keyword` 时返回当前用户自己的城市列表
   - 已登录且带 `keyword` 时继续走全局搜索语义，便于搜索候选城市后加入当前账号列表
+- 城市管理页批量删除调用 `POST /user/cities/batch-delete`，只发送一次请求；成功后 store 用后端响应覆盖本地列表，并再通过 `fetchCities('')` 对账。
+- 后端返回空城市列表时，前端保持空数组和空状态，不恢复旧版默认城市缓存。
 
 ## 后续可扩展点
 
@@ -303,6 +313,7 @@ weather-frontend/
 - **城市搜索联想**：`AppTopNav` 顶部搜索目前仍以输入后确认搜索为主，可继续扩展候选下拉、拼音匹配与热门城市推荐。
 - **多城市总览页**：`Home.vue` 当前围绕默认城市进入详情，可扩展为在天气主页直接展示当前账号所有订阅城市的概览卡片矩阵。
 - **城市拖拽排序**：后端已具备用户城市排序语义，可在 `List.vue` 接入拖拽交互并把顺序同步到服务端。
+- **批量删除反馈增强**：当前已返回成功项/失败项，可继续扩展为批量操作进度、失败原因弹窗与撤销提示。
 - **消息通知与天气预警**：可结合浏览器通知或站内消息，在恶劣天气、雷暴、暴雨等条件下推送提醒。
 
 ### 体验优化
@@ -314,7 +325,7 @@ weather-frontend/
 
 ### 工程能力
 
-- **Weather 数据 Store**：当前天气数据仍主要由视图组件协作拉取，后续可抽取 `weatherStore` 统一管理缓存策略、过期刷新与错误恢复。
+- **Weather 数据 Store**：当前天气数据仍主要由视图组件协作拉取，后续可抽取 `weatherStore` 统一管理缓存策略、过期刷新、bundle 首屏数据和错误恢复。
 - **接口层类型完善**：`service/` 下的类型已经具备基础定义，后续可进一步和后端 Swagger / OpenAPI 描述同步，并增加运行时校验。
 - **E2E 覆盖扩展**：当前 Playwright 覆盖仍偏轻量，可继续补充登录、退出、用户切换、城市 CRUD、详情页子路由切换等关键路径。
 - **生产化部署**：可补充 Nginx、Docker Compose、静态资源缓存策略与 CI/CD 流水线，实现前后端一体化部署。

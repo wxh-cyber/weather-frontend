@@ -49,30 +49,44 @@ const currentWeather = ref<WeatherCurrentData | null>(null)
 const hourlyItems = ref<WeatherHourlyItem[]>([])
 const dailyItems = ref<WeatherDailyItem[]>([])
 
+const applyBundledWeather = () => {
+  const bundledWeather = selectedCityMeta.value?.weather
+  currentWeather.value = bundledWeather?.current ?? null
+  hourlyItems.value = bundledWeather?.hourly.items ?? []
+  dailyItems.value = bundledWeather?.daily.items ?? []
+}
+
 watch(
-  () => selectedCityMeta.value?.cityId,
-  async (cityId) => {
-    currentWeather.value = null
-    hourlyItems.value = []
-    dailyItems.value = []
+  () => ({
+    cityId: selectedCityMeta.value?.cityId,
+    weather: selectedCityMeta.value?.weather,
+  }),
+  async ({ cityId }) => {
+    applyBundledWeather()
 
     if (!cityId) {
       return
     }
 
     try {
-      const [currentResponse, hourlyResponse, dailyResponse] = await Promise.all([
-        getCurrentWeather(cityId),
-        getHourlyWeather(cityId),
-        getDailyWeather(cityId),
-      ])
+      const currentResponse = await getCurrentWeather(cityId)
       currentWeather.value = currentResponse.data
+    } catch {
+      currentWeather.value = selectedCityMeta.value?.weather?.current ?? currentWeather.value
+    }
+
+    try {
+      const hourlyResponse = await getHourlyWeather(cityId)
       hourlyItems.value = hourlyResponse.data.items
+    } catch {
+      hourlyItems.value = selectedCityMeta.value?.weather?.hourly.items ?? hourlyItems.value
+    }
+
+    try {
+      const dailyResponse = await getDailyWeather(cityId)
       dailyItems.value = dailyResponse.data.items
     } catch {
-      currentWeather.value = null
-      hourlyItems.value = []
-      dailyItems.value = []
+      dailyItems.value = selectedCityMeta.value?.weather?.daily.items ?? dailyItems.value
     }
   },
   { immediate: true },

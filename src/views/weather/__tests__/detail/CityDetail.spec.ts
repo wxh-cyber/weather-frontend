@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CityDetail from '@/views/weather/detail/CityDetail.vue'
 import { useCityStore } from '@/store/city'
@@ -55,5 +55,61 @@ describe('CityDetail view', () => {
     expect(wrapper.find('.shell').attributes('data-city-name')).toBe('武汉市')
     expect(wrapper.find('.shell').attributes('data-weather-text')).toBe('晴')
     expect(wrapper.find('.city-router-view-stub').exists()).toBe(true)
+  })
+
+  it('renders an empty state and suppresses detail content when user has no cities', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const cityStore = useCityStore(pinia)
+    cityStore.setCities([])
+
+    const wrapper = mount(CityDetail, {
+      global: {
+        plugins: [pinia],
+        stubs: {
+          WeatherPageShell: {
+            props: ['cityName', 'weatherText'],
+            template: '<section class="shell" :data-city-name="cityName" :data-weather-text="weatherText"><slot /></section>',
+          },
+          RouterView: {
+            template: '<div class="city-router-view-stub" />',
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.city-empty-state').exists()).toBe(true)
+    expect(wrapper.find('.city-router-view-stub').exists()).toBe(false)
+  })
+
+  it('renders an empty state when the route city is no longer in the user city list', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const cityStore = useCityStore(pinia)
+    cityStore.setCities([{ cityName: '上海市', weatherText: '多云', temperature: '22°C' }])
+
+    const wrapper = mount(CityDetail, {
+      global: {
+        plugins: [pinia],
+        stubs: {
+          WeatherPageShell: {
+            props: ['cityName', 'weatherText'],
+            template: '<section class="shell" :data-city-name="cityName" :data-weather-text="weatherText"><slot /></section>',
+          },
+          RouterView: {
+            template: '<div class="city-router-view-stub" />',
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.city-empty-state').exists()).toBe(true)
+    expect(wrapper.find('.city-router-view-stub').exists()).toBe(false)
   })
 })
